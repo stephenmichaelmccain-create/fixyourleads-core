@@ -23,6 +23,12 @@ export default async function HomePage() {
       eyebrow: 'Top of funnel',
       title: 'Import and sort leads without duplicate mess.',
       body: 'Source clinics, normalize phone numbers, and move only the right people into live threads.'
+    },
+    {
+      href: '/bookings',
+      eyebrow: 'Booked revenue',
+      title: 'Keep appointments visible once the work pays off.',
+      body: 'See upcoming bookings, confirm they stay attached to the right clinic, and catch notification gaps fast.'
     }
   ];
 
@@ -76,6 +82,11 @@ export default async function HomePage() {
           <div className="metric-label">Conversations</div>
           <div className="metric-value">{summary.conversations ?? '—'}</div>
           <div className="metric-copy">Text threads ready for follow-up, booking, and recovery.</div>
+        </section>
+        <section className="metric-card">
+          <div className="metric-label">Bookings</div>
+          <div className="metric-value">{summary.appointments ?? '—'}</div>
+          <div className="metric-copy">Appointments already attached to real contacts and client workspaces.</div>
         </section>
         <section className="metric-card">
           <div className="metric-label">Events</div>

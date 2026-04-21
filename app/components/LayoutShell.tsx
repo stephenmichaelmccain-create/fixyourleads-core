@@ -14,7 +14,7 @@ export function LayoutShell({
   children: ReactNode;
   companyId?: string;
   companyName?: string;
-  section?: 'home' | 'companies' | 'diagnostics' | 'leads' | 'conversations' | 'events';
+  section?: 'home' | 'companies' | 'diagnostics' | 'leads' | 'conversations' | 'bookings' | 'events';
 }) {
   return (
     <main className="app-shell">

@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { safeLoad } from '@/lib/ui-data';
 
 type CompanySelectorBarProps = {
-  action?: '/leads' | '/conversations' | '/events';
+  action?: '/leads' | '/conversations' | '/bookings' | '/events';
   initialCompanyId?: string;
   label?: string;
 };
@@ -108,6 +108,9 @@ export async function CompanySelectorBar({
             </a>
             <a className={`button-secondary${action === '/conversations' ? ' is-current-view' : ''}`} href={`/conversations?companyId=${suggestedCompany.id}`}>
               Conversations
+            </a>
+            <a className={`button-secondary${action === '/bookings' ? ' is-current-view' : ''}`} href={`/bookings?companyId=${suggestedCompany.id}`}>
+              Bookings
             </a>
             <a className={`button-ghost${action === '/events' ? ' is-current-view' : ''}`} href={`/events?companyId=${suggestedCompany.id}`}>
               Events

@@ -1,6 +1,6 @@
 type NavProps = {
   companyId?: string;
-  current?: 'home' | 'companies' | 'diagnostics' | 'leads' | 'conversations' | 'events';
+  current?: 'home' | 'companies' | 'diagnostics' | 'leads' | 'conversations' | 'bookings' | 'events';
 };
 
 export function Nav({ companyId, current }: NavProps) {
@@ -24,6 +24,9 @@ export function Nav({ companyId, current }: NavProps) {
         </a>
         <a className={linkClass('conversations')} href={withCompany('/conversations')}>
           Conversations
+        </a>
+        <a className={linkClass('bookings')} href={withCompany('/bookings')}>
+          Bookings
         </a>
         <a className={linkClass('events')} href={withCompany('/events')}>
           Events

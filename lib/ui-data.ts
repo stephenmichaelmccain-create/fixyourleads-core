@@ -16,27 +16,94 @@ export async function safeCountSummary() {
       companies: null,
       leads: null,
       conversations: null,
+      appointments: null,
       events: null,
       ok: false as const
     };
   }
 
   try {
-    const [companies, leads, conversations, events] = await Promise.all([
+    const [companies, leads, conversations, appointments, events] = await Promise.all([
       db.company.count(),
       db.lead.count(),
       db.conversation.count(),
+      db.appointment.count(),
       db.eventLog.count()
     ]);
 
-    return { companies, leads, conversations, events, ok: true as const };
+    return { companies, leads, conversations, appointments, events, ok: true as const };
   } catch (error) {
     console.error('safeCountSummary failed:', error);
     return {
       companies: null,
       leads: null,
       conversations: null,
+      appointments: null,
       events: null,
+      ok: false as const
+    };
+  }
+}
+
+export async function safeWorkspaceOverview() {
+  if (!envPresence().databaseUrlSet) {
+    return {
+      workspaces: [],
+      ok: false as const
+    };
+  }
+
+  try {
+    const companies = await db.company.findMany({
+      include: {
+        _count: {
+          select: {
+            leads: true,
+            conversations: true,
+            appointments: true
+          }
+        }
+      },
+      take: 8
+    });
+
+    const workspaces = companies
+      .map((company) => {
+        const missingSetupCount = Number(!company.telnyxInboundNumber) + Number(!company.notificationEmail);
+        const activityScore = company._count.conversations * 3 + company._count.leads * 2 + company._count.appointments;
+
+        return {
+          id: company.id,
+          name: company.name,
+          notificationEmail: company.notificationEmail,
+          telnyxInboundNumber: company.telnyxInboundNumber,
+          leads: company._count.leads,
+          conversations: company._count.conversations,
+          appointments: company._count.appointments,
+          missingSetupCount,
+          activityScore
+        };
+      })
+      .sort((left, right) => {
+        if (left.missingSetupCount !== right.missingSetupCount) {
+          return left.missingSetupCount - right.missingSetupCount;
+        }
+
+        if (left.activityScore !== right.activityScore) {
+          return right.activityScore - left.activityScore;
+        }
+
+        return left.name.localeCompare(right.name);
+      });
+
+    return {
+      workspaces,
+      ok: true as const
+    };
+  } catch (error) {
+    console.error('safeWorkspaceOverview failed:', error);
+    return {
+      workspaces: [],
       ok: false as const
     };
   }
