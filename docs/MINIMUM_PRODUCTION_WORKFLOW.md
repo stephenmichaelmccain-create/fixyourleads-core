@@ -73,6 +73,8 @@ Do not add more production services unless a real workload forces it.
 - use idempotency for inbound webhooks and internal actions
 - keep enough event history to reconstruct failures
 - honor stop/unsubscribe replies by suppressing the lead
+- keep a real health surface and structured production error logs so deploys
+  fail honestly and runtime issues are visible without guesswork
 
 ## Current schema coverage
 
@@ -114,3 +116,11 @@ These should be added only when we implement the matching workflow:
 - agent-dependent runtime behavior
 - low-code workflow tooling
 - premature analytics or dashboards beyond operator basics
+
+## Minimal observability stance
+
+- keep Railway as the main deployment and log surface
+- keep `/api/health` honest so infra can trust it
+- keep structured runtime logs on by default
+- add Sentry only as a thin optional layer, not as a large observability
+  platform project

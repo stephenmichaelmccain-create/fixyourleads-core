@@ -92,6 +92,14 @@ These are still expected to be filled separately for local runtime:
   creation for the same company/contact.
 - Booking email notifications are now supported through optional SMTP/Gmail-like
   env vars.
+- The health surface is now suitable for Railway healthchecks:
+  - `/api/health` returns `503` when required runtime checks fail
+  - deployment metadata and observability readiness are exposed on
+    `/diagnostics`
+- Structured runtime error logs are now emitted from the app server on boot,
+  unhandled promise rejections, and uncaught exceptions.
+- Sentry is still optional. The app can run without it, but diagnostics now
+  shows clearly whether a DSN is configured.
 - The list pages were updated to force dynamic rendering so live data appears:
   - `/leads`
   - `/conversations`
@@ -119,6 +127,7 @@ system should not depend on Codex or agents.
 - booking notification email still needs SMTP credentials configured
 - worker behavior is online but not fully exercised with real jobs
 - Google Maps lead sourcing is still not wired
+- Sentry is prepared as an optional next step, but no DSN is configured yet
 
 ## Minimum production focus
 

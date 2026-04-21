@@ -34,6 +34,13 @@ These are only needed for client booking notification emails:
 - NOTIFICATION_FROM_EMAIL
 - DEFAULT_CLIENT_NOTIFICATION_EMAIL
 
+These are recommended for observability, but the app still runs without them:
+
+- SENTRY_DSN
+- NEXT_PUBLIC_SENTRY_DSN
+- SENTRY_ENVIRONMENT
+- NEXT_PUBLIC_SENTRY_ENVIRONMENT
+
 ## Local bootstrap
 Run `npm run env:openclaw` from the repo root to generate `.env.local` from the
 existing OpenClaw secret files. It currently auto-loads:
@@ -49,6 +56,14 @@ You still need to provide:
 ## Current routes
 - POST /api/webhooks/lead
 - POST /api/webhooks/telnyx
+- GET /api/health
+
+## Lean guardrails
+
+- `GET /api/health` now returns `503` when required runtime checks fail, so Railway can use it as a real healthcheck target.
+- `instrumentation.ts` emits structured JSON for server boot, unhandled rejections, and uncaught exceptions into Railway logs.
+- Sentry is intentionally optional for now. If you wire a DSN later, diagnostics will reflect that immediately.
+- `npm run check:health` is available for quick local or deployed readiness checks.
 
 ## Current pages
 - `/companies`
