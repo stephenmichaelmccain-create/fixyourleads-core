@@ -27,9 +27,18 @@ function statusClass(status: string) {
   return 'error';
 }
 
+function shortDateString(value: string) {
+  if (!value) {
+    return 'unknown';
+  }
+
+  return new Date(value).toLocaleString();
+}
+
 export default async function DiagnosticsPage() {
   const health = await getRuntimeHealth();
   const env = health.env;
+  const lastUpdated = new Date(health.timestamp);
 
   return (
     <LayoutShell
@@ -45,6 +54,28 @@ export default async function DiagnosticsPage() {
             The product should stay lean, but it still needs honest runtime checks. This view is the fastest way to know whether the
             system can safely run outreach and booking flows.
           </p>
+        </section>
+
+        <section className="panel panel-stack">
+          <div className="metric-label">Runtime snapshot</div>
+          <div className="key-value-grid">
+            <div className="key-value-card">
+              <span className="key-value-label">Health check at</span>
+              <span>{lastUpdated.toLocaleString()}</span>
+            </div>
+            <div className="key-value-card">
+              <span className="key-value-label">Service</span>
+              <span>{health.service}</span>
+            </div>
+            <div className="key-value-card">
+              <span className="key-value-label">Uptime</span>
+              <span>{`${health.deployment.uptimeSeconds}s`}</span>
+            </div>
+            <div className="key-value-card">
+              <span className="key-value-label">Node</span>
+              <span>{health.deployment.nodeEnv || 'unset'}</span>
+            </div>
+          </div>
         </section>
 
         <section className="panel panel-stack">
@@ -76,6 +107,142 @@ export default async function DiagnosticsPage() {
           <div className="key-value-card"><span className="key-value-label">Uptime</span>{`${health.deployment.uptimeSeconds}s`}</div>
           <div className="key-value-card"><span className="key-value-label">Sentry env</span>{health.observability.sentryEnvironment || 'unset'}</div>
         </div>
+      </section>
+
+      <section className="panel panel-stack">
+        <div className="metric-label">Data footprint</div>
+        <div className="key-value-grid">
+          <div className="key-value-card"><span className="key-value-label">Companies</span>{health.volume.companies}</div>
+          <div className="key-value-card"><span className="key-value-label">Leads</span>{health.volume.leads}</div>
+          <div className="key-value-card"><span className="key-value-label">Conversations</span>{health.volume.conversations}</div>
+          <div className="key-value-card"><span className="key-value-label">Appointments</span>{health.volume.appointments}</div>
+          <div className="key-value-card"><span className="key-value-label">Messages</span>{health.volume.messages}</div>
+          <div className="key-value-card"><span className="key-value-label">Events</span>{health.volume.events}</div>
+          <div className="key-value-card"><span className="key-value-label">Upcoming bookings</span>{health.volume.upcomingAppointments}</div>
+          <div className="key-value-card"><span className="key-value-label">Events last 24h</span>{health.volume.eventsLast24h}</div>
+          <div className="key-value-card"><span className="key-value-label">Messages last 24h</span>{health.volume.messagesLast24h}</div>
+          <div className="key-value-card"><span className="key-value-label">Leads last 24h</span>{health.volume.leadsLast24h}</div>
+          <div className="key-value-card"><span className="key-value-label">Conversations last 24h</span>{health.volume.conversationsLast24h}</div>
+          <div className="key-value-card"><span className="key-value-label">Appointments last 24h</span>{health.volume.appointmentsLast24h}</div>
+        </div>
+      </section>
+
+      <section className="panel panel-stack">
+        <div className="metric-label">Lead + messaging pipeline</div>
+        <div className="key-value-grid">
+          {health.leadStatusBreakdown.length === 0 ? (
+            <div className="key-value-card">
+              <span className="key-value-label">Lead statuses</span>No leads yet
+            </div>
+          ) : (
+            health.leadStatusBreakdown.map((item) => (
+              <div key={item.status} className="key-value-card">
+                <span className="key-value-label">{`Lead ${item.status}`}</span>
+                {item.count}
+              </div>
+            ))
+          )}
+          {health.messageDirectionBreakdown.map((item) => (
+            <div key={item.direction} className="key-value-card">
+              <span className="key-value-label">{`Messages ${item.direction}`}</span>
+              {item.count}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel panel-stack">
+        <div className="metric-label">Queue health</div>
+        <ul className="status-list">
+          {health.queueHealth.map((queue) => (
+            <li key={queue.name} className="status-item">
+              <span className="status-label">
+                <span className={`status-dot ${statusClass(queue.status)}`}></span>
+                {queue.name}
+              </span>
+              <span className="text-muted">
+                {statusText(queue.status)}
+                {queue.detail ? ` (${queue.detail})` : ''}
+              </span>
+            </li>
+          ))}
+          {health.queueHealth.map((queue) =>
+            queue.counts ? (
+              <li key={`${queue.name}-counts`} className="status-item">
+                <span className="status-label">Waiting/active</span>
+                <span className="text-muted">
+                  {`${queue.counts.waiting} waiting · ${queue.counts.active} active · ${queue.counts.delayed} delayed · ${queue.counts.failed} failed · ${queue.counts.stalled} stalled`}
+                </span>
+              </li>
+            ) : null
+          )}
+          {health.queueHealth.flatMap((queue) =>
+            (queue.failedJobs || []).map((job) => (
+              <li key={`${queue.name}-failed-${job.id}`} className="status-item">
+                <span className="status-label">{`${queue.name} failed job ${job.id}`}</span>
+                <span className="text-muted">
+                  {shortDateString(job.failedAt || '')} — attempts {job.attemptsMade} — {job.failedReason || 'no reason logged'}
+                </span>
+              </li>
+            ))
+          )}
+        </ul>
+      </section>
+
+      <section className="panel panel-stack">
+        <div className="metric-label">Recent operations</div>
+        <div className="status-label">Top events in last 24h</div>
+        <ul className="list-clean">
+          {health.eventTrends.topEventsLast24h.length === 0 ? (
+            <li>No events in the last 24h yet.</li>
+          ) : (
+            health.eventTrends.topEventsLast24h.map((entry) => (
+              <li key={entry.eventType}>
+                {entry.eventType}: {entry.count}
+              </li>
+            ))
+          )}
+        </ul>
+        <div className="status-label">Latest events</div>
+        <ul className="list-clean">
+          {health.recentEvents24h.length === 0 ? (
+            <li>No recent event log entries.</li>
+          ) : (
+            health.recentEvents24h.map((entry) => (
+              <li key={entry.id}>
+                {shortDateString(entry.createdAt)} — {entry.eventType} (company {entry.companyId})
+              </li>
+            ))
+          )}
+        </ul>
+      </section>
+
+      <section className="panel panel-stack">
+        <div className="metric-label">Latest lead/message activity</div>
+        <div className="status-label">Recent leads</div>
+        <ul className="list-clean">
+          {health.recentLeads24h.length === 0 ? (
+            <li>No leads yet.</li>
+          ) : (
+            health.recentLeads24h.map((entry) => (
+              <li key={entry.id}>
+                {shortDateString(entry.createdAt)} — lead {entry.status} (company {entry.companyId})
+              </li>
+            ))
+          )}
+        </ul>
+        <div className="status-label">Recent messages</div>
+        <ul className="list-clean">
+          {health.recentMessages24h.length === 0 ? (
+            <li>No messages yet.</li>
+          ) : (
+            health.recentMessages24h.map((entry) => (
+              <li key={entry.id}>
+                {shortDateString(entry.createdAt)} — {entry.direction} (company {entry.companyId})
+              </li>
+            ))
+          )}
+        </ul>
       </section>
 
       <section className="panel panel-stack">
