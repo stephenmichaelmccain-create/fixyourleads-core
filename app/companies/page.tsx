@@ -49,6 +49,9 @@ export default async function CompaniesPage({
     rankedCompanies.find((company) => !company.telnyxInboundNumber || !company.notificationEmail) || null;
   const firstReadyWorkspace =
     rankedCompanies.find((company) => company.notificationEmail && company.telnyxInboundNumber) || null;
+  const setupSprintCompanies = rankedCompanies
+    .filter((company) => !company.telnyxInboundNumber || !company.notificationEmail)
+    .slice(0, 4);
 
   return (
     <LayoutShell
@@ -190,6 +193,49 @@ export default async function CompaniesPage({
             <span className="readiness-pill">
               {missingRouting} workspace{missingRouting === 1 ? '' : 's'} need dedicated routing
             </span>
+          </div>
+        </section>
+      )}
+
+      {setupSprintCompanies.length > 0 && (
+        <section className="panel panel-stack">
+          <div className="metric-label">Setup sprint</div>
+          <h2 className="section-title">Clear the launch blockers in one pass.</h2>
+          <p className="text-muted">
+            These are the workspaces still missing routing or clinic notification setup. Finish them here, then move
+            straight into conversations and bookings.
+          </p>
+          <div className="setup-sprint-list">
+            {setupSprintCompanies.map((company) => (
+              <div key={company.id} className="setup-sprint-item">
+                <div className="setup-sprint-copy">
+                  <div className="setup-sprint-header">
+                    <strong>{company.name}</strong>
+                    <div className="workspace-readiness">
+                      <span className={`readiness-pill${company.telnyxInboundNumber ? ' is-ready' : ''}`}>
+                        {company.telnyxInboundNumber ? 'Routing ready' : 'Need routing'}
+                      </span>
+                      <span className={`readiness-pill${company.notificationEmail ? ' is-ready' : ''}`}>
+                        {company.notificationEmail ? 'Clinic email ready' : 'Need clinic email'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-muted">
+                    {!company.telnyxInboundNumber
+                      ? 'Add the Telnyx inbound number so replies and booking follow-up route back to this client.'
+                      : 'Add the clinic notification email so booked appointments can notify the client automatically.'}
+                  </div>
+                </div>
+                <div className="setup-sprint-actions">
+                  <a className="button" href={`#company-${company.id}`}>
+                    Fix workspace
+                  </a>
+                  <a className="button-ghost" href={`/conversations?companyId=${company.id}`}>
+                    Open workspace
+                  </a>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}

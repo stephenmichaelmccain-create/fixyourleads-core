@@ -714,6 +714,43 @@ select {
   background: var(--fyl-soft);
 }
 
+.setup-sprint-list {
+  display: grid;
+  gap: 14px;
+}
+
+.setup-sprint-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--fyl-line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 246, 244, 0.98));
+}
+
+.setup-sprint-copy {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.setup-sprint-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setup-sprint-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .workspace-readiness {
   display: flex;
   flex-wrap: wrap;
@@ -887,6 +924,17 @@ select {
 .list-clean {
   margin: 0;
   padding-left: 18px;
+}
+
+@media (max-width: 900px) {
+  .setup-sprint-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .setup-sprint-actions {
+    justify-content: flex-start;
+  }
 }
 
 .surface-link-grid {

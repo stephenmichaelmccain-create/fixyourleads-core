@@ -8,13 +8,15 @@ const home = os.homedir();
 const secretSources = {
   TELNYX_API_KEY: path.join(home, '.openclaw/workspace/telnyx-toolkit/.env'),
   INTERNAL_API_KEY: path.join(home, '.openclaw/workspace/apis/fixyourleads/secrets/key.env'),
-  APP_BASE_URL: path.join(home, '.openclaw/workspace/apis/fixyourleads/secrets/key.env')
+  APP_BASE_URL: path.join(home, '.openclaw/workspace/apis/fixyourleads/secrets/key.env'),
+  GOOGLE_MAPS_API_KEY: path.join(home, '.openclaw/workspace/apis/google/secrets/key.env')
 };
 
 const aliasMap = {
   APP_BASE_URL: ['APP_BASE_URL', 'FYL_BASE_URL'],
   INTERNAL_API_KEY: ['INTERNAL_API_KEY'],
-  TELNYX_API_KEY: ['TELNYX_API_KEY']
+  TELNYX_API_KEY: ['TELNYX_API_KEY'],
+  GOOGLE_MAPS_API_KEY: ['GOOGLE_MAPS_API_KEY', 'GOOGLE_API_KEY']
 };
 
 const requiredKeys = [
@@ -24,6 +26,17 @@ const requiredKeys = [
   'TELNYX_FROM_NUMBER',
   'APP_BASE_URL',
   'INTERNAL_API_KEY'
+];
+
+const optionalKeys = [
+  'GOOGLE_MAPS_API_KEY',
+  'SMTP_HOST',
+  'SMTP_PORT',
+  'SMTP_SECURE',
+  'SMTP_USER',
+  'SMTP_PASSWORD',
+  'NOTIFICATION_FROM_EMAIL',
+  'DEFAULT_CLIENT_NOTIFICATION_EMAIL'
 ];
 
 function parseEnvFile(filePath) {
@@ -70,6 +83,12 @@ function buildEnvLocal(values) {
     lines.push(`${key}=${escapeEnvValue(values[key] ?? '')}`);
   }
 
+  lines.push('');
+  lines.push('# Optional launch helpers');
+  for (const key of optionalKeys) {
+    lines.push(`${key}=${escapeEnvValue(values[key] ?? '')}`);
+  }
+
   return `${lines.join('\n')}\n`;
 }
 
@@ -78,6 +97,8 @@ const resolvedValues = loadResolvedValues();
 fs.writeFileSync(outputPath, buildEnvLocal(resolvedValues), 'utf8');
 
 const missing = requiredKeys.filter((key) => !resolvedValues[key]);
+const optionalLoaded = optionalKeys.filter((key) => resolvedValues[key]);
 console.log(`Wrote ${outputPath}`);
 console.log(`Loaded: ${requiredKeys.filter((key) => resolvedValues[key]).join(', ') || 'none'}`);
+console.log(`Optional loaded: ${optionalLoaded.join(', ') || 'none'}`);
 console.log(`Missing: ${missing.join(', ') || 'none'}`);
