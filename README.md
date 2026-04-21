@@ -56,6 +56,7 @@ You still need to provide:
 ## Current routes
 - POST /api/webhooks/lead
 - POST /api/webhooks/telnyx
+- POST /api/internal/leads/import/google-maps
 - GET /api/health
 
 ## Lean guardrails
@@ -69,5 +70,6 @@ You still need to provide:
 - `/companies`
 - `/leads`
 - `/conversations`
+- `/bookings`
 - `/events`
 - `/diagnostics`

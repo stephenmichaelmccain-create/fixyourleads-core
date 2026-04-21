@@ -5,7 +5,16 @@ import { createCompanyAction, updateCompanyAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CompaniesPage() {
+export default async function CompaniesPage({
+  searchParams
+}: {
+  searchParams?: Promise<{
+    notice?: string;
+    companyId?: string;
+  }>;
+}) {
+  const params = (await searchParams) || {};
+  const notice = params.notice || '';
   const sharedSenderAvailable = Boolean(process.env.TELNYX_FROM_NUMBER?.trim());
   const companies = await safeLoad(
     () =>
@@ -47,6 +56,28 @@ export default async function CompaniesPage() {
       description="Keep every clinic account, notification email, and workflow entry point inside the product instead of scattered shell commands."
       section="companies"
     >
+      {notice && (
+        <section className="panel panel-stack">
+          <div className="inline-row">
+            <span className={`status-dot ${notice === 'duplicate_routing' ? 'warn' : 'ok'}`} />
+            <strong>
+              {notice === 'duplicate_routing'
+                ? 'That inbound number is already assigned to another workspace.'
+                : notice === 'created'
+                  ? 'Workspace created.'
+                  : 'Workspace settings saved.'}
+            </strong>
+          </div>
+          <div className="text-muted">
+            {notice === 'duplicate_routing'
+              ? 'Each client needs a unique Telnyx inbound number so replies route back to the right workspace.'
+              : notice === 'created'
+                ? 'Finish any missing setup fields, then move into conversations, leads, or bookings.'
+                : 'The latest workspace changes are live across leads, conversations, bookings, and events.'}
+          </div>
+        </section>
+      )}
+
       <div className="panel-grid">
         <section className="panel panel-dark panel-stack">
           <div className="metric-label">Operator workspaces</div>

@@ -86,10 +86,15 @@ These are still expected to be filled separately for local runtime:
 - A sample lead, conversation, and event exist in production for smoke testing.
 - The app now includes a `Companies` page to manage client records and
   notification emails in-app.
+- Company workspaces now track inbound routing readiness in-app through each
+  company's Telnyx inbound number.
 - Conversation detail pages now support manual outbound texts and booking from
   the UI.
+- A `Bookings` page now exists in the operator surface for appointment review.
 - Lead intake now normalizes phone numbers and suppresses duplicate lead
   creation for the same company/contact.
+- Google Maps lead import is now wired through the internal lead intake path
+  with dedupe-aware import behavior.
 - Booking email notifications are now supported through optional SMTP/Gmail-like
   env vars.
 - The health surface is now suitable for Railway healthchecks:
@@ -126,7 +131,6 @@ system should not depend on Codex or agents.
 - inbound and outbound Telnyx flows still need a full real-world smoke test
 - booking notification email still needs SMTP credentials configured
 - worker behavior is online but not fully exercised with real jobs
-- Google Maps lead sourcing is still not wired
 - Sentry is prepared as an optional next step, but no DSN is configured yet
 
 ## Minimum production focus
