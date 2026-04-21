@@ -1,7 +1,6 @@
 import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
-import { WorkspaceReadinessBanner } from '@/app/components/WorkspaceReadinessBanner';
 import { safeLoad } from '@/lib/ui-data';
 import { bookingNotificationReadiness } from '@/lib/notifications';
 
@@ -90,16 +89,6 @@ export default async function BookingsPage({
       <CompanySelectorBar action="/bookings" initialCompanyId={companyId} />
 
       {!companyId && <div className="empty-state">Choose a company by name to load the booking workspace.</div>}
-
-      {selectedCompany && (
-        <WorkspaceReadinessBanner
-          companyId={selectedCompany.id}
-          companyName={selectedCompany.name}
-          telnyxInboundNumber={selectedCompany.telnyxInboundNumber}
-          notificationEmail={selectedCompany.notificationEmail}
-          includeNotificationHint
-        />
-      )}
 
       {companyId && (
         <section className="panel panel-stack">

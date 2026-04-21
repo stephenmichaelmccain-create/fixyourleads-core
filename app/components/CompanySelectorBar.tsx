@@ -52,6 +52,28 @@ export async function CompanySelectorBar({
     needsEmail: !company.notificationEmail
   }));
   const compactMode = Boolean(currentCompany);
+  const primaryAction = setupGaps.length
+    ? {
+        href: `/companies#company-${suggestedCompany?.id}`,
+        label: 'Fix workspace setup'
+      }
+    : suggestedCompany && suggestedCompany._count.leads === 0
+      ? {
+          href: `/leads?companyId=${suggestedCompany.id}`,
+          label: 'Add first lead'
+        }
+      : suggestedCompany && suggestedCompany._count.conversations === 0
+        ? {
+            href: `/leads?companyId=${suggestedCompany.id}`,
+            label: 'Start first thread'
+          }
+        : {
+            href:
+              action === '/bookings'
+                ? `/conversations?companyId=${suggestedCompany?.id}`
+                : `${action}?companyId=${suggestedCompany?.id}`,
+            label: action === '/bookings' ? 'Open conversation queue' : 'Open active workspace'
+          };
 
   return (
     <section className="panel panel-stack">
@@ -93,12 +115,18 @@ export async function CompanySelectorBar({
       {suggestedCompany && (
         <>
           {setupGaps.length > 0 && (
-            <div className="context-alert context-alert-warn">
+            <div className={`context-alert context-alert-warn${compactMode ? ' is-compact' : ''}`}>
               <div className="panel-stack">
                 <div className="metric-label">Workspace setup</div>
-                <strong>{suggestedCompany.name} is not fully launch-ready yet.</strong>
+                <strong>
+                  {compactMode
+                    ? `${suggestedCompany.name} still has one launch blocker to clear.`
+                    : `${suggestedCompany.name} is not fully launch-ready yet.`}
+                </strong>
                 <div className="text-muted">
-                  Fix {setupGaps.join(' and ')} before you trust inbound replies and clinic-facing booking follow-up.
+                  {compactMode
+                    ? `Fix ${setupGaps.join(' and ')} before operators trust inbound replies or booking follow-up.`
+                    : `Fix ${setupGaps.join(' and ')} before you trust inbound replies and clinic-facing booking follow-up.`}
                 </div>
                 <div className="readiness-pills">
                   <span className={`readiness-pill${suggestedCompany.telnyxInboundNumber ? ' is-ready' : ' is-warn'}`}>
@@ -113,14 +141,16 @@ export async function CompanySelectorBar({
                 <a className="button" href={`/companies#company-${suggestedCompany.id}`}>
                   Fix workspace setup
                 </a>
-                <a className="button-ghost" href={`/companies`}>
-                  Open companies
-                </a>
+                {!compactMode && (
+                  <a className="button-ghost" href={`/companies`}>
+                    Open companies
+                  </a>
+                )}
               </div>
             </div>
           )}
 
-          <div className="context-summary">
+          <div className={`context-summary${compactMode ? ' is-compact' : ''}`}>
             {!compactMode && (
               <div className="context-summary-card">
                 <span className="key-value-label">Suggested company</span>
@@ -147,8 +177,16 @@ export async function CompanySelectorBar({
                 <span>Threads: {suggestedCompany._count.conversations}</span>
                 <span>Bookings: {suggestedCompany._count.appointments}</span>
               </div>
+              <span className="tiny-muted">
+                {suggestedCompany._count.conversations === 0
+                  ? 'No live threads yet. The next best move is to work leads.'
+                  : 'Use the queue counts to decide where the operator should jump next.'}
+              </span>
             </div>
             <div className="context-summary-links">
+              <a className="button" href={primaryAction.href}>
+                {primaryAction.label}
+              </a>
               <a className={`button-secondary${action === '/leads' ? ' is-current-view' : ''}`} href={`/leads?companyId=${suggestedCompany.id}`}>
                 Leads
               </a>

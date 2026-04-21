@@ -503,7 +503,7 @@ select {
 
 .context-form.is-compact {
   gap: 10px;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-radius: 22px;
   border: 1px solid var(--fyl-line);
   background: linear-gradient(180deg, rgba(250, 250, 250, 0.98), rgba(244, 244, 244, 0.96));
@@ -539,6 +539,11 @@ select {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.context-summary.is-compact {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  align-items: start;
+}
+
 .context-summary-card {
   display: grid;
   gap: 8px;
@@ -548,11 +553,21 @@ select {
   background: var(--fyl-soft);
 }
 
+.context-summary.is-compact .context-summary-card {
+  padding: 14px 16px;
+  gap: 6px;
+}
+
 .context-summary-links {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   align-items: flex-start;
+}
+
+.context-summary.is-compact .context-summary-links {
+  align-items: stretch;
+  align-content: start;
 }
 
 .context-alert {
@@ -567,6 +582,20 @@ select {
 .context-alert-warn {
   border-color: rgba(240, 82, 61, 0.22);
   background: rgba(240, 82, 61, 0.06);
+}
+
+.context-alert.is-compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.context-alert.is-compact .panel-stack {
+  gap: 8px;
+}
+
+.context-alert.is-compact .action-cluster {
+  justify-content: flex-end;
 }
 
 .readiness-pills {
@@ -968,6 +997,14 @@ select {
 
   .context-summary-links {
     width: 100%;
+  }
+
+  .context-summary.is-compact {
+    grid-template-columns: 1fr;
+  }
+
+  .context-alert.is-compact {
+    grid-template-columns: 1fr;
   }
 
   .context-form-hint {

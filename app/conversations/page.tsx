@@ -1,7 +1,6 @@
 import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
-import { WorkspaceReadinessBanner } from '@/app/components/WorkspaceReadinessBanner';
 import { safeLoad } from '@/lib/ui-data';
 
 export const dynamic = 'force-dynamic';
@@ -77,15 +76,6 @@ export default async function ConversationsPage({ searchParams }: { searchParams
 
       {!companyId && <div className="empty-state">Choose a company by name to load the conversation queue.</div>}
 
-      {selectedCompany && (
-        <WorkspaceReadinessBanner
-          companyId={selectedCompany.id}
-          companyName={selectedCompany.name}
-          telnyxInboundNumber={selectedCompany.telnyxInboundNumber}
-          notificationEmail={selectedCompany.notificationEmail}
-        />
-      )}
-
       {companyId && conversations.length === 0 && (
         <section className="panel panel-stack">
           <div className="metric-label">No live threads yet</div>
@@ -98,10 +88,10 @@ export default async function ConversationsPage({ searchParams }: { searchParams
           </p>
           <div className="action-cluster">
             <a className="button" href={`/leads?companyId=${companyId}`}>
-              Open leads
+              Add or import leads
             </a>
             <a className="button-secondary" href={`/companies#company-${companyId}`}>
-              Review workspace setup
+              Fix workspace setup
             </a>
             <a className="button-ghost" href={`/bookings?companyId=${companyId}`}>
               Check bookings
