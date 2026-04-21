@@ -5,7 +5,7 @@ import { WorkspaceReadinessBanner } from '@/app/components/WorkspaceReadinessBan
 import { LeadStatusButton } from './LeadStatusButton';
 import { safeLoad } from '@/lib/ui-data';
 import { isGoogleMapsConfigured } from '@/lib/google-maps';
-import { importGoogleMapsLeadsAction } from './actions';
+import { importGoogleMapsLeadsAction, quickAddLeadAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,6 +104,32 @@ export default async function LeadsPage({
 
       {companyId && (
         <section className="panel panel-stack">
+          <div className="metric-label">Quick add</div>
+          <h2 className="form-title">Drop a lead in fast and open the thread immediately.</h2>
+          <p className="page-copy">
+            Use this when you already have the clinic phone number from a list, call sheet, or manual research and do not want to bounce through extra setup.
+          </p>
+          <form action={quickAddLeadAction} className="panel-stack">
+            <input type="hidden" name="companyId" value={companyId} />
+            <div className="field-row">
+              <input className="text-input" name="name" placeholder="Clinic or contact name" />
+              <input className="text-input" name="phone" placeholder="Phone number" />
+            </div>
+            <div className="field-row">
+              <input className="text-input" name="source" placeholder="Source label (optional)" defaultValue="manual_operator" />
+            </div>
+            <div className="inline-actions">
+              <button type="submit" className="button">
+                Create lead and open thread
+              </button>
+              <span className="tiny-muted">The lead is deduped on create, then routed straight into the conversation workspace.</span>
+            </div>
+          </form>
+        </section>
+      )}
+
+      {companyId && (
+        <section className="panel panel-stack">
           <div className="metric-label">Google Maps import</div>
           <h2 className="form-title">Import clinics into {selectedCompany?.name || 'this company'}</h2>
           <p className="page-copy">
@@ -132,7 +158,7 @@ export default async function LeadsPage({
             </div>
           </form>
 
-          {importError && <div className="empty-state">Google Maps import error: {importError}</div>}
+          {importError && <div className="empty-state">Lead workspace error: {importError}</div>}
 
           {!importError && importQuery && (
             <div className="inline-row text-muted">

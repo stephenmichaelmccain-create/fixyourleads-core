@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { LeadStatus } from '@prisma/client';
 import { db } from '@/lib/db';
-import { importGoogleMapsLeads } from '@/services/leads';
+import { createLeadFlow, importGoogleMapsLeads } from '@/services/leads';
 
 export async function updateLeadStatusAction(formData: FormData) {
   const leadId = String(formData.get('leadId') || '');
@@ -54,5 +54,33 @@ export async function importGoogleMapsLeadsAction(formData: FormData) {
   } catch (error) {
     const importError = error instanceof Error ? error.message : 'google_maps_import_failed';
     redirect(`/leads?companyId=${encodeURIComponent(companyId)}&importError=${encodeURIComponent(importError)}`);
+  }
+}
+
+export async function quickAddLeadAction(formData: FormData) {
+  const companyId = String(formData.get('companyId') || '').trim();
+  const name = String(formData.get('name') || '').trim();
+  const phone = String(formData.get('phone') || '').trim();
+  const source = String(formData.get('source') || '').trim() || 'manual_operator';
+
+  if (!companyId || !phone) {
+    redirect(`/leads?companyId=${encodeURIComponent(companyId)}&importError=${encodeURIComponent('company_and_phone_required')}`);
+  }
+
+  try {
+    const result = await createLeadFlow({
+      companyId,
+      phone,
+      name,
+      source
+    });
+
+    revalidatePath(`/leads?companyId=${companyId}`);
+    revalidatePath(`/conversations?companyId=${companyId}`);
+    revalidatePath(`/leads/${result.lead.id}`);
+    redirect(`/conversations/${result.conversation.id}`);
+  } catch (error) {
+    const leadCreateError = error instanceof Error ? error.message : 'manual_lead_create_failed';
+    redirect(`/leads?companyId=${encodeURIComponent(companyId)}&importError=${encodeURIComponent(leadCreateError)}`);
   }
 }
