@@ -179,7 +179,27 @@ export default async function BookingsPage({
       )}
 
       {companyId && appointments.length === 0 && (
-        <div className="empty-state">No bookings found yet for this company.</div>
+        <section className="panel panel-stack">
+          <div className="metric-label">No bookings yet</div>
+          <h2 className="section-title">
+            {selectedCompany ? `${selectedCompany.name} does not have any booked appointments yet.` : 'No bookings found yet.'}
+          </h2>
+          <p className="text-muted">
+            Bookings will show up here after the operator moves a live thread into an appointment. Until then, the fastest path is to
+            work conversations or add leads that can turn into a booking.
+          </p>
+          <div className="action-cluster">
+            <a className="button" href={`/conversations?companyId=${companyId}`}>
+              Open conversations
+            </a>
+            <a className="button-secondary" href={`/leads?companyId=${companyId}`}>
+              Open leads
+            </a>
+            <a className="button-ghost" href={`/events?companyId=${companyId}`}>
+              Review booking events
+            </a>
+          </div>
+        </section>
       )}
 
       {companyId && upcomingAppointments.length > 0 && (
