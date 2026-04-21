@@ -16,27 +16,34 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
 
   if (!lead) {
     return (
-      <LayoutShell title="Lead Detail">
-        <p>Lead not found.</p>
+      <LayoutShell title="Lead Detail" description="The requested lead record could not be found." section="leads">
+        <div className="empty-state">Lead not found.</div>
       </LayoutShell>
     );
   }
 
   return (
-    <LayoutShell title={lead.contact?.name || 'Lead Detail'}>
-      <p><strong>Lead ID:</strong> {lead.id}</p>
-      <p><strong>Status:</strong> {lead.status}</p>
-      <p><strong>Contact:</strong> {lead.contact?.name || 'Unnamed'}</p>
-      <p><strong>Phone:</strong> {lead.contact?.phone}</p>
-      <p><strong>Company ID:</strong> {lead.companyId}</p>
-      {lead.source && <p><strong>Source:</strong> {lead.source}</p>}
+    <LayoutShell
+      title={lead.contact?.name || 'Lead Detail'}
+      description="Lead records should stay simple: one contact, one owner, one clear next action."
+      companyId={lead.companyId}
+      section="leads"
+    >
+      <div className="key-value-grid">
+        <div className="key-value-card"><span className="key-value-label">Lead ID</span><span className="tiny-muted">{lead.id}</span></div>
+        <div className="key-value-card"><span className="key-value-label">Status</span>{lead.status}</div>
+        <div className="key-value-card"><span className="key-value-label">Contact</span>{lead.contact?.name || 'Unnamed'}</div>
+        <div className="key-value-card"><span className="key-value-label">Phone</span>{lead.contact?.phone || 'No phone'}</div>
+        <div className="key-value-card"><span className="key-value-label">Company ID</span><span className="tiny-muted">{lead.companyId}</span></div>
+        {lead.source && <div className="key-value-card"><span className="key-value-label">Source</span>{lead.source}</div>}
+      </div>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <div className="inline-actions">
         <LeadStatusButton leadId={lead.id} companyId={lead.companyId} />
         <LeadStatusButton leadId={lead.id} companyId={lead.companyId} status="SUPPRESSED" label="Suppress lead" />
       </div>
 
-      <p style={{ color: '#666', marginTop: 16 }}>
+      <p className="page-copy">
         Next useful step: open the company conversation list and manage the text flow from there.
       </p>
     </LayoutShell>

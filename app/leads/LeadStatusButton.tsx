@@ -11,12 +11,19 @@ export function LeadStatusButton({
   status?: string;
   label?: string;
 }) {
+  const className =
+    status === 'SUPPRESSED'
+      ? 'button-danger'
+      : status === 'CONTACTED'
+        ? 'button-secondary'
+        : 'button';
+
   return (
-    <form action={updateLeadStatusAction} style={{ marginTop: 8 }}>
+    <form action={updateLeadStatusAction}>
       <input type="hidden" name="leadId" value={leadId} />
       <input type="hidden" name="companyId" value={companyId} />
       <input type="hidden" name="status" value={status} />
-      <button type="submit" style={{ padding: '6px 10px', cursor: 'pointer' }}>
+      <button type="submit" className={className}>
         {label}
       </button>
     </form>

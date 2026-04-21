@@ -22,21 +22,31 @@ export default async function EventsPage({ searchParams }: { searchParams?: Prom
     : [];
 
   return (
-    <LayoutShell title="Events" companyId={companyId}>
+    <LayoutShell
+      title="Events"
+      description="Every lead touch, message, suppression, and booking should leave a trail. This page is the operating audit log."
+      companyId={companyId}
+      section="events"
+    >
       <CompanySelectorBar action="/events" initialCompanyId={companyId} />
 
-      {!companyId && <p>Enter a company ID to load events.</p>}
+      {!companyId && <div className="empty-state">Enter a company ID to load events.</div>}
 
       {companyId && events.length === 0 && (
-        <p style={{ color: '#666' }}>No events found yet, or the database is not ready for event queries.</p>
+        <div className="empty-state">No events found yet, or the database is not ready for event queries.</div>
       )}
 
-      <div style={{ display: 'grid', gap: 12 }}>
+      <div className="record-grid">
         {events.map((event) => (
-          <section key={event.id} style={{ padding: 14, border: '1px solid #ddd', borderRadius: 10 }}>
-            <strong>{event.eventType}</strong>
-            <div style={{ color: '#666', margin: '6px 0 10px' }}>{new Date(event.createdAt).toLocaleString()}</div>
-            <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 12 }}>{JSON.stringify(event.payload, null, 2)}</pre>
+          <section key={event.id} className="record-card">
+            <div className="record-header">
+              <div>
+                <div className="metric-label">Event</div>
+                <strong>{event.eventType}</strong>
+              </div>
+              <div className="tiny-muted">{new Date(event.createdAt).toLocaleString()}</div>
+            </div>
+            <pre className="code-block">{JSON.stringify(event.payload, null, 2)}</pre>
           </section>
         ))}
       </div>

@@ -1,19 +1,35 @@
 type NavProps = {
   companyId?: string;
+  current?: 'home' | 'companies' | 'diagnostics' | 'leads' | 'conversations' | 'events';
 };
 
-export function Nav({ companyId }: NavProps) {
+export function Nav({ companyId, current }: NavProps) {
   const withCompany = (path: string) =>
     companyId ? `${path}?companyId=${encodeURIComponent(companyId)}` : path;
 
+  const linkClass = (name: NavProps['current']) =>
+    `nav-pill${current === name ? ' is-active' : ''}`;
+
   return (
-    <nav style={{ marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-      <a href="/">Home</a>
-      <a href="/companies">Companies</a>
-      <a href="/diagnostics">Diagnostics</a>
-      <a href={withCompany('/leads')}>Leads</a>
-      <a href={withCompany('/conversations')}>Conversations</a>
-      <a href={withCompany('/events')}>Events</a>
+    <nav className="hero-nav">
+      <a className={linkClass('home')} href="/">
+        Home
+      </a>
+      <a className={linkClass('companies')} href="/companies">
+        Companies
+      </a>
+      <a className={linkClass('diagnostics')} href="/diagnostics">
+        Diagnostics
+      </a>
+      <a className={linkClass('leads')} href={withCompany('/leads')}>
+        Leads
+      </a>
+      <a className={linkClass('conversations')} href={withCompany('/conversations')}>
+        Conversations
+      </a>
+      <a className={linkClass('events')} href={withCompany('/events')}>
+        Events
+      </a>
     </nav>
   );
 }

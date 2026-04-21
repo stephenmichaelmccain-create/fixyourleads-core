@@ -24,36 +24,43 @@ export default async function LeadsPage({ searchParams }: { searchParams?: Promi
     : [];
 
   return (
-    <LayoutShell title="Leads" companyId={companyId}>
+    <LayoutShell
+      title="Leads"
+      description="Work the top of the funnel without contacting the same clinic twice. Every lead here should map cleanly to one company, one contact, and one conversation path."
+      companyId={companyId}
+      section="leads"
+    >
       <CompanySelectorBar action="/leads" initialCompanyId={companyId} />
 
-      {!companyId && <p>Enter a company ID to load leads.</p>}
+      {!companyId && <div className="empty-state">Enter a company ID to load leads.</div>}
 
       {companyId && leads.length === 0 && (
-        <p style={{ color: '#666' }}>No leads found yet, or the database is not ready for lead queries.</p>
+        <div className="empty-state">No leads found yet, or the database is not ready for lead queries.</div>
       )}
 
-      <div style={{ marginTop: 20 }}>
+      <div className="record-grid">
         {leads.map((lead) => (
-          <div
-            key={lead.id}
-            style={{
-              border: '1px solid #ddd',
-              padding: 12,
-              marginBottom: 10,
-              borderRadius: 8
-            }}
-          >
-            <div>
-              <strong>
-                <a href={`/leads/${lead.id}`}>{lead.contact?.name || 'Unnamed contact'}</a>
-              </strong>
+          <section key={lead.id} className="record-card">
+            <div className="record-header">
+              <div>
+                <div className="metric-label">Lead</div>
+                <strong>
+                  <a href={`/leads/${lead.id}`}>{lead.contact?.name || 'Unnamed contact'}</a>
+                </strong>
+              </div>
+              <span className="status-chip">
+                <strong>Status</strong> {lead.status}
+              </span>
             </div>
-            <div>{lead.contact?.phone || 'No phone'}</div>
-            <div>Status: {lead.status}</div>
-            <div style={{ color: '#666', fontSize: 12 }}>Lead ID: {lead.id}</div>
-            <LeadStatusButton leadId={lead.id} companyId={lead.companyId} />
-          </div>
+            <div className="record-subtitle">{lead.contact?.phone || 'No phone'}</div>
+            <div className="tiny-muted">Lead ID: {lead.id}</div>
+            <div className="record-links">
+              <a className="button-secondary" href={`/leads/${lead.id}`}>
+                Open lead
+              </a>
+              <LeadStatusButton leadId={lead.id} companyId={lead.companyId} />
+            </div>
+          </section>
         ))}
       </div>
     </LayoutShell>

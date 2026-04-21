@@ -8,21 +8,31 @@ export function CompanySelectorBar({
   label?: string;
 }) {
   return (
-    <form action={action} method="get" style={{ display: 'flex', gap: 8, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-      <label style={{ fontSize: 14, color: '#555' }}>{label}</label>
+    <form action={action} method="get" className="panel field-stack">
+      <div className="inline-row justify-between">
+        <div>
+          <div className="metric-label">{label}</div>
+          <div className="text-muted">Load the right clinic workspace before working leads, conversations, or events.</div>
+        </div>
+      </div>
+      <div className="field-row">
+        <label className="tiny-muted" htmlFor="companyId">
+          {label}
+        </label>
+      </div>
+      <div className="field-row">
       <input
+        id="companyId"
         type="text"
         name="companyId"
         defaultValue={initialCompanyId}
         placeholder="Enter Company ID"
-        style={{ padding: 10, border: '1px solid #ccc', minWidth: 280, borderRadius: 8 }}
+        className="text-input"
       />
-      <button
-        type="submit"
-        style={{ padding: '10px 14px', background: '#111', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}
-      >
+      <button type="submit" className="button">
         Load
       </button>
+      </div>
     </form>
   );
 }

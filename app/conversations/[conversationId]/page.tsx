@@ -16,95 +16,82 @@ export default async function ConversationDetailPage({ params }: { params: Promi
 
   if (!conversation) {
     return (
-      <LayoutShell title="Conversation Detail">
-        <p>Conversation not found.</p>
+      <LayoutShell title="Conversation Detail" description="The requested conversation could not be found." section="conversations">
+        <div className="empty-state">Conversation not found.</div>
       </LayoutShell>
     );
   }
 
   return (
-    <LayoutShell title={conversation.contact?.name || 'Conversation'} companyId={conversation.companyId}>
-      <div style={{ marginBottom: 20 }}>
-        <div><strong>Phone:</strong> {conversation.contact?.phone || 'No phone'}</div>
-        <div><strong>Conversation ID:</strong> {conversation.id}</div>
+    <LayoutShell
+      title={conversation.contact?.name || 'Conversation'}
+      description="Review the full thread, send the next message, and book the appointment from the same screen."
+      companyId={conversation.companyId}
+      section="conversations"
+    >
+      <div className="key-value-grid">
+        <div className="key-value-card">
+          <span className="key-value-label">Phone</span>
+          {conversation.contact?.phone || 'No phone'}
+        </div>
+        <div className="key-value-card">
+          <span className="key-value-label">Conversation ID</span>
+          <span className="tiny-muted">{conversation.id}</span>
+        </div>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: 16,
-          marginBottom: 20
-        }}
-      >
+      <div className="actions-grid">
         <form
           action={sendConversationMessageAction}
-          style={{ border: '1px solid #ddd', borderRadius: 12, padding: 16, display: 'grid', gap: 10 }}
+          className="panel panel-stack"
         >
-          <strong>Send outbound message</strong>
+          <div className="metric-label">Outbound SMS</div>
+          <h2 className="form-title">Send the next text</h2>
           <input type="hidden" name="companyId" value={conversation.companyId} />
           <input type="hidden" name="contactId" value={conversation.contactId} />
           <input type="hidden" name="conversationId" value={conversation.id} />
           <textarea
             name="text"
-            rows={4}
             placeholder="Write the next outbound text"
-            style={{ padding: 10, resize: 'vertical' }}
+            className="text-area"
           />
-          <button type="submit" style={{ width: 'fit-content', padding: '8px 12px', cursor: 'pointer' }}>
+          <button type="submit" className="button">
             Send text
           </button>
         </form>
 
         <form
           action={bookConversationAction}
-          style={{ border: '1px solid #ddd', borderRadius: 12, padding: 16, display: 'grid', gap: 10 }}
+          className="panel panel-stack"
         >
-          <strong>Book appointment</strong>
+          <div className="metric-label">Booking</div>
+          <h2 className="form-title">Book the appointment</h2>
           <input type="hidden" name="companyId" value={conversation.companyId} />
           <input type="hidden" name="contactId" value={conversation.contactId} />
           <input type="hidden" name="conversationId" value={conversation.id} />
-          <input type="datetime-local" name="startTime" style={{ padding: 10 }} />
-          <div style={{ color: '#666', fontSize: 13 }}>
+          <input type="datetime-local" name="startTime" className="text-input" />
+          <div className="text-muted">
             If the company has a notification email configured and SMTP is set, booking will notify the client automatically.
           </div>
-          <button type="submit" style={{ width: 'fit-content', padding: '8px 12px', cursor: 'pointer' }}>
+          <button type="submit" className="button-secondary">
             Book and notify
           </button>
         </form>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-          padding: 16,
-          border: '1px solid #ddd',
-          borderRadius: 12,
-          background: '#fafafa'
-        }}
-      >
-        {conversation.messages.length === 0 && <p>No messages yet.</p>}
+      <div className="message-thread">
+        {conversation.messages.length === 0 && <div className="empty-state">No messages yet.</div>}
 
         {conversation.messages.map((message) => {
           const outbound = message.direction === 'OUTBOUND';
           return (
-            <div
-              key={message.id}
-              style={{
-                alignSelf: outbound ? 'flex-end' : 'flex-start',
-                maxWidth: '75%',
-                background: outbound ? '#111' : '#e9e9eb',
-                color: outbound ? '#fff' : '#111',
-                padding: '10px 12px',
-                borderRadius: 14
-              }}
-            >
-              <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
-                {message.direction} • {new Date(message.createdAt).toLocaleString()}
+            <div key={message.id} className={`message-row${outbound ? ' outbound' : ''}`}>
+              <div className={`message-bubble${outbound ? ' outbound' : ''}`}>
+                <div className="message-meta">
+                  {message.direction} • {new Date(message.createdAt).toLocaleString()}
+                </div>
+                <div className="pre-wrap">{message.content}</div>
               </div>
-              <div style={{ whiteSpace: 'pre-wrap' }}>{message.content}</div>
             </div>
           );
         })}

@@ -23,41 +23,39 @@ export default async function ConversationsPage({ searchParams }: { searchParams
     : [];
 
   return (
-    <LayoutShell title="Conversations" companyId={companyId}>
+    <LayoutShell
+      title="Conversations"
+      description="This is where the Fix Your Leads product becomes real: text threads tied to the right clinic, ready for fast replies, booking, and no duplicate chaos."
+      companyId={companyId}
+      section="conversations"
+    >
       <CompanySelectorBar action="/conversations" initialCompanyId={companyId} />
 
-      {!companyId && <p>Enter a company ID to load conversations.</p>}
+      {!companyId && <div className="empty-state">Enter a company ID to load conversations.</div>}
 
       {companyId && conversations.length === 0 && (
-        <p style={{ color: '#666' }}>No conversations found yet, or the database is not ready for conversation queries.</p>
+        <div className="empty-state">No conversations found yet, or the database is not ready for conversation queries.</div>
       )}
 
-      <div style={{ display: 'grid', gap: 16 }}>
+      <div className="record-grid">
         {conversations.map((conversation) => {
           const lastMessage = conversation.messages[conversation.messages.length - 1];
           return (
-            <section
-              key={conversation.id}
-              style={{
-                padding: 16,
-                border: '1px solid #ddd',
-                borderRadius: 12,
-                background: '#fff'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+            <section key={conversation.id} className="record-card">
+              <div className="record-header">
                 <div>
-                  <h2 style={{ margin: 0, fontSize: 18 }}>
+                  <div className="metric-label">Conversation</div>
+                  <h2 className="record-title">
                     <a href={`/conversations/${conversation.id}`}>{conversation.contact?.name || 'Unnamed contact'}</a>
                   </h2>
-                  <div style={{ color: '#555', marginTop: 4 }}>{conversation.contact?.phone || 'No phone'}</div>
+                  <div className="record-subtitle">{conversation.contact?.phone || 'No phone'}</div>
                 </div>
-                <div style={{ color: '#777', fontSize: 12 }}>
+                <div className="tiny-muted">
                   {lastMessage ? new Date(lastMessage.createdAt).toLocaleString() : 'No messages'}
                 </div>
               </div>
 
-              <div style={{ marginTop: 12, color: '#333' }}>
+              <div className="record-subtitle">
                 {lastMessage ? (
                   <>
                     <strong>{lastMessage.direction}:</strong> {lastMessage.content}
@@ -67,8 +65,13 @@ export default async function ConversationsPage({ searchParams }: { searchParams
                 )}
               </div>
 
-              <div style={{ marginTop: 10, color: '#888', fontSize: 12 }}>
+              <div className="record-links">
+                <a className="button-secondary" href={`/conversations/${conversation.id}`}>
+                  Open thread
+                </a>
+                <span className="tiny-muted">
                 {conversation.messages.length} message{conversation.messages.length === 1 ? '' : 's'}
+                </span>
               </div>
             </section>
           );
