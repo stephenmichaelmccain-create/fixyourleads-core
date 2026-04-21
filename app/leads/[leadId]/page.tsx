@@ -9,7 +9,14 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
     () =>
       db.lead.findUnique({
         where: { id: leadId },
-        include: { contact: true }
+        include: {
+          contact: true,
+          company: {
+            select: {
+              name: true
+            }
+          }
+        }
       }),
     null
   );
@@ -27,6 +34,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
       title={lead.contact?.name || 'Lead Detail'}
       description="Lead records should stay simple: one contact, one owner, one clear next action."
       companyId={lead.companyId}
+      companyName={lead.company?.name || undefined}
       section="leads"
     >
       <div className="key-value-grid">
@@ -34,8 +42,27 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
         <div className="key-value-card"><span className="key-value-label">Status</span>{lead.status}</div>
         <div className="key-value-card"><span className="key-value-label">Contact</span>{lead.contact?.name || 'Unnamed'}</div>
         <div className="key-value-card"><span className="key-value-label">Phone</span>{lead.contact?.phone || 'No phone'}</div>
+        <div className="key-value-card"><span className="key-value-label">Company</span>{lead.company?.name || 'Unknown company'}</div>
         <div className="key-value-card"><span className="key-value-label">Company ID</span><span className="tiny-muted">{lead.companyId}</span></div>
         {lead.source && <div className="key-value-card"><span className="key-value-label">Source</span>{lead.source}</div>}
+        {lead.sourceExternalId && (
+          <div className="key-value-card">
+            <span className="key-value-label">Source external ID</span>
+            <span className="tiny-muted">{lead.sourceExternalId}</span>
+          </div>
+        )}
+        {lead.suppressedAt && (
+          <div className="key-value-card">
+            <span className="key-value-label">Suppressed</span>
+            <span>{lead.suppressedAt.toLocaleString()}</span>
+          </div>
+        )}
+        {lead.suppressionReason && (
+          <div className="key-value-card">
+            <span className="key-value-label">Suppression reason</span>
+            <span>{lead.suppressionReason}</span>
+          </div>
+        )}
       </div>
 
       <div className="inline-actions">
