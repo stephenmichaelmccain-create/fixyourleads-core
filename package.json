@@ -7,6 +7,8 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "echo 'lint not configured yet'",
+    "db:push": "prisma db push",
+    "worker": "tsx workers/index.ts",
     "worker:lead": "tsx workers/process_new_lead.ts",
     "worker:message": "tsx workers/handle_incoming_message.ts",
     "worker:booking": "tsx workers/booking.ts"
