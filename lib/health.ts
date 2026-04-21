@@ -165,51 +165,90 @@ async function checkMcpGatewayConnectivity(
     };
   }
 
+  const normalizeTrailingSlash = (value: string) => value.replace(/\/$/, '');
+  const normalizedServerUrl = normalizeTrailingSlash(serverUrl);
+  const candidateUrls = Array.from(new Set([normalizedServerUrl, `${normalizedServerUrl}/sse`]));
+  const headers = {
+    Authorization: `Bearer ${accessToken}`
+  };
   const controller = new AbortController();
   const timer = setTimeout(() => {
     controller.abort();
   }, 2_000);
+  let lastErrorDetail: string | undefined;
 
-  try {
-    const response = await fetch(serverUrl, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      },
-      redirect: 'manual',
-      signal: controller.signal
-    });
-    const statusCode = response.status;
-    const responseDetail = `MCP gateway reachable (${statusCode} ${response.statusText || 'no status text'})`;
-
+  const evaluateStatus = (statusCode: number) => {
+    const statusText = `${statusCode}`;
     if (statusCode === 401 || statusCode === 403) {
       return {
-        status: 'error',
-        detail: `MCP gateway responded with ${statusCode}; token is likely invalid.`,
-        statusCode
+        status: 'error' as const,
+        detail: `MCP gateway responded with ${statusText}; token is likely invalid.`
+      };
+    }
+
+    if (statusCode === 404) {
+      return {
+        status: 'error' as const,
+        detail: `MCP gateway returned ${statusText}; check endpoint path and protocol`
       };
     }
 
     if (statusCode >= 500) {
       return {
-        status: 'error',
-        detail: responseDetail,
-        statusCode
+        status: 'error' as const,
+        detail: `MCP gateway returned ${statusText}; server-side error`
       };
     }
 
     if (statusCode >= 400) {
       return {
-        status: 'error',
-        detail: `${responseDetail}; verify the MCP route and protocol path.`,
-        statusCode
+        status: 'error' as const,
+        detail: `MCP gateway returned ${statusText}; endpoint may require a different protocol method`
       };
     }
 
     return {
-      status: 'ok',
-      detail: responseDetail,
-      statusCode
+      status: 'ok' as const,
+      detail: `MCP endpoint reachable (${statusCode})`
+    };
+  };
+
+  try {
+    for (const candidate of candidateUrls) {
+      try {
+        const response = await fetch(candidate, {
+          method: 'GET',
+          headers,
+          signal: controller.signal
+        });
+        const statusCode = response.status;
+        const result = evaluateStatus(statusCode);
+
+        if (result.status === 'ok' || statusCode === 405) {
+          return {
+            status: statusCode === 405 ? 'ok' : result.status,
+            detail: `${result.detail} (tested ${candidate})`,
+            statusCode
+          };
+        }
+
+        lastErrorDetail = `${result.detail} (tested ${candidate})`;
+
+        // Keep trying alternate endpoints if the first path is not found.
+        if (statusCode !== 404) {
+          return {
+            ...result,
+            statusCode
+          } as DependencyCheck;
+        }
+      } catch {
+        // Save generic transport error and keep trying alternate endpoints.
+      }
+    }
+
+    return {
+      status: 'error',
+      detail: lastErrorDetail || 'MCP gateway not reachable from configured URLs'
     };
   } catch (error) {
     return {
