@@ -87,7 +87,27 @@ export default async function ConversationsPage({ searchParams }: { searchParams
       )}
 
       {companyId && conversations.length === 0 && (
-        <div className="empty-state">No conversations found yet, or the database is not ready for conversation queries.</div>
+        <section className="panel panel-stack">
+          <div className="metric-label">No live threads yet</div>
+          <h2 className="section-title">
+            {selectedCompany ? `${selectedCompany.name} does not have any conversation history yet.` : 'No conversations found yet.'}
+          </h2>
+          <p className="text-muted">
+            The next move is usually to source or import leads first, then let the operator work the first outbound text from the same
+            workspace instead of bouncing back to setup guesswork.
+          </p>
+          <div className="action-cluster">
+            <a className="button" href={`/leads?companyId=${companyId}`}>
+              Open leads
+            </a>
+            <a className="button-secondary" href={`/companies#company-${companyId}`}>
+              Review workspace setup
+            </a>
+            <a className="button-ghost" href={`/bookings?companyId=${companyId}`}>
+              Check bookings
+            </a>
+          </div>
+        </section>
       )}
 
       {companyId && nextConversation && (

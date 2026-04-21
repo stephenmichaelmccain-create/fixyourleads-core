@@ -135,6 +135,19 @@ export default async function ConversationDetailPage({
   const readiness = notificationReadiness();
   const lastMessage = conversation.messages[conversation.messages.length - 1] || null;
   const threadState = !lastMessage ? 'New thread' : lastMessage.direction === 'INBOUND' ? 'Needs reply' : 'Waiting on contact';
+  const sharedTelnyxSender = process.env.TELNYX_FROM_NUMBER?.trim() || null;
+  const activeSenderNumber = conversation.company?.telnyxInboundNumber || sharedTelnyxSender;
+  const telnyxMode = conversation.company?.telnyxInboundNumber
+    ? 'dedicated'
+    : sharedTelnyxSender
+      ? 'shared'
+      : 'missing';
+  const telnyxTrustCopy =
+    telnyxMode === 'dedicated'
+      ? 'Replies should route back to this company cleanly.'
+      : telnyxMode === 'shared'
+        ? 'Outbound SMS can run tonight, but replies are still on the shared fallback sender.'
+        : 'Do not trust live SMS here until a shared sender or dedicated inbound number is configured.';
 
   return (
     <LayoutShell
@@ -232,6 +245,44 @@ export default async function ConversationDetailPage({
             </div>
           </section>
 
+          <section className="panel panel-stack">
+            <div className="metric-label">Telnyx sender path</div>
+            <div className="inline-row justify-between">
+              <h2 className="form-title">What number this workspace is using tonight</h2>
+              <div className={`status-chip ${
+                telnyxMode === 'dedicated'
+                  ? ''
+                  : telnyxMode === 'shared'
+                    ? 'status-chip-attention'
+                    : 'status-chip-muted'
+              }`}>
+                <strong>Mode</strong> {telnyxMode === 'dedicated' ? 'dedicated' : telnyxMode === 'shared' ? 'shared fallback' : 'missing'}
+              </div>
+            </div>
+            <div className="status-list">
+              <div className="status-item">
+                <span className="status-label">
+                  <span className={`status-dot ${activeSenderNumber ? 'ok' : 'warn'}`} />
+                  Active sender number
+                </span>
+                <span>{activeSenderNumber || 'No sender configured'}</span>
+              </div>
+              <div className="status-item">
+                <span className="status-label">
+                  <span className={`status-dot ${
+                    telnyxMode === 'dedicated'
+                      ? 'ok'
+                      : telnyxMode === 'shared'
+                        ? 'warn'
+                        : 'error'
+                  }`} />
+                  Reply routing confidence
+                </span>
+                <span>{telnyxTrustCopy}</span>
+              </div>
+            </div>
+          </section>
+
           <form
             action={sendConversationMessageAction}
             className="panel panel-stack"
@@ -246,6 +297,10 @@ export default async function ConversationDetailPage({
               placeholder="Write the next outbound text"
               className="text-area"
             />
+            <div className="text-muted">
+              This send will use {activeSenderNumber || 'no configured sender'}.
+              {telnyxMode === 'shared' ? ' Replies may arrive on the shared pilot lane until this company gets its own inbound number.' : ''}
+            </div>
             <button type="submit" className="button">
               Send text
             </button>
@@ -276,7 +331,7 @@ export default async function ConversationDetailPage({
               />
             </div>
             <div className="text-muted">
-              Booking will mark the lead as booked, send the contact a confirmation text, and notify the client if email is configured.
+              Booking will mark the lead as booked, send the contact a confirmation text from {activeSenderNumber || 'the configured sender'}, and notify the client if email is configured.
             </div>
             <button type="submit" className="button-secondary">
               Book and notify
