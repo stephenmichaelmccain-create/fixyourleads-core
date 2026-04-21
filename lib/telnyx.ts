@@ -1,6 +1,8 @@
-export async function sendSms(to: string, text: string) {
+import { normalizePhone } from '@/lib/phone';
+
+export async function sendSms(to: string, text: string, fromOverride?: string | null) {
   const apiKey = process.env.TELNYX_API_KEY;
-  const from = process.env.TELNYX_FROM_NUMBER;
+  const from = fromOverride || process.env.TELNYX_FROM_NUMBER;
 
   if (!apiKey || !from) throw new Error('Missing Telnyx configuration');
 
@@ -11,8 +13,8 @@ export async function sendSms(to: string, text: string) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      from,
-      to,
+      from: normalizePhone(from),
+      to: normalizePhone(to),
       text
     })
   });

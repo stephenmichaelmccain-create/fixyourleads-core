@@ -24,6 +24,7 @@ model Company {
   id                String         @id @default(cuid())
   name              String
   notificationEmail String?
+  telnyxInboundNumber String?      @unique
   createdAt         DateTime       @default(now())
   contacts          Contact[]
   leads             Lead[]

@@ -64,6 +64,10 @@ export async function storeInboundMessage(companyId: string, phone: string, cont
 
 export async function sendOutboundMessage(companyId: string, contactId: string, content: string, eventType = 'manual_message_sent') {
   const contact = await db.contact.findUniqueOrThrow({ where: { id: contactId } });
+  const company = await db.company.findUniqueOrThrow({
+    where: { id: companyId },
+    select: { telnyxInboundNumber: true }
+  });
   const latestLead = await db.lead.findFirst({
     where: { companyId, contactId },
     orderBy: { createdAt: 'desc' }
@@ -79,7 +83,7 @@ export async function sendOutboundMessage(companyId: string, contactId: string, 
     create: { companyId, contactId }
   });
 
-  const telnyxResult = await sendSms(contact.phone, content);
+  const telnyxResult = await sendSms(contact.phone, content, company.telnyxInboundNumber);
 
   const message = await db.message.create({
     data: {
@@ -114,4 +118,113 @@ export async function sendOutboundMessage(companyId: string, contactId: string, 
   });
 
   return { conversation, message, telnyxResult };
+}
+
+type TelnyxDeliveryContext = {
+  companyId: string | null;
+  internalMessageId: string | null;
+  conversationId: string | null;
+  matchedBy: 'message_external_id' | 'company_number' | 'unmatched';
+};
+
+type RecordTelnyxMessageLifecycleEventInput = {
+  companyId: string;
+  eventType: string;
+  eventId: string;
+  messageId: string;
+  occurredAt?: string | null;
+  deliveryStatus?: string | null;
+  from?: string | null;
+  to?: string | null;
+  internalMessageId?: string | null;
+  conversationId?: string | null;
+  matchedBy: TelnyxDeliveryContext['matchedBy'];
+  errors?: Array<{ code?: string; title?: string; detail?: string }>;
+};
+
+export async function resolveTelnyxDeliveryContext(messageId: string, fromPhone?: string | null): Promise<TelnyxDeliveryContext> {
+  const message = await db.message.findFirst({
+    where: { externalId: messageId },
+    select: {
+      id: true,
+      companyId: true,
+      conversationId: true
+    }
+  });
+
+  if (message) {
+    return {
+      companyId: message.companyId,
+      internalMessageId: message.id,
+      conversationId: message.conversationId,
+      matchedBy: 'message_external_id'
+    };
+  }
+
+  const normalizedFrom = normalizePhone(fromPhone || '');
+
+  if (!normalizedFrom) {
+    return {
+      companyId: null,
+      internalMessageId: null,
+      conversationId: null,
+      matchedBy: 'unmatched'
+    };
+  }
+
+  const company = await db.company.findUnique({
+    where: { telnyxInboundNumber: normalizedFrom },
+    select: { id: true }
+  });
+
+  if (!company) {
+    return {
+      companyId: null,
+      internalMessageId: null,
+      conversationId: null,
+      matchedBy: 'unmatched'
+    };
+  }
+
+  return {
+    companyId: company.id,
+    internalMessageId: null,
+    conversationId: null,
+    matchedBy: 'company_number'
+  };
+}
+
+export async function recordTelnyxMessageLifecycleEvent({
+  companyId,
+  eventType,
+  eventId,
+  messageId,
+  occurredAt,
+  deliveryStatus,
+  from,
+  to,
+  internalMessageId,
+  conversationId,
+  matchedBy,
+  errors = []
+}: RecordTelnyxMessageLifecycleEventInput) {
+  await db.eventLog.create({
+    data: {
+      companyId,
+      eventType: eventType === 'message.finalized' ? 'telnyx_message_finalized' : 'telnyx_message_sent',
+      payload: {
+        telnyxEventType: eventType,
+        telnyxEventId: eventId,
+        telnyxMessageId: messageId,
+        occurredAt,
+        deliveryStatus,
+        from,
+        to,
+        internalMessageId,
+        conversationId,
+        matchedBy,
+        errors
+      }
+    }
+  });
 }

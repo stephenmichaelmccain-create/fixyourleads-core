@@ -45,6 +45,11 @@ export default async function CompaniesPage() {
           name="notificationEmail"
           placeholder="Client notification email (optional)"
         />
+        <input
+          className="text-input"
+          name="telnyxInboundNumber"
+          placeholder="Inbound routing number, e.g. +13125550001"
+        />
         <button type="submit" className="button">
           Create company
         </button>
@@ -72,6 +77,12 @@ export default async function CompaniesPage() {
               name="notificationEmail"
               defaultValue={company.notificationEmail || ''}
               placeholder="Client notification email"
+              className="text-input"
+            />
+            <input
+              name="telnyxInboundNumber"
+              defaultValue={company.telnyxInboundNumber || ''}
+              placeholder="Inbound routing number"
               className="text-input"
             />
             <div className="inline-row text-muted">

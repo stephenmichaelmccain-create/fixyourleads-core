@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
+import { normalizePhone } from '@/lib/phone';
 
 function optionalText(value: FormDataEntryValue | null) {
   const text = String(value || '').trim();
@@ -11,6 +12,7 @@ function optionalText(value: FormDataEntryValue | null) {
 export async function createCompanyAction(formData: FormData) {
   const name = String(formData.get('name') || '').trim();
   const notificationEmail = optionalText(formData.get('notificationEmail'));
+  const telnyxInboundNumber = optionalText(formData.get('telnyxInboundNumber'));
 
   if (!name) {
     throw new Error('company_name_required');
@@ -19,7 +21,8 @@ export async function createCompanyAction(formData: FormData) {
   await db.company.create({
     data: {
       name,
-      notificationEmail
+      notificationEmail,
+      telnyxInboundNumber: telnyxInboundNumber ? normalizePhone(telnyxInboundNumber) : null
     }
   });
 
@@ -31,6 +34,7 @@ export async function updateCompanyAction(formData: FormData) {
   const companyId = String(formData.get('companyId') || '').trim();
   const name = String(formData.get('name') || '').trim();
   const notificationEmail = optionalText(formData.get('notificationEmail'));
+  const telnyxInboundNumber = optionalText(formData.get('telnyxInboundNumber'));
 
   if (!companyId || !name) {
     throw new Error('company_id_and_name_required');
@@ -40,7 +44,8 @@ export async function updateCompanyAction(formData: FormData) {
     where: { id: companyId },
     data: {
       name,
-      notificationEmail
+      notificationEmail,
+      telnyxInboundNumber: telnyxInboundNumber ? normalizePhone(telnyxInboundNumber) : null
     }
   });
 
