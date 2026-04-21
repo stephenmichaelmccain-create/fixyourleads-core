@@ -57,6 +57,38 @@ export default async function CompaniesPage({
   const setupSprintCompanies = rankedCompanies
     .filter((company) => !hasInboundRouting(company) || !company.notificationEmail)
     .slice(0, 4);
+  const companyIds = companies.map((company) => company.id);
+  const readyLeadStatusRows = await safeLoad(
+    () =>
+      db.lead.groupBy({
+        by: ['companyId', 'status'],
+        where: {
+          companyId: { in: companyIds },
+          status: { in: ['NEW', 'CONTACTED', 'REPLIED', 'BOOKED', 'SUPPRESSED'] }
+        },
+        _count: { _all: true }
+      }),
+    []
+  );
+  const readyLeadsByCompany = companyIds.reduce(
+    (acc, companyId) => {
+      acc[companyId] = { NEW: 0, CONTACTED: 0, REPLIED: 0 };
+      return acc;
+    },
+    {} as Record<string, { NEW: number; CONTACTED: number; REPLIED: number }>
+  );
+  for (const row of readyLeadStatusRows) {
+    if (row.status === 'NEW' || row.status === 'CONTACTED' || row.status === 'REPLIED') {
+      if (!readyLeadsByCompany[row.companyId]) {
+        readyLeadsByCompany[row.companyId] = { NEW: 0, CONTACTED: 0, REPLIED: 0 };
+      }
+      readyLeadsByCompany[row.companyId][row.status] = row._count._all;
+    }
+  }
+  const readyCallCount = Object.values(readyLeadsByCompany).reduce(
+    (sum, stat) => sum + stat.NEW + stat.CONTACTED + stat.REPLIED,
+    0
+  );
 
   return (
     <LayoutShell
@@ -98,6 +130,10 @@ export default async function CompaniesPage({
             <div className="company-summary-item">
               <span className="key-value-label">Companies</span>
               <strong>{companies.length}</strong>
+            </div>
+            <div className="company-summary-item">
+              <span className="key-value-label">Ready leads</span>
+              <strong>{readyCallCount}</strong>
             </div>
             <div className="company-summary-item">
               <span className="key-value-label">Ready</span>
@@ -361,6 +397,14 @@ export default async function CompaniesPage({
                 <strong>{company._count.leads}</strong>
               </div>
               <div className="company-summary-item">
+                <span className="key-value-label">Ready leads</span>
+                <strong>
+                  {readyLeadsByCompany[company.id].NEW +
+                    readyLeadsByCompany[company.id].CONTACTED +
+                    readyLeadsByCompany[company.id].REPLIED}
+                </strong>
+              </div>
+              <div className="company-summary-item">
                 <span className="key-value-label">Threads</span>
                 <strong>{company._count.conversations}</strong>
               </div>
@@ -373,8 +417,17 @@ export default async function CompaniesPage({
               <a className="button" href={`/conversations?companyId=${company.id}`}>
                 Work conversations
               </a>
-              <a className="button-secondary" href={`/leads?companyId=${company.id}`}>
-                Work leads
+              {readyLeadsByCompany[company.id].NEW + readyLeadsByCompany[company.id].CONTACTED + readyLeadsByCompany[company.id].REPLIED > 0 ? (
+                <a className="button-secondary" href={`/leads?companyId=${company.id}&status=NEW`}>
+                  Work ready leads
+                </a>
+              ) : (
+                <a className="button-secondary" href={`/leads?companyId=${company.id}`}>
+                  Work leads
+                </a>
+              )}
+              <a className="button-ghost" href={`/leads?companyId=${company.id}&status=REPLIED`}>
+                Replied only
               </a>
               <a className="button-ghost" href={`/bookings?companyId=${company.id}`}>
                 Bookings
