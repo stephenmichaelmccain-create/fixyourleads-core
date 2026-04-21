@@ -6,6 +6,7 @@ import { createCompanyAction, updateCompanyAction } from './actions';
 export const dynamic = 'force-dynamic';
 
 export default async function CompaniesPage() {
+  const sharedSenderAvailable = Boolean(process.env.TELNYX_FROM_NUMBER?.trim());
   const companies = await safeLoad(
     () =>
       db.company.findMany({
@@ -138,6 +139,30 @@ export default async function CompaniesPage() {
         </form>
       </div>
 
+      {missingRouting > 0 && (
+        <section className="panel panel-stack">
+          <div className="metric-label">Telnyx pilot mode</div>
+          <h2 className="section-title">
+            {sharedSenderAvailable
+              ? 'Outbound SMS can run tonight, but replies are still on a shared sender.'
+              : 'Companies are missing dedicated routing, and there is no shared sender fallback configured.'}
+          </h2>
+          <p className="text-muted">
+            {sharedSenderAvailable
+              ? `Right now ${missingRouting} workspace${missingRouting === 1 ? '' : 's'} will fall back to the shared TELNYX_FROM_NUMBER. That is good enough for a first pilot if you keep traffic narrow, but replies are not truly isolated per company until each workspace has its own inbound number.`
+              : 'Before trusting live SMS work, either assign a Telnyx inbound number to each workspace or make sure the shared TELNYX_FROM_NUMBER is configured and understood as the pilot sender.'}
+          </p>
+          <div className="workspace-readiness">
+            <span className={`readiness-pill${sharedSenderAvailable ? ' is-ready' : ''}`}>
+              {sharedSenderAvailable ? 'Shared sender fallback available' : 'Shared sender fallback missing'}
+            </span>
+            <span className="readiness-pill">
+              {missingRouting} workspace{missingRouting === 1 ? '' : 's'} need dedicated routing
+            </span>
+          </div>
+        </section>
+      )}
+
       {companies.length > 0 && (
         <section className="panel panel-stack">
           <div className="metric-label">Tonight&apos;s client launch</div>
@@ -233,6 +258,11 @@ export default async function CompaniesPage() {
                 <span className={`status-chip ${company.telnyxInboundNumber ? '' : 'status-chip-muted'}`}>
                   <strong>Routing</strong> {company.telnyxInboundNumber ? 'ready' : 'missing'}
                 </span>
+                {!company.telnyxInboundNumber && sharedSenderAvailable && (
+                  <span className="status-chip status-chip-attention">
+                    <strong>SMS tonight</strong> shared sender
+                  </span>
+                )}
                 <span className={`status-chip ${company.notificationEmail ? '' : 'status-chip-muted'}`}>
                   <strong>Email</strong> {company.notificationEmail ? 'ready' : 'missing'}
                 </span>

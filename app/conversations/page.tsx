@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
+import { WorkspaceReadinessBanner } from '@/app/components/WorkspaceReadinessBanner';
 import { safeLoad } from '@/lib/ui-data';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ export default async function ConversationsPage({ searchParams }: { searchParams
         () =>
           db.company.findUnique({
             where: { id: companyId },
-            select: { id: true, name: true }
+            select: { id: true, name: true, notificationEmail: true, telnyxInboundNumber: true }
           }),
         null
       )
@@ -75,6 +76,15 @@ export default async function ConversationsPage({ searchParams }: { searchParams
       <CompanySelectorBar action="/conversations" initialCompanyId={companyId} />
 
       {!companyId && <div className="empty-state">Choose a company by name to load the conversation queue.</div>}
+
+      {selectedCompany && (
+        <WorkspaceReadinessBanner
+          companyId={selectedCompany.id}
+          companyName={selectedCompany.name}
+          telnyxInboundNumber={selectedCompany.telnyxInboundNumber}
+          notificationEmail={selectedCompany.notificationEmail}
+        />
+      )}
 
       {companyId && conversations.length === 0 && (
         <div className="empty-state">No conversations found yet, or the database is not ready for conversation queries.</div>

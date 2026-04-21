@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
+import { WorkspaceReadinessBanner } from '@/app/components/WorkspaceReadinessBanner';
 import { LeadStatusButton } from './LeadStatusButton';
 import { safeLoad } from '@/lib/ui-data';
 import { isGoogleMapsConfigured } from '@/lib/google-maps';
@@ -37,7 +38,7 @@ export default async function LeadsPage({
         () =>
           db.company.findUnique({
             where: { id: companyId },
-            select: { id: true, name: true }
+            select: { id: true, name: true, notificationEmail: true, telnyxInboundNumber: true }
           }),
         null
       )
@@ -91,6 +92,15 @@ export default async function LeadsPage({
       <CompanySelectorBar action="/leads" initialCompanyId={companyId} />
 
       {!companyId && <div className="empty-state">Choose a company by name to load the lead workspace.</div>}
+
+      {selectedCompany && (
+        <WorkspaceReadinessBanner
+          companyId={selectedCompany.id}
+          companyName={selectedCompany.name}
+          telnyxInboundNumber={selectedCompany.telnyxInboundNumber}
+          notificationEmail={selectedCompany.notificationEmail}
+        />
+      )}
 
       {companyId && (
         <section className="panel panel-stack">
