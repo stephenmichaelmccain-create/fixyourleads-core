@@ -3,6 +3,7 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
 import { WorkspaceReadinessBanner } from '@/app/components/WorkspaceReadinessBanner';
 import { safeLoad } from '@/lib/ui-data';
+import { bookingNotificationReadiness } from '@/lib/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,10 @@ function formatDateTime(value: Date | string) {
     dateStyle: 'medium',
     timeStyle: 'short'
   }).format(new Date(value));
+}
+
+function bookingStatusChipClass(status: ReturnType<typeof bookingNotificationReadiness>['status']) {
+  return status === 'ready' ? 'status-chip' : 'status-chip status-chip-attention';
 }
 
 export default async function BookingsPage({
@@ -39,8 +44,22 @@ export default async function BookingsPage({
         () =>
           db.appointment.findMany({
             where: { companyId },
-            include: {
-              contact: true
+            select: {
+              id: true,
+              companyId: true,
+              startTime: true,
+              createdAt: true,
+              contact: {
+                select: {
+                  name: true,
+                  phone: true,
+                  conversations: {
+                    where: { companyId },
+                    select: { id: true },
+                    take: 1
+                  }
+                }
+              }
             },
             orderBy: [{ startTime: 'asc' }, { createdAt: 'desc' }],
             take: 100
@@ -52,6 +71,13 @@ export default async function BookingsPage({
   const upcomingAppointments = appointments.filter((appointment) => appointment.startTime >= now);
   const pastAppointments = appointments.filter((appointment) => appointment.startTime < now);
   const nextAppointment = upcomingAppointments[0] || null;
+  const notificationStatus = bookingNotificationReadiness(selectedCompany?.notificationEmail);
+  const manualNotificationBacklog = notificationStatus.status === 'ready' ? 0 : upcomingAppointments.length;
+  const nextConversationHref = nextAppointment?.contact?.conversations?.[0]?.id
+    ? `/conversations/${nextAppointment.contact.conversations[0].id}`
+    : companyId
+      ? `/conversations?companyId=${companyId}`
+      : '/conversations';
 
   return (
     <LayoutShell
@@ -91,6 +117,10 @@ export default async function BookingsPage({
               <span className="key-value-label">Notification email</span>
               <strong>{selectedCompany?.notificationEmail ? 'Ready' : 'Missing'}</strong>
             </div>
+            <div className="company-summary-item">
+              <span className="key-value-label">Manual follow-up</span>
+              <strong>{manualNotificationBacklog}</strong>
+            </div>
           </div>
           {nextAppointment ? (
             <div className="record-subtitle">
@@ -99,6 +129,52 @@ export default async function BookingsPage({
           ) : (
             <div className="record-subtitle">No future bookings yet for this company.</div>
           )}
+          <div className="record-links">
+            <a className="button" href={nextConversationHref}>
+              {nextAppointment?.contact?.conversations?.[0]?.id ? 'Open next booking thread' : 'Open conversation queue'}
+            </a>
+            <a className="button-secondary" href={`/events?companyId=${companyId}`}>
+              Review booking events
+            </a>
+            {notificationStatus.status !== 'ready' && (
+              <>
+                <a className="button-ghost" href={`/companies#company-${companyId}`}>
+                  Fix clinic setup
+                </a>
+                <a className="button-ghost" href="/diagnostics">
+                  Check SMTP
+                </a>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
+      {companyId && (
+        <section className="panel panel-stack">
+          <div className="record-header">
+            <div>
+              <div className="metric-label">Booking readiness</div>
+              <h2 className="record-title">What happens after an appointment is booked tonight</h2>
+            </div>
+            <span className={bookingStatusChipClass(notificationStatus.status)}>
+              <strong>Email path</strong> {notificationStatus.label}
+            </span>
+          </div>
+          <div className="key-value-grid">
+            <div className="key-value-card">
+              <span className="key-value-label">Clinic target</span>
+              {selectedCompany?.notificationEmail || 'Missing clinic email'}
+            </div>
+            <div className="key-value-card">
+              <span className="key-value-label">Delivery path</span>
+              {notificationStatus.detail}
+            </div>
+            <div className="key-value-card">
+              <span className="key-value-label">Bookings needing manual email follow-up</span>
+              {manualNotificationBacklog}
+            </div>
+          </div>
         </section>
       )}
 
@@ -106,37 +182,117 @@ export default async function BookingsPage({
         <div className="empty-state">No bookings found yet for this company.</div>
       )}
 
-      <div className="record-grid">
-        {appointments.map((appointment) => {
-          const isUpcoming = appointment.startTime >= now;
-          return (
-            <section key={appointment.id} className="record-card">
-              <div className="record-header">
-                <div>
-                  <div className="metric-label">{isUpcoming ? 'Upcoming booking' : 'Past booking'}</div>
-                  <h2 className="record-title">{appointment.contact?.name || 'Unnamed contact'}</h2>
-                  <div className="record-subtitle">{appointment.contact?.phone || 'No phone'}</div>
-                </div>
-                <span className={`status-chip ${isUpcoming ? '' : 'status-chip-muted'}`}>
-                  <strong>{isUpcoming ? 'Starts' : 'Started'}</strong> {formatDateTime(appointment.startTime)}
-                </span>
-              </div>
-              <div className="inline-row text-muted">
-                <span>Booking ID: {appointment.id}</span>
-                <span>Created: {formatDateTime(appointment.createdAt)}</span>
-              </div>
-              <div className="record-links">
-                <a className="button" href={`/conversations?companyId=${appointment.companyId}`}>
-                  Open conversation queue
-                </a>
-                <a className="button-secondary" href={`/events?companyId=${appointment.companyId}`}>
-                  View audit trail
-                </a>
-              </div>
-            </section>
-          );
-        })}
-      </div>
+      {companyId && upcomingAppointments.length > 0 && (
+        <section className="panel panel-stack">
+          <div className="record-header">
+            <div>
+              <div className="metric-label">Upcoming bookings</div>
+              <h2 className="record-title">Keep the next appointments tied to the right thread</h2>
+            </div>
+            <span className="status-chip">
+              <strong>Count</strong> {upcomingAppointments.length}
+            </span>
+          </div>
+          <div className="record-grid">
+            {upcomingAppointments.map((appointment) => {
+              const conversationHref = appointment.contact?.conversations?.[0]?.id
+                ? `/conversations/${appointment.contact.conversations[0].id}`
+                : `/conversations?companyId=${appointment.companyId}`;
+
+              return (
+                <section key={appointment.id} className="record-card">
+                  <div className="record-header">
+                    <div>
+                      <div className="metric-label">Upcoming booking</div>
+                      <h2 className="record-title">{appointment.contact?.name || 'Unnamed contact'}</h2>
+                      <div className="record-subtitle">{appointment.contact?.phone || 'No phone'}</div>
+                    </div>
+                    <span className="status-chip">
+                      <strong>Starts</strong> {formatDateTime(appointment.startTime)}
+                    </span>
+                  </div>
+                  <div className="status-list">
+                    <div className="status-item">
+                      <span className="status-label">
+                        <span className={`status-dot ${notificationStatus.status === 'ready' ? 'ok' : 'warn'}`} />
+                        Clinic notification path
+                      </span>
+                      <span>{notificationStatus.label}</span>
+                    </div>
+                    <div className="status-item">
+                      <span className="status-label">
+                        <span className={`status-dot ${appointment.contact?.conversations?.[0]?.id ? 'ok' : 'warn'}`} />
+                        Conversation thread
+                      </span>
+                      <span>{appointment.contact?.conversations?.[0]?.id ? 'Ready to open' : 'Use queue view'}</span>
+                    </div>
+                  </div>
+                  <div className="inline-row text-muted">
+                    <span>Booking ID: {appointment.id}</span>
+                    <span>Created: {formatDateTime(appointment.createdAt)}</span>
+                  </div>
+                  <div className="record-links">
+                    <a className="button" href={conversationHref}>
+                      {appointment.contact?.conversations?.[0]?.id ? 'Open exact thread' : 'Open conversation queue'}
+                    </a>
+                    <a className="button-secondary" href={`/events?companyId=${appointment.companyId}`}>
+                      View audit trail
+                    </a>
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {companyId && pastAppointments.length > 0 && (
+        <section className="panel panel-stack">
+          <div className="record-header">
+            <div>
+              <div className="metric-label">Past bookings</div>
+              <h2 className="record-title">Recent appointments already attached to this clinic</h2>
+            </div>
+            <span className="status-chip status-chip-muted">
+              <strong>Count</strong> {pastAppointments.length}
+            </span>
+          </div>
+          <div className="record-grid">
+            {pastAppointments.map((appointment) => {
+              const conversationHref = appointment.contact?.conversations?.[0]?.id
+                ? `/conversations/${appointment.contact.conversations[0].id}`
+                : `/conversations?companyId=${appointment.companyId}`;
+
+              return (
+                <section key={appointment.id} className="record-card">
+                  <div className="record-header">
+                    <div>
+                      <div className="metric-label">Past booking</div>
+                      <h2 className="record-title">{appointment.contact?.name || 'Unnamed contact'}</h2>
+                      <div className="record-subtitle">{appointment.contact?.phone || 'No phone'}</div>
+                    </div>
+                    <span className="status-chip status-chip-muted">
+                      <strong>Started</strong> {formatDateTime(appointment.startTime)}
+                    </span>
+                  </div>
+                  <div className="inline-row text-muted">
+                    <span>Booking ID: {appointment.id}</span>
+                    <span>Created: {formatDateTime(appointment.createdAt)}</span>
+                  </div>
+                  <div className="record-links">
+                    <a className="button" href={conversationHref}>
+                      {appointment.contact?.conversations?.[0]?.id ? 'Open exact thread' : 'Open conversation queue'}
+                    </a>
+                    <a className="button-secondary" href={`/events?companyId=${appointment.companyId}`}>
+                      View audit trail
+                    </a>
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </LayoutShell>
   );
 }

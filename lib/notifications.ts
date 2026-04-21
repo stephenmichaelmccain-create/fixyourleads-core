@@ -51,6 +51,42 @@ export function notificationReadiness() {
   };
 }
 
+export function bookingNotificationReadiness(notificationEmail?: string | null) {
+  const readiness = notificationReadiness();
+  const hasNotificationEmail = Boolean(notificationEmail);
+  const smtpReady = readiness.smtpUserSet && readiness.smtpPasswordSet;
+
+  if (hasNotificationEmail && smtpReady) {
+    return {
+      status: 'ready' as const,
+      label: 'Ready',
+      detail: 'Bookings can notify the clinic automatically.'
+    };
+  }
+
+  if (!hasNotificationEmail && !smtpReady) {
+    return {
+      status: 'blocked' as const,
+      label: 'Email + SMTP missing',
+      detail: 'Add the clinic email in Companies and SMTP credentials in Diagnostics before trusting booking emails.'
+    };
+  }
+
+  if (!hasNotificationEmail) {
+    return {
+      status: 'blocked' as const,
+      label: 'Clinic email missing',
+      detail: 'Add the clinic notification email in Companies before relying on booking emails.'
+    };
+  }
+
+  return {
+    status: 'blocked' as const,
+    label: 'SMTP missing',
+    detail: 'Company email is set, but SMTP_USER and SMTP_PASSWORD still need to be configured globally.'
+  };
+}
+
 export async function sendBookingNotification(input: BookingNotificationInput): Promise<NotificationResult> {
   if (!input.to) {
     return {
