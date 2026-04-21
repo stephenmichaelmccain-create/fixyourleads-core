@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
+import { getRuntimeHealth } from '@/lib/health';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  return NextResponse.json({ ok: true, service: 'fixyourleads-core' });
+  const health = await getRuntimeHealth();
+
+  return NextResponse.json({
+    ...health,
+    live: true
+  });
 }

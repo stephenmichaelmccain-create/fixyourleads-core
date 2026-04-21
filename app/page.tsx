@@ -1,6 +1,8 @@
 import { LayoutShell } from './components/LayoutShell';
 import { safeCountSummary } from '@/lib/ui-data';
 
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   const summary = await safeCountSummary();
 
@@ -32,7 +34,7 @@ export default async function HomePage() {
           <strong>Database not ready yet.</strong>
           <div style={{ marginTop: 6 }}>
             The UI is up, but live data queries are failing. Open <a href="/diagnostics">/diagnostics</a> to verify env state,
-            then finish database setup.
+            then check <a href="/api/health">/api/health</a> for runtime readiness before finishing database setup.
           </div>
         </div>
       )}

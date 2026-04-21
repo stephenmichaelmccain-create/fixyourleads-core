@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { envPresence } from '@/lib/runtime-safe';
 
 export async function safeLoad<T>(loader: () => Promise<T>, fallback: T) {
   try {
@@ -10,6 +11,16 @@ export async function safeLoad<T>(loader: () => Promise<T>, fallback: T) {
 }
 
 export async function safeCountSummary() {
+  if (!envPresence().databaseUrlSet) {
+    return {
+      companies: null,
+      leads: null,
+      conversations: null,
+      events: null,
+      ok: false as const
+    };
+  }
+
   try {
     const [companies, leads, conversations, events] = await Promise.all([
       db.company.count(),
