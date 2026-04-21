@@ -114,7 +114,7 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
   let confirmationMessageId: string | null = null;
 
   try {
-    const telnyxResult = await sendSms(contact.phone, confirmationText);
+    const telnyxResult = await sendSms(contact.phone, confirmationText, company.telnyxInboundNumber);
     confirmationMessageId = telnyxResult?.data?.id || null;
 
     await db.message.create({

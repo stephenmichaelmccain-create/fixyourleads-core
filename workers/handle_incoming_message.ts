@@ -5,6 +5,7 @@ import { getRedis } from '@/lib/redis';
 import { db } from '@/lib/db';
 
 const STOP_KEYWORDS = new Set(['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit', 'unsub']);
+const START_KEYWORDS = new Set(['start', 'unstop']);
 const HELP_KEYWORDS = new Set(['help']);
 const WRONG_NUMBER_PHRASES = new Set(['wrong number', 'wrong person']);
 
@@ -34,6 +35,26 @@ new Worker('message_queue', async (job) => {
         companyId,
         eventType: 'lead_suppressed',
         payload: { contactId, text, reason: 'contact_requested_stop' }
+      }
+    });
+    return;
+  }
+
+  if (START_KEYWORDS.has(normalized)) {
+    await db.lead.updateMany({
+      where: { companyId, contactId },
+      data: {
+        status: LeadStatus.REPLIED,
+        lastRepliedAt: new Date(),
+        suppressedAt: null,
+        suppressionReason: null
+      }
+    });
+    await db.eventLog.create({
+      data: {
+        companyId,
+        eventType: 'lead_unsuppressed',
+        payload: { contactId, text, reason: 'contact_requested_restart' }
       }
     });
     return;
