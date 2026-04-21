@@ -1,16 +1,20 @@
+import { LayoutShell } from '@/app/components/LayoutShell';
+import { envPresence } from '@/lib/runtime-safe';
+
 export default function DiagnosticsPage() {
+  const env = envPresence();
+
   return (
-    <main style={{ fontFamily: 'sans-serif', padding: 24 }}>
-      <h1>Diagnostics</h1>
+    <LayoutShell title="Diagnostics">
       <ul>
-        <li>NODE_ENV: {process.env.NODE_ENV || 'unset'}</li>
-        <li>APP_BASE_URL: {process.env.APP_BASE_URL ? 'set' : 'missing'}</li>
-        <li>DATABASE_URL: {process.env.DATABASE_URL ? 'set' : 'missing'}</li>
-        <li>REDIS_URL: {process.env.REDIS_URL ? 'set' : 'missing'}</li>
-        <li>TELNYX_API_KEY: {process.env.TELNYX_API_KEY ? 'set' : 'missing'}</li>
-        <li>TELNYX_FROM_NUMBER: {process.env.TELNYX_FROM_NUMBER ? 'set' : 'missing'}</li>
-        <li>INTERNAL_API_KEY: {process.env.INTERNAL_API_KEY ? 'set' : 'missing'}</li>
+        <li>NODE_ENV: {env.nodeEnv || 'unset'}</li>
+        <li>APP_BASE_URL: {env.appBaseUrlSet ? 'set' : 'missing'}</li>
+        <li>DATABASE_URL: {env.databaseUrlSet ? 'set' : 'missing'}</li>
+        <li>REDIS_URL: {env.redisUrlSet ? 'set' : 'missing'}</li>
+        <li>TELNYX_API_KEY: {env.telnyxApiKeySet ? 'set' : 'missing'}</li>
+        <li>TELNYX_FROM_NUMBER: {env.telnyxFromNumberSet ? 'set' : 'missing'}</li>
+        <li>INTERNAL_API_KEY: {env.internalApiKeySet ? 'set' : 'missing'}</li>
       </ul>
-    </main>
+    </LayoutShell>
   );
 }
