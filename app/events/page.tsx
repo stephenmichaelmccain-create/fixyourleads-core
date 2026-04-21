@@ -1,17 +1,22 @@
 import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
+import { safeLoad } from '@/lib/ui-data';
 
 export default async function EventsPage({ searchParams }: { searchParams?: Promise<{ companyId?: string }> }) {
   const params = (await searchParams) || {};
   const companyId = params.companyId || '';
 
   const events = companyId
-    ? await db.eventLog.findMany({
-        where: { companyId },
-        orderBy: { createdAt: 'desc' },
-        take: 200
-      })
+    ? await safeLoad(
+        () =>
+          db.eventLog.findMany({
+            where: { companyId },
+            orderBy: { createdAt: 'desc' },
+            take: 200
+          }),
+        []
+      )
     : [];
 
   return (
@@ -19,6 +24,10 @@ export default async function EventsPage({ searchParams }: { searchParams?: Prom
       <CompanySelectorBar action="/events" initialCompanyId={companyId} />
 
       {!companyId && <p>Enter a company ID to load events.</p>}
+
+      {companyId && events.length === 0 && (
+        <p style={{ color: '#666' }}>No events found yet, or the database is not ready for event queries.</p>
+      )}
 
       <div style={{ display: 'grid', gap: 12 }}>
         {events.map((event) => (

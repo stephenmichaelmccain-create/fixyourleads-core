@@ -2,18 +2,23 @@ import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
 import { LeadStatusButton } from './LeadStatusButton';
+import { safeLoad } from '@/lib/ui-data';
 
 export default async function LeadsPage({ searchParams }: { searchParams?: Promise<{ companyId?: string }> }) {
   const params = (await searchParams) || {};
   const companyId = params.companyId || '';
 
   const leads = companyId
-    ? await db.lead.findMany({
-        where: { companyId },
-        include: { contact: true },
-        orderBy: { createdAt: 'desc' },
-        take: 100
-      })
+    ? await safeLoad(
+        () =>
+          db.lead.findMany({
+            where: { companyId },
+            include: { contact: true },
+            orderBy: { createdAt: 'desc' },
+            take: 100
+          }),
+        []
+      )
     : [];
 
   return (
@@ -21,6 +26,10 @@ export default async function LeadsPage({ searchParams }: { searchParams?: Promi
       <CompanySelectorBar action="/leads" initialCompanyId={companyId} />
 
       {!companyId && <p>Enter a company ID to load leads.</p>}
+
+      {companyId && leads.length === 0 && (
+        <p style={{ color: '#666' }}>No leads found yet, or the database is not ready for lead queries.</p>
+      )}
 
       <div style={{ marginTop: 20 }}>
         {leads.map((lead) => (

@@ -1,18 +1,23 @@
 import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
+import { safeLoad } from '@/lib/ui-data';
 
 export default async function ConversationsPage({ searchParams }: { searchParams?: Promise<{ companyId?: string }> }) {
   const params = (await searchParams) || {};
   const companyId = params.companyId || '';
 
   const conversations = companyId
-    ? await db.conversation.findMany({
-        where: { companyId },
-        include: { contact: true, messages: { orderBy: { createdAt: 'asc' } } },
-        orderBy: { createdAt: 'desc' },
-        take: 50
-      })
+    ? await safeLoad(
+        () =>
+          db.conversation.findMany({
+            where: { companyId },
+            include: { contact: true, messages: { orderBy: { createdAt: 'asc' } } },
+            orderBy: { createdAt: 'desc' },
+            take: 50
+          }),
+        []
+      )
     : [];
 
   return (
@@ -20,6 +25,10 @@ export default async function ConversationsPage({ searchParams }: { searchParams
       <CompanySelectorBar action="/conversations" initialCompanyId={companyId} />
 
       {!companyId && <p>Enter a company ID to load conversations.</p>}
+
+      {companyId && conversations.length === 0 && (
+        <p style={{ color: '#666' }}>No conversations found yet, or the database is not ready for conversation queries.</p>
+      )}
 
       <div style={{ display: 'grid', gap: 16 }}>
         {conversations.map((conversation) => {

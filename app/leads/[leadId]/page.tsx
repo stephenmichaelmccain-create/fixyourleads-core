@@ -1,13 +1,18 @@
 import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { LeadStatusButton } from '../LeadStatusButton';
+import { safeLoad } from '@/lib/ui-data';
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ leadId: string }> }) {
   const { leadId } = await params;
-  const lead = await db.lead.findUnique({
-    where: { id: leadId },
-    include: { contact: true }
-  });
+  const lead = await safeLoad(
+    () =>
+      db.lead.findUnique({
+        where: { id: leadId },
+        include: { contact: true }
+      }),
+    null
+  );
 
   if (!lead) {
     return (

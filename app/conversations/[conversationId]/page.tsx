@@ -1,12 +1,17 @@
 import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
+import { safeLoad } from '@/lib/ui-data';
 
 export default async function ConversationDetailPage({ params }: { params: Promise<{ conversationId: string }> }) {
   const { conversationId } = await params;
-  const conversation = await db.conversation.findUnique({
-    where: { id: conversationId },
-    include: { contact: true, messages: { orderBy: { createdAt: 'asc' } } }
-  });
+  const conversation = await safeLoad(
+    () =>
+      db.conversation.findUnique({
+        where: { id: conversationId },
+        include: { contact: true, messages: { orderBy: { createdAt: 'asc' } } }
+      }),
+    null
+  );
 
   if (!conversation) {
     return (
