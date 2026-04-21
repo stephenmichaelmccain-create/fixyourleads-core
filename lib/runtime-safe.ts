@@ -24,7 +24,9 @@ export function envPresence() {
     internalApiKeySet: hasConfiguredEnv('INTERNAL_API_KEY'),
     smtpUserSet: hasConfiguredEnv('SMTP_USER'),
     smtpPasswordSet: hasConfiguredEnv('SMTP_PASSWORD'),
-    notificationFromSet: hasConfiguredEnv('NOTIFICATION_FROM_EMAIL') || hasConfiguredEnv('SMTP_USER')
+    notificationFromSet: hasConfiguredEnv('NOTIFICATION_FROM_EMAIL') || hasConfiguredEnv('SMTP_USER'),
+    openclawMcpUrlSet: hasConfiguredEnv('OPENCLAW_MCP_URL') || hasConfiguredEnv('MCP_SERVER_URL'),
+    openclawMcpTokenSet: hasConfiguredEnv('OPENCLAW_MCP_TOKEN') || hasConfiguredEnv('MCP_ACCESS_TOKEN')
   };
 }
 

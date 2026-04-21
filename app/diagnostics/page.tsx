@@ -90,6 +90,8 @@ export default async function DiagnosticsPage() {
             <div className="key-value-card"><span className="key-value-label">TELNYX_VERIFY_SIGNATURES</span>{env.telnyxVerifySignaturesEnabled ? 'enabled' : 'disabled'}</div>
             <div className="key-value-card"><span className="key-value-label">TELNYX_PUBLIC_KEY</span>{env.telnyxPublicKeySet ? 'set' : 'missing'}</div>
             <div className="key-value-card"><span className="key-value-label">INTERNAL_API_KEY</span>{env.internalApiKeySet ? 'set' : 'missing'}</div>
+            <div className="key-value-card"><span className="key-value-label">OPENCLAW_MCP_URL</span>{env.openclawMcpUrlSet ? 'set' : 'missing'}</div>
+            <div className="key-value-card"><span className="key-value-label">OPENCLAW_MCP_TOKEN</span>{env.openclawMcpTokenSet ? 'set' : 'missing'}</div>
             <div className="key-value-card"><span className="key-value-label">SENTRY_DSN</span>{health.observability.sentryDsnSet ? 'set' : 'missing (recommended)'}</div>
             <div className="key-value-card"><span className="key-value-label">SMTP_USER</span>{env.smtpUserSet ? 'set' : 'missing (optional)'}</div>
             <div className="key-value-card"><span className="key-value-label">SMTP_PASSWORD</span>{env.smtpPasswordSet ? 'set' : 'missing (optional)'}</div>
@@ -247,8 +249,8 @@ export default async function DiagnosticsPage() {
 
       <section className="panel panel-stack">
         <div className="metric-label">Telnyx pilot readiness</div>
-        <div className="key-value-grid">
-          <div className="key-value-card"><span className="key-value-label">Companies</span>{health.telnyx.companiesTotal}</div>
+          <div className="key-value-grid">
+            <div className="key-value-card"><span className="key-value-label">Companies</span>{health.telnyx.companiesTotal}</div>
           <div className="key-value-card"><span className="key-value-label">Routing ready</span>{health.telnyx.companiesWithRouting}</div>
           <div className="key-value-card"><span className="key-value-label">Missing routing</span>{health.telnyx.companiesMissingRouting}</div>
           <div className="key-value-card"><span className="key-value-label">Missing clinic email</span>{health.telnyx.companiesMissingNotification}</div>
@@ -257,8 +259,37 @@ export default async function DiagnosticsPage() {
           <div className="key-value-card"><span className="key-value-label">Webhook URL</span>{health.telnyx.webhookUrl || 'needs APP_BASE_URL'}</div>
           <div className="key-value-card"><span className="key-value-label">Signature mode</span>{health.telnyx.signatureVerificationEnabled ? 'strict' : 'pilot'}</div>
           <div className="key-value-card"><span className="key-value-label">Replay window</span>{`${health.telnyx.signatureMaxAgeSeconds}s`}</div>
-        </div>
-      </section>
+          </div>
+        </section>
+
+        <section className="panel panel-stack">
+          <div className="metric-label">External connectivity</div>
+          <div className="key-value-grid">
+            <div className="key-value-card">
+              <span className="key-value-label">Telnyx API</span>
+              {health.telnyx.apiStatus} ({health.telnyx.apiStatusCode || 'n/a'})
+            </div>
+            {health.telnyx.apiRequestId ? (
+              <div className="key-value-card">
+                <span className="key-value-label">Telnyx request-id</span>
+                {health.telnyx.apiRequestId}
+              </div>
+            ) : null}
+            <div className="key-value-card">
+              <span className="key-value-label">MCP gateway</span>
+              {health.mcp.connectivityStatus} ({health.mcp.connectivityStatusCode || 'n/a'})
+            </div>
+            <div className="key-value-card">
+              <span className="key-value-label">MCP endpoint</span>
+              {health.mcp.serverUrl || 'not set'}
+            </div>
+            <div className="key-value-card">
+              <span className="key-value-label">MCP token</span>{health.mcp.tokenConfigured ? 'set' : 'missing'}
+            </div>
+          </div>
+          <div className="text-muted">{health.telnyx.apiDetail || 'Telnyx API probe details pending'}</div>
+          <div className="text-muted">{health.mcp.connectivityDetail || 'MCP connectivity probe details pending'}</div>
+        </section>
 
       <section className="panel panel-stack">
         <div className="metric-label">Routing gaps</div>
@@ -331,12 +362,40 @@ export default async function DiagnosticsPage() {
             <span className="text-muted">{statusText(health.checks.telnyxFromNumber.status)}{health.checks.telnyxFromNumber.detail ? ` (${health.checks.telnyxFromNumber.detail})` : ''}</span>
           </li>
           <li className="status-item">
+            <span className="status-label"><span className={`status-dot ${statusClass(health.checks.telnyxConnection.status)}`}></span>Telnyx API reachability</span>
+            <span className="text-muted">
+              {statusText(health.checks.telnyxConnection.status)}
+              {health.checks.telnyxConnection.detail ? ` (${health.checks.telnyxConnection.detail})` : ''}
+            </span>
+          </li>
+          <li className="status-item">
             <span className="status-label"><span className={`status-dot ${statusClass(health.checks.telnyxWebhookVerification.status)}`}></span>Telnyx webhook verification</span>
             <span className="text-muted">{statusText(health.checks.telnyxWebhookVerification.status)}{health.checks.telnyxWebhookVerification.detail ? ` (${health.checks.telnyxWebhookVerification.detail})` : ''}</span>
           </li>
           <li className="status-item">
             <span className="status-label"><span className={`status-dot ${statusClass(health.checks.telnyxCompanyRouting.status)}`}></span>Company reply routing</span>
             <span className="text-muted">{statusText(health.checks.telnyxCompanyRouting.status)}{health.checks.telnyxCompanyRouting.detail ? ` (${health.checks.telnyxCompanyRouting.detail})` : ''}</span>
+          </li>
+          <li className="status-item">
+            <span className="status-label"><span className={`status-dot ${statusClass(health.checks.openClawMcpServer.status)}`}></span>OpenClaw MCP URL</span>
+            <span className="text-muted">
+              {statusText(health.checks.openClawMcpServer.status)}
+              {health.checks.openClawMcpServer.detail ? ` (${health.checks.openClawMcpServer.detail})` : ''}
+            </span>
+          </li>
+          <li className="status-item">
+            <span className="status-label"><span className={`status-dot ${statusClass(health.checks.openClawMcpToken.status)}`}></span>OpenClaw MCP token</span>
+            <span className="text-muted">
+              {statusText(health.checks.openClawMcpToken.status)}
+              {health.checks.openClawMcpToken.detail ? ` (${health.checks.openClawMcpToken.detail})` : ''}
+            </span>
+          </li>
+          <li className="status-item">
+            <span className="status-label"><span className={`status-dot ${statusClass(health.checks.mcpGateway.status)}`}></span>MCP gateway connectivity</span>
+            <span className="text-muted">
+              {statusText(health.checks.mcpGateway.status)}
+              {health.checks.mcpGateway.detail ? ` (${health.checks.mcpGateway.detail})` : ''}
+            </span>
           </li>
           <li className="status-item">
             <span className="status-label"><span className={`status-dot ${statusClass(health.checks.internalApiKey.status)}`}></span>INTERNAL_API_KEY</span>

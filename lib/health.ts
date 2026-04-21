@@ -4,6 +4,7 @@ import { getBookingQueue, getLeadQueue, getMessageQueue } from '@/lib/queue';
 import { getRedis } from '@/lib/redis';
 import { envPresence, missingRequiredEnvVars } from '@/lib/runtime-safe';
 import { getTelnyxWebhookSecurityConfig } from '@/lib/security';
+import { checkTelnyxConnectivity } from '@/lib/telnyx';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
 
 type CheckStatus = 'ok' | 'missing_config' | 'error';
@@ -11,6 +12,8 @@ type CheckStatus = 'ok' | 'missing_config' | 'error';
 type DependencyCheck = {
   status: CheckStatus;
   detail?: string;
+  statusCode?: number;
+  requestId?: string | null;
 };
 
 type QueueHealth = {
@@ -131,11 +134,103 @@ async function getQueueHealth(redisUrlSet: boolean): Promise<QueueHealth[]> {
   ]);
 }
 
+function readEnvValue(keys: string[]) {
+  for (const key of keys) {
+    const value = process.env[key];
+
+    if (value?.trim()) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+async function checkMcpGatewayConnectivity(
+  serverUrlSet: boolean,
+  serverUrl: string | undefined,
+  accessToken: string | undefined
+): Promise<DependencyCheck> {
+  if (!serverUrlSet || !serverUrl) {
+    return {
+      status: 'missing_config',
+      detail: 'MCP server URL is not configured. Set MCP_SERVER_URL or OPENCLAW_MCP_URL.'
+    };
+  }
+
+  if (!accessToken) {
+    return {
+      status: 'missing_config',
+      detail: 'MCP URL is set, but MCP_ACCESS_TOKEN or OPENCLAW_MCP_TOKEN is missing.'
+    };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, 2_000);
+
+  try {
+    const response = await fetch(serverUrl, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      },
+      redirect: 'manual',
+      signal: controller.signal
+    });
+    const statusCode = response.status;
+    const responseDetail = `MCP gateway reachable (${statusCode} ${response.statusText || 'no status text'})`;
+
+    if (statusCode === 401 || statusCode === 403) {
+      return {
+        status: 'error',
+        detail: `MCP gateway responded with ${statusCode}; token is likely invalid.`,
+        statusCode
+      };
+    }
+
+    if (statusCode >= 500) {
+      return {
+        status: 'error',
+        detail: responseDetail,
+        statusCode
+      };
+    }
+
+    if (statusCode >= 400) {
+      return {
+        status: 'error',
+        detail: `${responseDetail}; verify the MCP route and protocol path.`,
+        statusCode
+      };
+    }
+
+    return {
+      status: 'ok',
+      detail: responseDetail,
+      statusCode
+    };
+  } catch (error) {
+    return {
+      status: 'error',
+      detail:
+        error instanceof Error && error.name === 'AbortError'
+          ? 'MCP gateway check timed out'
+          : `MCP gateway check failed: ${error instanceof Error ? error.message : 'unknown error'}`
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function getRuntimeHealth() {
   const env = envPresence();
   const notifications = notificationReadiness();
   const telnyxWebhookSecurity = getTelnyxWebhookSecurityConfig();
   const appBaseUrl = process.env.APP_BASE_URL?.trim() || null;
+  const mcpServerUrl = readEnvValue(['MCP_SERVER_URL', 'OPENCLAW_MCP_URL']);
+  const mcpAccessToken = readEnvValue(['MCP_ACCESS_TOKEN', 'OPENCLAW_MCP_TOKEN']);
   const sentryDsnSet = hasConfiguredEnv('SENTRY_DSN') || hasConfiguredEnv('NEXT_PUBLIC_SENTRY_DSN');
   const now = new Date();
   const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -143,6 +238,7 @@ export async function getRuntimeHealth() {
   const [
     database,
     redis,
+    telnyxConnection,
     companyRouting,
     volumeStats,
     activityStats,
@@ -152,10 +248,12 @@ export async function getRuntimeHealth() {
     latestEvents,
     latestLeads,
     latestMessages,
-    queueHealth
+    queueHealth,
+    mcpGateway
   ] = await Promise.all([
     checkDatabase(env.databaseUrlSet),
     checkRedis(env.redisUrlSet),
+    checkTelnyxConnectivity(process.env.TELNYX_API_KEY),
     db.company.findMany({
       select: {
         id: true,
@@ -228,7 +326,8 @@ export async function getRuntimeHealth() {
         companyId: true
       }
     }),
-    getQueueHealth(env.redisUrlSet)
+    getQueueHealth(env.redisUrlSet),
+    checkMcpGatewayConnectivity(env.openclawMcpUrlSet, mcpServerUrl, mcpAccessToken)
   ]);
 
   const deployment = {
@@ -351,7 +450,12 @@ export async function getRuntimeHealth() {
     createdAt: row.createdAt.toISOString()
   }));
   const ok =
-    missingRequiredEnv.length === 0 && database.status === 'ok' && redis.status === 'ok' && queueOk;
+    missingRequiredEnv.length === 0 &&
+    database.status === 'ok' &&
+    redis.status === 'ok' &&
+    telnyxConnection.status === 'ok' &&
+    queueOk &&
+    (mcpGateway.status !== 'error');
 
   return {
     ok,
@@ -372,10 +476,21 @@ export async function getRuntimeHealth() {
       topRoutingGaps,
       multiNumberCompanies,
       routingConflicts,
+      apiStatus: telnyxConnection.status,
+      apiStatusCode: telnyxConnection.statusCode || null,
+      apiRequestId: telnyxConnection.requestId || null,
+      apiDetail: telnyxConnection.detail || null,
       webhookUrl: appBaseUrl ? new URL('/api/webhooks/telnyx', appBaseUrl).toString() : null,
       signatureVerificationEnabled: telnyxWebhookSecurity.verificationEnabled,
       publicKeySet: telnyxWebhookSecurity.publicKeySet,
       signatureMaxAgeSeconds: telnyxWebhookSecurity.timestampToleranceSeconds
+    },
+    mcp: {
+      serverUrl: mcpServerUrl || null,
+      tokenConfigured: env.openclawMcpTokenSet,
+      connectivityStatus: mcpGateway.status,
+      connectivityStatusCode: mcpGateway.statusCode || null,
+      connectivityDetail: mcpGateway.detail || null
     },
     volume: {
       companies: volumeStats[0],
@@ -432,8 +547,22 @@ export async function getRuntimeHealth() {
             status: 'missing_config',
             detail: 'TELNYX_FROM_NUMBER is missing'
           } satisfies DependencyCheck),
+      telnyxConnection,
       telnyxWebhookVerification: telnyxWebhookVerificationStatus,
       telnyxCompanyRouting: telnyxRoutingStatus,
+      openClawMcpServer: env.openclawMcpUrlSet
+        ? ({ status: 'ok' } satisfies DependencyCheck)
+        : ({
+            status: 'missing_config',
+            detail: 'OPENCLAW_MCP_URL or MCP_SERVER_URL is missing'
+          } satisfies DependencyCheck),
+      openClawMcpToken: env.openclawMcpTokenSet
+        ? ({ status: 'ok' } satisfies DependencyCheck)
+        : ({
+            status: 'missing_config',
+            detail: 'OPENCLAW_MCP_TOKEN or MCP_ACCESS_TOKEN is missing'
+          } satisfies DependencyCheck),
+      mcpGateway,
       internalApiKey: env.internalApiKeySet
         ? ({ status: 'ok' } satisfies DependencyCheck)
         : ({
