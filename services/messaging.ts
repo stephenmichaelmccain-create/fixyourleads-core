@@ -140,7 +140,29 @@ type RecordTelnyxMessageLifecycleEventInput = {
   conversationId?: string | null;
   matchedBy: TelnyxDeliveryContext['matchedBy'];
   errors?: Array<{ code?: string; title?: string; detail?: string }>;
+  attempt?: number | null;
+  deliveredTo?: string | null;
 };
+
+function resolveTelnyxLifecycleEventType(eventType: string, deliveryStatus?: string | null) {
+  if (eventType === 'message.sent') {
+    return 'telnyx_message_sent';
+  }
+
+  if (eventType === 'message.finalized') {
+    if (deliveryStatus === 'sending_failed' || deliveryStatus === 'delivery_failed') {
+      return 'telnyx_message_delivery_failed';
+    }
+
+    if (deliveryStatus === 'delivery_unconfirmed') {
+      return 'telnyx_message_delivery_unconfirmed';
+    }
+
+    return 'telnyx_message_finalized';
+  }
+
+  return 'telnyx_message_event';
+}
 
 export async function resolveTelnyxDeliveryContext(messageId: string, fromPhone?: string | null): Promise<TelnyxDeliveryContext> {
   const message = await db.message.findFirst({
@@ -206,12 +228,14 @@ export async function recordTelnyxMessageLifecycleEvent({
   internalMessageId,
   conversationId,
   matchedBy,
-  errors = []
+  errors = [],
+  attempt,
+  deliveredTo
 }: RecordTelnyxMessageLifecycleEventInput) {
   await db.eventLog.create({
     data: {
       companyId,
-      eventType: eventType === 'message.finalized' ? 'telnyx_message_finalized' : 'telnyx_message_sent',
+      eventType: resolveTelnyxLifecycleEventType(eventType, deliveryStatus),
       payload: {
         telnyxEventType: eventType,
         telnyxEventId: eventId,
@@ -223,7 +247,9 @@ export async function recordTelnyxMessageLifecycleEvent({
         internalMessageId,
         conversationId,
         matchedBy,
-        errors
+        errors,
+        attempt,
+        deliveredTo
       }
     }
   });

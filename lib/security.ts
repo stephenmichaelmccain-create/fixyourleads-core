@@ -40,7 +40,11 @@ const telnyxRawEventSchema = z.object({
       media: z.array(z.object({ url: z.string().optional(), content_type: z.string().optional() })).optional(),
       errors: z.array(telnyxErrorSchema).optional()
     })
-  })
+  }),
+  meta: z.object({
+    attempt: z.number().int().positive().optional(),
+    delivered_to: z.string().optional()
+  }).optional()
 });
 
 export type NormalizedTelnyxWebhook =
@@ -56,6 +60,8 @@ export type NormalizedTelnyxWebhook =
       occurredAt: null;
       deliveryStatus: null;
       errors: [];
+      attempt: null;
+      deliveredTo: null;
     }
   | {
       mode: 'raw';
@@ -69,6 +75,8 @@ export type NormalizedTelnyxWebhook =
       occurredAt: string | null;
       deliveryStatus: string | null;
       errors: Array<{ code?: string; title?: string; detail?: string }>;
+      attempt: number | null;
+      deliveredTo: string | null;
     };
 
 type TelnyxSignatureVerificationResult =
@@ -174,7 +182,9 @@ export function normalizeTelnyxWebhook(body: unknown): NormalizedTelnyxWebhook |
       text: simplified.data.text,
       occurredAt: null,
       deliveryStatus: null,
-      errors: []
+      errors: [],
+      attempt: null,
+      deliveredTo: null
     };
   }
 
@@ -205,6 +215,8 @@ export function normalizeTelnyxWebhook(body: unknown): NormalizedTelnyxWebhook |
     text: text || (media.length > 0 ? '[media message]' : null),
     occurredAt: raw.data.data.occurred_at || null,
     deliveryStatus: firstStatus,
-    errors
+    errors,
+    attempt: raw.data.meta?.attempt ?? null,
+    deliveredTo: raw.data.meta?.delivered_to || null
   };
 }

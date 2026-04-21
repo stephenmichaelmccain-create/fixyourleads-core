@@ -133,7 +133,9 @@ export async function POST(request: NextRequest) {
     internalMessageId: deliveryContext.internalMessageId,
     conversationId: deliveryContext.conversationId,
     matchedBy: deliveryContext.matchedBy,
-    errors: normalized.errors
+    errors: normalized.errors,
+    attempt: normalized.attempt,
+    deliveredTo: normalized.deliveredTo
   });
 
   return NextResponse.json({ ok: true });
