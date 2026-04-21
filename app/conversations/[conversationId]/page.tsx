@@ -133,6 +133,8 @@ export default async function ConversationDetailPage({
     []
   );
   const readiness = notificationReadiness();
+  const lastMessage = conversation.messages[conversation.messages.length - 1] || null;
+  const threadState = !lastMessage ? 'New thread' : lastMessage.direction === 'INBOUND' ? 'Needs reply' : 'Waiting on contact';
 
   return (
     <LayoutShell
@@ -152,136 +154,155 @@ export default async function ConversationDetailPage({
         </div>
       )}
 
-      <div className="key-value-grid">
-        <div className="key-value-card">
-          <span className="key-value-label">Phone</span>
-          {conversation.contact?.phone || 'No phone'}
-        </div>
-        <div className="key-value-card">
-          <span className="key-value-label">Client notification email</span>
-          {conversation.company?.notificationEmail || 'Not configured'}
-        </div>
-        <div className="key-value-card">
-          <span className="key-value-label">Conversation ID</span>
-          <span className="tiny-muted">{conversation.id}</span>
-        </div>
-      </div>
-
-      <div className="panel panel-stack">
-        <div className="metric-label">Booking status</div>
-        <div className="inline-row justify-between">
-          <h2 className="form-title">Current booking readiness</h2>
-          <div className="status-chip">
-            <strong>SMTP</strong> {readiness.smtpUserSet && readiness.smtpPasswordSet ? 'ready' : 'needs setup'}
-          </div>
-        </div>
-        <div className="status-list">
-          <div className="status-item">
-            <span className="status-label">
-              <span className={`status-dot ${conversation.company?.notificationEmail ? 'ok' : 'warn'}`} />
-              Client notification target
-            </span>
-            <span>{conversation.company?.notificationEmail || 'Missing company email'}</span>
-          </div>
-          <div className="status-item">
-            <span className="status-label">
-              <span className={`status-dot ${conversation.contact?.phone ? 'ok' : 'warn'}`} />
-              Contact phone for booking text
-            </span>
-            <span>{conversation.contact?.phone || 'Missing phone'}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="actions-grid">
-        <form
-          action={sendConversationMessageAction}
-          className="panel panel-stack"
-        >
-          <div className="metric-label">Outbound SMS</div>
-          <h2 className="form-title">Send the next text</h2>
-          <input type="hidden" name="companyId" value={conversation.companyId} />
-          <input type="hidden" name="contactId" value={conversation.contactId} />
-          <input type="hidden" name="conversationId" value={conversation.id} />
-          <textarea
-            name="text"
-            placeholder="Write the next outbound text"
-            className="text-area"
-          />
-          <button type="submit" className="button">
-            Send text
-          </button>
-        </form>
-
-        <form
-          action={bookConversationAction}
-          className="panel panel-stack"
-        >
-          <div className="metric-label">Booking</div>
-          <h2 className="form-title">Book the appointment</h2>
-          <input type="hidden" name="companyId" value={conversation.companyId} />
-          <input type="hidden" name="contactId" value={conversation.contactId} />
-          <input type="hidden" name="conversationId" value={conversation.id} />
-          <div className="field-stack">
-            <label className="key-value-label" htmlFor="startTime">
-              Appointment date and time
-            </label>
-            <input
-              id="startTime"
-              type="datetime-local"
-              name="startTime"
-              className="text-input"
-              defaultValue={defaultBookingInputValue()}
-              min={formatDateTimeLocalInput(new Date())}
-              step={900}
-              required
-            />
-          </div>
-          <div className="text-muted">
-            Booking will mark the lead as booked, send the contact a confirmation text, and notify the client if email is configured.
-          </div>
-          <button type="submit" className="button-secondary">
-            Book and notify
-          </button>
-        </form>
-      </div>
-
-      <div className="panel panel-stack">
-        <div className="metric-label">Appointment history</div>
-        <h2 className="form-title">Recent bookings for this contact</h2>
-        {recentAppointments.length === 0 ? (
-          <div className="empty-state">No bookings yet for this contact.</div>
-        ) : (
-          <div className="status-list">
-            {recentAppointments.map((appointment) => (
-              <div key={appointment.id} className="status-item">
-                <span className="status-label">
-                  <span className="status-dot ok" />
-                  {formatDateTime(appointment.startTime)}
+      <div className="conversation-layout">
+        <section className="panel panel-stack">
+          <div className="record-header">
+            <div className="panel-stack">
+              <div className="metric-label">Thread status</div>
+              <div className="inline-row">
+                <span className={`status-chip ${threadState === 'Needs reply' ? 'status-chip-attention' : threadState === 'Waiting on contact' ? 'status-chip-muted' : ''}`}>
+                  <strong>Queue</strong> {threadState}
                 </span>
-                <span className="tiny-muted">{appointment.id}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="message-thread">
-        {conversation.messages.length === 0 && <div className="empty-state">No messages yet.</div>}
-
-        {conversation.messages.map((message) => {
-          const outbound = message.direction === 'OUTBOUND';
-          return (
-            <div key={message.id} className={`message-row${outbound ? ' outbound' : ''}`}>
-              <div className={`message-bubble${outbound ? ' outbound' : ''}`}>
-                <div className="message-meta">
-                  {message.direction} • {new Date(message.createdAt).toLocaleString()}
-                </div>
-                <div className="pre-wrap">{message.content}</div>
+                <span className="status-chip status-chip-muted">
+                  <strong>Messages</strong> {conversation.messages.length}
+                </span>
               </div>
             </div>
-          );
-        })}
+            <div className="tiny-muted">{lastMessage ? formatDateTime(lastMessage.createdAt) : 'No activity yet'}</div>
+          </div>
+
+          <div className="key-value-grid">
+            <div className="key-value-card">
+              <span className="key-value-label">Phone</span>
+              {conversation.contact?.phone || 'No phone'}
+            </div>
+            <div className="key-value-card">
+              <span className="key-value-label">Client notification email</span>
+              {conversation.company?.notificationEmail || 'Not configured'}
+            </div>
+            <div className="key-value-card">
+              <span className="key-value-label">Conversation ID</span>
+              <span className="tiny-muted">{conversation.id}</span>
+            </div>
+          </div>
+
+          <div className="message-thread">
+            {conversation.messages.length === 0 && <div className="empty-state">No messages yet.</div>}
+
+            {conversation.messages.map((message) => {
+              const outbound = message.direction === 'OUTBOUND';
+              return (
+                <div key={message.id} className={`message-row${outbound ? ' outbound' : ''}`}>
+                  <div className={`message-bubble${outbound ? ' outbound' : ''}`}>
+                    <div className="message-meta">
+                      {message.direction} • {formatDateTime(message.createdAt)}
+                    </div>
+                    <div className="pre-wrap">{message.content}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <div className="conversation-sidebar">
+          <section className="panel panel-stack sticky-panel">
+            <div className="metric-label">Booking status</div>
+            <div className="inline-row justify-between">
+              <h2 className="form-title">Current booking readiness</h2>
+              <div className="status-chip">
+                <strong>SMTP</strong> {readiness.smtpUserSet && readiness.smtpPasswordSet ? 'ready' : 'needs setup'}
+              </div>
+            </div>
+            <div className="status-list">
+              <div className="status-item">
+                <span className="status-label">
+                  <span className={`status-dot ${conversation.company?.notificationEmail ? 'ok' : 'warn'}`} />
+                  Client notification target
+                </span>
+                <span>{conversation.company?.notificationEmail || 'Missing company email'}</span>
+              </div>
+              <div className="status-item">
+                <span className="status-label">
+                  <span className={`status-dot ${conversation.contact?.phone ? 'ok' : 'warn'}`} />
+                  Contact phone for booking text
+                </span>
+                <span>{conversation.contact?.phone || 'Missing phone'}</span>
+              </div>
+            </div>
+          </section>
+
+          <form
+            action={sendConversationMessageAction}
+            className="panel panel-stack"
+          >
+            <div className="metric-label">Outbound SMS</div>
+            <h2 className="form-title">Send the next text</h2>
+            <input type="hidden" name="companyId" value={conversation.companyId} />
+            <input type="hidden" name="contactId" value={conversation.contactId} />
+            <input type="hidden" name="conversationId" value={conversation.id} />
+            <textarea
+              name="text"
+              placeholder="Write the next outbound text"
+              className="text-area"
+            />
+            <button type="submit" className="button">
+              Send text
+            </button>
+          </form>
+
+          <form
+            action={bookConversationAction}
+            className="panel panel-stack"
+          >
+            <div className="metric-label">Booking</div>
+            <h2 className="form-title">Book the appointment</h2>
+            <input type="hidden" name="companyId" value={conversation.companyId} />
+            <input type="hidden" name="contactId" value={conversation.contactId} />
+            <input type="hidden" name="conversationId" value={conversation.id} />
+            <div className="field-stack">
+              <label className="key-value-label" htmlFor="startTime">
+                Appointment date and time
+              </label>
+              <input
+                id="startTime"
+                type="datetime-local"
+                name="startTime"
+                className="text-input"
+                defaultValue={defaultBookingInputValue()}
+                min={formatDateTimeLocalInput(new Date())}
+                step={900}
+                required
+              />
+            </div>
+            <div className="text-muted">
+              Booking will mark the lead as booked, send the contact a confirmation text, and notify the client if email is configured.
+            </div>
+            <button type="submit" className="button-secondary">
+              Book and notify
+            </button>
+          </form>
+
+          <section className="panel panel-stack">
+            <div className="metric-label">Appointment history</div>
+            <h2 className="form-title">Recent bookings for this contact</h2>
+            {recentAppointments.length === 0 ? (
+              <div className="empty-state">No bookings yet for this contact.</div>
+            ) : (
+              <div className="status-list">
+                {recentAppointments.map((appointment) => (
+                  <div key={appointment.id} className="status-item">
+                    <span className="status-label">
+                      <span className="status-dot ok" />
+                      {formatDateTime(appointment.startTime)}
+                    </span>
+                    <span className="tiny-muted">{appointment.id}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </LayoutShell>
   );

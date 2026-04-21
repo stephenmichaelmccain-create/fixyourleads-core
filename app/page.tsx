@@ -5,6 +5,26 @@ export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const summary = await safeCountSummary();
+  const surfaces = [
+    {
+      href: '/companies',
+      eyebrow: 'Workspace setup',
+      title: 'Keep each clinic ready to work.',
+      body: 'Set inbound numbers, notification emails, and jump straight into the right company workspace.'
+    },
+    {
+      href: '/conversations',
+      eyebrow: 'Primary queue',
+      title: 'Reply where revenue is already waiting.',
+      body: 'Treat conversations like the real work queue: reply fast, book clean, and keep context attached.'
+    },
+    {
+      href: '/leads',
+      eyebrow: 'Top of funnel',
+      title: 'Import and sort leads without duplicate mess.',
+      body: 'Source clinics, normalize phone numbers, and move only the right people into live threads.'
+    }
+  ];
 
   return (
     <LayoutShell
@@ -77,16 +97,16 @@ export default async function HomePage() {
 
       <section className="panel panel-stack">
         <div className="metric-label">Working surfaces</div>
+        <div className="surface-link-grid">
+          {surfaces.map((surface) => (
+            <a key={surface.href} className="surface-link-card" href={surface.href}>
+              <span className="metric-label">{surface.eyebrow}</span>
+              <strong className="section-title">{surface.title}</strong>
+              <span className="text-muted">{surface.body}</span>
+            </a>
+          ))}
+        </div>
         <div className="inline-actions">
-          <a className="button-secondary" href="/companies">
-            Companies
-          </a>
-          <a className="button-secondary" href="/leads">
-            Leads
-          </a>
-          <a className="button-secondary" href="/conversations">
-            Conversations
-          </a>
           <a className="button-secondary" href="/events">
             Events
           </a>

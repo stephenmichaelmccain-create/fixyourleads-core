@@ -20,6 +20,21 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
       }),
     null
   );
+  const conversation = lead
+    ? await safeLoad(
+        () =>
+          db.conversation.findUnique({
+            where: {
+              companyId_contactId: {
+                companyId: lead.companyId,
+                contactId: lead.contactId
+              }
+            },
+            select: { id: true }
+          }),
+        null
+      )
+    : null;
 
   if (!lead) {
     return (
@@ -37,6 +52,36 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
       companyName={lead.company?.name || undefined}
       section="leads"
     >
+      <section className="panel panel-stack">
+        <div className="metric-label">Next action</div>
+        <div className="record-header">
+          <div className="panel-stack">
+            <h2 className="form-title">
+              {conversation ? 'Stay in the thread and move this lead toward booking.' : 'No thread exists yet. Start from the lead and open the first conversation path.'}
+            </h2>
+            <div className="inline-row">
+              <span className={`status-chip ${lead.status === 'REPLIED' ? 'status-chip-attention' : lead.status === 'SUPPRESSED' ? 'status-chip-muted' : ''}`}>
+                <strong>Status</strong> {lead.status}
+              </span>
+              {lead.source && (
+                <span className="status-chip status-chip-muted">
+                  <strong>Source</strong> {lead.source}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="inline-actions">
+            {conversation && (
+              <a className="button" href={`/conversations/${conversation.id}`}>
+                Open thread
+              </a>
+            )}
+            <LeadStatusButton leadId={lead.id} companyId={lead.companyId} />
+            <LeadStatusButton leadId={lead.id} companyId={lead.companyId} status="SUPPRESSED" label="Suppress lead" />
+          </div>
+        </div>
+      </section>
+
       <div className="key-value-grid">
         <div className="key-value-card"><span className="key-value-label">Lead ID</span><span className="tiny-muted">{lead.id}</span></div>
         <div className="key-value-card"><span className="key-value-label">Status</span>{lead.status}</div>
@@ -65,13 +110,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
         )}
       </div>
 
-      <div className="inline-actions">
-        <LeadStatusButton leadId={lead.id} companyId={lead.companyId} />
-        <LeadStatusButton leadId={lead.id} companyId={lead.companyId} status="SUPPRESSED" label="Suppress lead" />
-      </div>
-
       <p className="page-copy">
-        Next useful step: open the company conversation list and manage the text flow from there.
+        Next useful step: {conversation ? 'work the active conversation and move toward booking.' : 'start the conversation flow for this lead.'}
       </p>
     </LayoutShell>
   );
