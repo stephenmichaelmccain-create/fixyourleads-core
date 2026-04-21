@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  BOOKED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+model Company {
+  id          String         @id @default(cuid())
+  name        String
+  createdAt   DateTime       @default(now())
+  contacts    Contact[]
+  leads       Lead[]
+  conversations Conversation[]
+  messages    Message[]
+  appointments Appointment[]
+  events      EventLog[]
+  keys        IdempotencyKey[]
+}
+
+model Contact {
+  id            String         @id @default(cuid())
+  companyId     String
+  name          String?
+  phone         String
+  createdAt     DateTime       @default(now())
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leads         Lead[]
+  conversations Conversation[]
+  appointments  Appointment[]
+
+  @@unique([companyId, phone])
+}
+
+model Lead {
+  id         String     @id @default(cuid())
+  companyId  String
+  contactId  String
+  status     LeadStatus @default(NEW)
+  createdAt  DateTime   @default(now())
+  company    Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact    Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+}
+
+model Conversation {
+  id         String      @id @default(cuid())
+  companyId  String
+  contactId  String
+  createdAt  DateTime    @default(now())
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact    Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  messages   Message[]
+
+  @@unique([companyId, contactId])
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  companyId      String
+  conversationId String
+  direction      MessageDirection
+  content        String
+  externalId     String?
+  createdAt      DateTime         @default(now())
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model Appointment {
+  id         String   @id @default(cuid())
+  companyId  String
+  contactId  String
+  startTime  DateTime
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+}
+
+model EventLog {
+  id         String   @id @default(cuid())
+  companyId  String
+  eventType  String
+  payload    Json
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model IdempotencyKey {
+  id         String   @id @default(cuid())
+  companyId  String
+  key        String
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, key])
+}
