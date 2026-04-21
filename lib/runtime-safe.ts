@@ -19,6 +19,8 @@ export function envPresence() {
     redisUrlSet: hasConfiguredEnv('REDIS_URL'),
     telnyxApiKeySet: hasConfiguredEnv('TELNYX_API_KEY'),
     telnyxFromNumberSet: hasConfiguredEnv('TELNYX_FROM_NUMBER'),
+    telnyxPublicKeySet: hasConfiguredEnv('TELNYX_PUBLIC_KEY'),
+    telnyxVerifySignaturesEnabled: /^(1|true|yes|on)$/i.test(String(process.env.TELNYX_VERIFY_SIGNATURES || '').trim()),
     internalApiKeySet: hasConfiguredEnv('INTERNAL_API_KEY'),
     smtpUserSet: hasConfiguredEnv('SMTP_USER'),
     smtpPasswordSet: hasConfiguredEnv('SMTP_PASSWORD'),

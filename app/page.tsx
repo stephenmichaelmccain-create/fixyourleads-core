@@ -1,10 +1,39 @@
 import { LayoutShell } from './components/LayoutShell';
-import { safeCountSummary } from '@/lib/ui-data';
+import { safeCountSummary, safeWorkspaceOverview } from '@/lib/ui-data';
+import { notificationReadiness } from '@/lib/notifications';
+import { isGoogleMapsConfigured } from '@/lib/google-maps';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const summary = await safeCountSummary();
+  const overview = await safeWorkspaceOverview();
+  const notifications = notificationReadiness();
+  const googleMapsConfigured = isGoogleMapsConfigured();
+  const topWorkspaces = overview.workspaces.slice(0, 4);
+  const missingWorkspaceSetupCount = overview.workspaces.filter((workspace) => workspace.missingSetupCount > 0).length;
+  const launchChecklist = [
+    {
+      label: 'Company workspaces ready',
+      ready: missingWorkspaceSetupCount === 0 && overview.workspaces.length > 0,
+      detail:
+        overview.workspaces.length === 0
+          ? 'Add the first real client workspace.'
+          : missingWorkspaceSetupCount === 0
+            ? `${overview.workspaces.length} workspace${overview.workspaces.length === 1 ? '' : 's'} ready.`
+            : `${missingWorkspaceSetupCount} workspace${missingWorkspaceSetupCount === 1 ? '' : 's'} still missing routing or notification setup.`
+    },
+    {
+      label: 'Booking emails',
+      ready: notifications.smtpUserSet && notifications.smtpPasswordSet,
+      detail: notifications.smtpUserSet && notifications.smtpPasswordSet ? 'SMTP is configured.' : 'SMTP_USER and SMTP_PASSWORD are still missing.'
+    },
+    {
+      label: 'Lead sourcing',
+      ready: googleMapsConfigured,
+      detail: googleMapsConfigured ? 'Google Maps import is configured.' : 'Google Maps import still needs a configured API key.'
+    }
+  ];
   const surfaces = [
     {
       href: '/companies',
@@ -64,6 +93,57 @@ export default async function HomePage() {
             <li>Reply instantly by text or voice and keep the conversation attached to the right company.</li>
             <li>Book the appointment and notify the client from the same operating system.</li>
           </ol>
+        </section>
+      </div>
+
+      <div className="panel-grid">
+        <section className="panel panel-stack">
+          <div className="metric-label">Tonight&apos;s pilot launch</div>
+          <h2 className="section-title">Use the app to see what still blocks a same-night client rollout.</h2>
+          <div className="status-list">
+            {launchChecklist.map((item) => (
+              <div key={item.label} className="status-item">
+                <span className="status-label">
+                  <span className={`status-dot ${item.ready ? 'ok' : 'warn'}`} />
+                  {item.label}
+                </span>
+                <span>{item.detail}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel panel-stack">
+          <div className="metric-label">Workspaces that need attention</div>
+          <h2 className="section-title">Fix setup gaps first, then hand the operator a clean queue.</h2>
+          {topWorkspaces.length === 0 ? (
+            <div className="empty-state">No workspaces yet. Start by creating the first client in Companies.</div>
+          ) : (
+            <div className="workspace-list">
+              {topWorkspaces.map((workspace) => (
+                <a key={workspace.id} className="workspace-list-item" href={`/companies`}>
+                  <div className="workspace-list-header">
+                    <strong>{workspace.name}</strong>
+                    <span className={`status-chip ${workspace.missingSetupCount === 0 ? '' : 'status-chip-muted'}`}>
+                      <strong>Setup</strong> {workspace.missingSetupCount === 0 ? 'ready' : `${workspace.missingSetupCount} gap${workspace.missingSetupCount === 1 ? '' : 's'}`}
+                    </span>
+                  </div>
+                  <div className="inline-row text-muted">
+                    <span>Leads: {workspace.leads}</span>
+                    <span>Threads: {workspace.conversations}</span>
+                    <span>Bookings: {workspace.appointments}</span>
+                  </div>
+                  <div className="tiny-muted">
+                    {!workspace.telnyxInboundNumber
+                      ? 'Missing inbound routing number.'
+                      : !workspace.notificationEmail
+                        ? 'Missing client notification email.'
+                        : 'Ready for live operator work.'}
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 

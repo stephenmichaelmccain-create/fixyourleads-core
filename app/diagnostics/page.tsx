@@ -56,6 +56,8 @@ export default async function DiagnosticsPage() {
             <div className="key-value-card"><span className="key-value-label">REDIS_URL</span>{env.redisUrlSet ? 'set' : 'missing'}</div>
             <div className="key-value-card"><span className="key-value-label">TELNYX_API_KEY</span>{env.telnyxApiKeySet ? 'set' : 'missing'}</div>
             <div className="key-value-card"><span className="key-value-label">TELNYX_FROM_NUMBER</span>{env.telnyxFromNumberSet ? 'set' : 'missing'}</div>
+            <div className="key-value-card"><span className="key-value-label">TELNYX_VERIFY_SIGNATURES</span>{env.telnyxVerifySignaturesEnabled ? 'enabled' : 'disabled'}</div>
+            <div className="key-value-card"><span className="key-value-label">TELNYX_PUBLIC_KEY</span>{env.telnyxPublicKeySet ? 'set' : 'missing'}</div>
             <div className="key-value-card"><span className="key-value-label">INTERNAL_API_KEY</span>{env.internalApiKeySet ? 'set' : 'missing'}</div>
             <div className="key-value-card"><span className="key-value-label">SENTRY_DSN</span>{health.observability.sentryDsnSet ? 'set' : 'missing (recommended)'}</div>
             <div className="key-value-card"><span className="key-value-label">SMTP_USER</span>{env.smtpUserSet ? 'set' : 'missing (optional)'}</div>
@@ -73,6 +75,15 @@ export default async function DiagnosticsPage() {
           <div className="key-value-card"><span className="key-value-label">Commit</span>{health.deployment.commitSha || 'unknown'}</div>
           <div className="key-value-card"><span className="key-value-label">Uptime</span>{`${health.deployment.uptimeSeconds}s`}</div>
           <div className="key-value-card"><span className="key-value-label">Sentry env</span>{health.observability.sentryEnvironment || 'unset'}</div>
+        </div>
+      </section>
+
+      <section className="panel panel-stack">
+        <div className="metric-label">Telnyx pilot readiness</div>
+        <div className="key-value-grid">
+          <div className="key-value-card"><span className="key-value-label">Companies</span>{health.telnyx.companiesTotal}</div>
+          <div className="key-value-card"><span className="key-value-label">Routing ready</span>{health.telnyx.companiesWithRouting}</div>
+          <div className="key-value-card"><span className="key-value-label">Routing missing</span>{health.telnyx.companiesMissingRouting}</div>
         </div>
       </section>
 
@@ -98,6 +109,14 @@ export default async function DiagnosticsPage() {
           <li className="status-item">
             <span className="status-label"><span className={`status-dot ${statusClass(health.checks.telnyxFromNumber.status)}`}></span>TELNYX_FROM_NUMBER</span>
             <span className="text-muted">{statusText(health.checks.telnyxFromNumber.status)}{health.checks.telnyxFromNumber.detail ? ` (${health.checks.telnyxFromNumber.detail})` : ''}</span>
+          </li>
+          <li className="status-item">
+            <span className="status-label"><span className={`status-dot ${statusClass(health.checks.telnyxWebhookVerification.status)}`}></span>Telnyx webhook verification</span>
+            <span className="text-muted">{statusText(health.checks.telnyxWebhookVerification.status)}{health.checks.telnyxWebhookVerification.detail ? ` (${health.checks.telnyxWebhookVerification.detail})` : ''}</span>
+          </li>
+          <li className="status-item">
+            <span className="status-label"><span className={`status-dot ${statusClass(health.checks.telnyxCompanyRouting.status)}`}></span>Company reply routing</span>
+            <span className="text-muted">{statusText(health.checks.telnyxCompanyRouting.status)}{health.checks.telnyxCompanyRouting.detail ? ` (${health.checks.telnyxCompanyRouting.detail})` : ''}</span>
           </li>
           <li className="status-item">
             <span className="status-label"><span className={`status-dot ${statusClass(health.checks.internalApiKey.status)}`}></span>INTERNAL_API_KEY</span>
