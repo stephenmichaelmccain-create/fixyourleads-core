@@ -4,11 +4,23 @@ import { getBookingQueue } from '@/lib/queue';
 import { getRedis } from '@/lib/redis';
 import { db } from '@/lib/db';
 
+const STOP_KEYWORDS = new Set(['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit', 'unsub']);
+const HELP_KEYWORDS = new Set(['help']);
+const WRONG_NUMBER_PHRASES = new Set(['wrong number', 'wrong person']);
+
+function normalizeInboundText(text: unknown) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 new Worker('message_queue', async (job) => {
   const { companyId, contactId, text } = job.data;
-  const normalized = String(text).toLowerCase();
+  const normalized = normalizeInboundText(text);
 
-  if (normalized.includes('stop') || normalized.includes('unsubscribe') || normalized.includes('wrong number')) {
+  if (STOP_KEYWORDS.has(normalized) || WRONG_NUMBER_PHRASES.has(normalized)) {
     await db.lead.updateMany({
       where: { companyId, contactId },
       data: {
@@ -27,7 +39,18 @@ new Worker('message_queue', async (job) => {
     return;
   }
 
-  if (normalized.includes('yes') || normalized.includes('book')) {
+  if (HELP_KEYWORDS.has(normalized)) {
+    await db.eventLog.create({
+      data: {
+        companyId,
+        eventType: 'contact_requested_help',
+        payload: { contactId, text }
+      }
+    });
+    return;
+  }
+
+  if (/\b(yes|book|booking)\b/.test(normalized)) {
     await getBookingQueue().add('booking_worker', { companyId, contactId });
     await db.eventLog.create({ data: { companyId, eventType: 'booking_intent_detected', payload: { contactId, text } } });
   }

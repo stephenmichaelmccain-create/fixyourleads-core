@@ -40,7 +40,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = rawBody ? JSON.parse(rawBody) : null;
+  let body: unknown = null;
+
+  try {
+    body = rawBody ? JSON.parse(rawBody) : null;
+  } catch {
+    return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
+  }
+
   const normalized = normalizeTelnyxWebhook(body);
 
   if (!normalized) {
