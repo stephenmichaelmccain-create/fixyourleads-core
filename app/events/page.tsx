@@ -6,9 +6,20 @@ import { safeLoad } from '@/lib/ui-data';
 export const dynamic = 'force-dynamic';
 
 type EventCategory = 'all' | 'messaging' | 'booking' | 'lead' | 'suppression' | 'system';
+type EventActionTone = 'primary' | 'secondary' | 'ghost';
+type EventActionLink = {
+  label: string;
+  href: string;
+  tone: EventActionTone;
+};
 
 function readString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function readIdentifier(value: unknown) {
+  const text = readString(value);
+  return text && /^[a-z0-9]+$/i.test(text) ? text : null;
 }
 
 function getEventCategory(eventType: string): Exclude<EventCategory, 'all'> {
@@ -96,6 +107,146 @@ function getEventSummary(eventType: string, payload: Record<string, unknown>) {
     default:
       return `Raw event captured for audit visibility.`;
   }
+}
+
+function actionClassName(tone: EventActionTone) {
+  if (tone === 'primary') {
+    return 'button';
+  }
+
+  if (tone === 'secondary') {
+    return 'button-secondary';
+  }
+
+  return 'button-ghost';
+}
+
+function dedupeEventActions(actions: EventActionLink[]) {
+  const seen = new Set<string>();
+
+  return actions.filter((action) => {
+    const key = `${action.label}:${action.href}`;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function buildEventActionLinks(
+  companyId: string,
+  eventType: string,
+  category: Exclude<EventCategory, 'all'>,
+  payload: Record<string, unknown>
+) {
+  const relatedCompanyId = readIdentifier(payload.companyId) || companyId;
+  const leadId = readIdentifier(payload.leadId);
+  const conversationId = readIdentifier(payload.conversationId);
+  const appointmentId = readIdentifier(payload.appointmentId);
+  const contactId = readIdentifier(payload.contactId);
+  const actions: EventActionLink[] = [];
+
+  if (conversationId) {
+    actions.push({
+      label: category === 'booking' ? 'Open thread' : 'Open conversation',
+      href: `/conversations/${conversationId}`,
+      tone: 'primary'
+    });
+  } else if (contactId && (category === 'messaging' || category === 'booking' || category === 'suppression')) {
+    actions.push({
+      label: 'Open conversation queue',
+      href: `/conversations?companyId=${encodeURIComponent(relatedCompanyId)}`,
+      tone: 'primary'
+    });
+  }
+
+  if (leadId) {
+    actions.push({
+      label: 'Open lead',
+      href: `/leads/${leadId}`,
+      tone: actions.length === 0 ? 'primary' : 'secondary'
+    });
+  } else if (category === 'lead' || category === 'suppression') {
+    actions.push({
+      label: 'Open leads',
+      href: `/leads?companyId=${encodeURIComponent(relatedCompanyId)}`,
+      tone: actions.length === 0 ? 'primary' : 'secondary'
+    });
+  }
+
+  if (appointmentId || category === 'booking') {
+    actions.push({
+      label: appointmentId ? 'Open bookings' : 'Booking queue',
+      href: `/bookings?companyId=${encodeURIComponent(relatedCompanyId)}`,
+      tone: actions.length === 0 ? 'primary' : 'secondary'
+    });
+  }
+
+  if (eventType.startsWith('google_maps_')) {
+    actions.push({
+      label: 'Back to import',
+      href: `/leads?companyId=${encodeURIComponent(relatedCompanyId)}`,
+      tone: actions.length === 0 ? 'primary' : 'ghost'
+    });
+  }
+
+  if (
+    eventType === 'lead_suppressed' ||
+    eventType === 'lead_unsuppressed' ||
+    eventType === 'contact_requested_help'
+  ) {
+    actions.push({
+      label: 'Review company setup',
+      href: `/companies#company-${encodeURIComponent(relatedCompanyId)}`,
+      tone: 'ghost'
+    });
+  }
+
+  return dedupeEventActions(actions);
+}
+
+function buildEventContextFacts(payload: Record<string, unknown>) {
+  const facts: Array<{ label: string; value: string }> = [];
+  const leadId = readIdentifier(payload.leadId);
+  const conversationId = readIdentifier(payload.conversationId);
+  const appointmentId = readIdentifier(payload.appointmentId);
+  const matchedBy = readString(payload.matchedBy);
+  const deliveryStatus = readString(payload.deliveryStatus);
+  const confirmationStatus = readString(payload.confirmationStatus);
+  const notificationStatus = readString(payload.notificationStatus);
+
+  if (conversationId) {
+    facts.push({ label: 'Conversation', value: conversationId });
+  }
+
+  if (leadId) {
+    facts.push({ label: 'Lead', value: leadId });
+  }
+
+  if (appointmentId) {
+    facts.push({ label: 'Booking', value: appointmentId });
+  }
+
+  if (matchedBy) {
+    facts.push({ label: 'Matched by', value: matchedBy });
+  }
+
+  if (deliveryStatus) {
+    facts.push({ label: 'Delivery', value: deliveryStatus });
+  }
+
+  if (confirmationStatus) {
+    facts.push({ label: 'Confirmation', value: confirmationStatus });
+  }
+
+  if (notificationStatus) {
+    facts.push({ label: 'Clinic email', value: notificationStatus });
+  }
+
+  return facts.slice(0, 4);
 }
 
 export default async function EventsPage({
@@ -221,6 +372,8 @@ export default async function EventsPage({
         {filteredEvents.map((event) => {
           const payload = typeof event.payload === 'object' && event.payload && !Array.isArray(event.payload) ? event.payload as Record<string, unknown> : {};
           const category = getEventCategory(event.eventType);
+          const actions = buildEventActionLinks(companyId, event.eventType, category, payload);
+          const contextFacts = buildEventContextFacts(payload);
 
           return (
           <section key={event.id} className="record-card">
@@ -237,6 +390,24 @@ export default async function EventsPage({
                 <div className="tiny-muted">{new Date(event.createdAt).toLocaleString()}</div>
               </div>
             </div>
+            {contextFacts.length > 0 && (
+              <div className="inline-row text-muted">
+                {contextFacts.map((fact) => (
+                  <span key={`${event.id}-${fact.label}`}>
+                    {fact.label}: {fact.value}
+                  </span>
+                ))}
+              </div>
+            )}
+            {actions.length > 0 && (
+              <div className="record-links">
+                {actions.map((action) => (
+                  <a key={`${event.id}-${action.label}-${action.href}`} className={actionClassName(action.tone)} href={action.href}>
+                    {action.label}
+                  </a>
+                ))}
+              </div>
+            )}
             <details className="panel stack">
               <summary className="tiny-muted">Raw payload</summary>
               <pre className="code-block">{JSON.stringify(event.payload, null, 2)}</pre>
