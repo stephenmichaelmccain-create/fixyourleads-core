@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { LeadStatusButton } from '../LeadStatusButton';
 import { safeLoad } from '@/lib/ui-data';
+import { normalizePhone } from '@/lib/phone';
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ leadId: string }> }) {
   const { leadId } = await params;
@@ -10,7 +11,15 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
       db.lead.findUnique({
         where: { id: leadId },
         include: {
-          contact: true,
+          contact: {
+            include: {
+              _count: {
+                select: {
+                  leads: true
+                }
+              }
+            }
+          },
           company: {
             select: {
               name: true
@@ -21,7 +30,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
     null
   );
   const conversation = lead
-    ? await safeLoad(
+      ? await safeLoad(
         () =>
           db.conversation.findUnique({
             where: {
@@ -35,6 +44,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
         null
       )
     : null;
+  const normalizedPhone = normalizePhone(lead?.contact?.phone || '');
 
   if (!lead) {
     return (
@@ -76,6 +86,16 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
                 Open thread
               </a>
             )}
+            {normalizedPhone && (
+              <>
+                <a className="button-secondary" href={`tel:${normalizedPhone}`}>
+                  Call
+                </a>
+                <a className="button-ghost" href={`sms:${normalizedPhone}`}>
+                  Open text
+                </a>
+              </>
+            )}
             <LeadStatusButton leadId={lead.id} companyId={lead.companyId} />
             <LeadStatusButton leadId={lead.id} companyId={lead.companyId} status="SUPPRESSED" label="Suppress lead" />
           </div>
@@ -87,6 +107,10 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
         <div className="key-value-card"><span className="key-value-label">Status</span>{lead.status}</div>
         <div className="key-value-card"><span className="key-value-label">Contact</span>{lead.contact?.name || 'Unnamed'}</div>
         <div className="key-value-card"><span className="key-value-label">Phone</span>{lead.contact?.phone || 'No phone'}</div>
+        <div className="key-value-card">
+          <span className="key-value-label">Contact touches</span>
+          <span>{lead.contact?._count?.leads || 0}</span>
+        </div>
         <div className="key-value-card"><span className="key-value-label">Company</span>{lead.company?.name || 'Unknown company'}</div>
         <div className="key-value-card"><span className="key-value-label">Company ID</span><span className="tiny-muted">{lead.companyId}</span></div>
         {lead.source && <div className="key-value-card"><span className="key-value-label">Source</span>{lead.source}</div>}

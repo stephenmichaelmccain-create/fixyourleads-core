@@ -4,6 +4,7 @@ import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
 import { LeadStatusButton } from './LeadStatusButton';
 import { safeLoad } from '@/lib/ui-data';
 import { isGoogleMapsConfigured } from '@/lib/google-maps';
+import { normalizePhone } from '@/lib/phone';
 import { importGoogleMapsLeadsAction, quickAddLeadAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -61,7 +62,17 @@ export default async function LeadsPage({
         () =>
           db.lead.findMany({
             where: { companyId },
-            include: { contact: true },
+            include: {
+              contact: {
+                include: {
+                  _count: {
+                    select: {
+                      leads: true
+                    }
+                  }
+                }
+              }
+            },
             orderBy: { createdAt: 'desc' },
             take: 100
           }),
@@ -70,8 +81,37 @@ export default async function LeadsPage({
     : [];
   const visibleLeads = status ? leads.filter((lead) => lead.status === status) : leads;
   const conversationByContactId = new Map(conversations.map((conversation) => [conversation.contactId, conversation.id]));
-  const actionableLeads = visibleLeads.filter((lead) => lead.status !== 'SUPPRESSED' && lead.status !== 'BOOKED');
-  const nextLead = actionableLeads[0] || visibleLeads[0] || null;
+  const priorityRank = (leadStatus: string) => {
+    if (leadStatus === 'NEW') {
+      return 0;
+    }
+
+    if (leadStatus === 'CONTACTED') {
+      return 1;
+    }
+
+    if (leadStatus === 'REPLIED') {
+      return 2;
+    }
+
+    if (leadStatus === 'BOOKED') {
+      return 3;
+    }
+
+    return 4;
+  };
+  const callableLeads = visibleLeads.filter((lead) => lead.status !== 'SUPPRESSED' && lead.status !== 'BOOKED');
+  const sortedWorkQueueLeads = [...callableLeads].sort((left, right) => {
+    const leftRank = priorityRank(left.status);
+    const rightRank = priorityRank(right.status);
+
+    if (leftRank !== rightRank) {
+      return leftRank - rightRank;
+    }
+
+    return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+  });
+  const nextLead = sortedWorkQueueLeads[0] || visibleLeads[0] || null;
   const statusCounts = {
     NEW: leads.filter((lead) => lead.status === 'NEW').length,
     CONTACTED: leads.filter((lead) => lead.status === 'CONTACTED').length,
@@ -173,19 +213,29 @@ export default async function LeadsPage({
                 <span>Contacted: {statusCounts.CONTACTED}</span>
                 <span>Replied: {statusCounts.REPLIED}</span>
                 <span>Booked: {statusCounts.BOOKED}</span>
-                <span>Suppressed: {statusCounts.SUPPRESSED}</span>
+              <span>Suppressed: {statusCounts.SUPPRESSED}</span>
               </div>
             </div>
-            <a
-              className="button"
-              href={
-                conversationByContactId.get(nextLead.contactId)
-                  ? `/conversations/${conversationByContactId.get(nextLead.contactId)}`
-                  : `/leads/${nextLead.id}`
-              }
-            >
-              {conversationByContactId.get(nextLead.contactId) ? 'Open next thread' : 'Open next lead'}
-            </a>
+            <div className="inline-actions">
+              {normalizePhone(nextLead.contact?.phone || '') && (
+                <a className="button-secondary" href={`tel:${normalizePhone(nextLead.contact?.phone || '')}`}>
+                  Call next lead
+                </a>
+              )}
+              <a
+                className="button"
+                href={
+                  conversationByContactId.get(nextLead.contactId)
+                    ? `/conversations/${conversationByContactId.get(nextLead.contactId)}`
+                    : `/leads/${nextLead.id}`
+                }
+              >
+                {conversationByContactId.get(nextLead.contactId) ? 'Open next thread' : 'Open next lead'}
+              </a>
+              <a className="button-ghost" href={`/leads/${nextLead.id}`}>
+                Open lead record
+              </a>
+            </div>
           </div>
         </section>
       )}
@@ -243,9 +293,13 @@ export default async function LeadsPage({
               </span>
             </div>
             <div className="inline-row text-muted">
-              <span>Lead ID: {lead.id}</span>
+              {lead.contact?._count?.leads ? <span>Contact touches: {lead.contact._count.leads}</span> : null}
               {lead.source && <span>Source: {lead.source}</span>}
               {lead.sourceExternalId && <span>External ID: {lead.sourceExternalId}</span>}
+            </div>
+            <div className="inline-row text-muted">
+              <span>Lead ID: {lead.id}</span>
+              <span>Company: {lead.companyId}</span>
             </div>
             <div className="record-links">
               {conversationByContactId.get(lead.contactId) ? (
@@ -257,9 +311,16 @@ export default async function LeadsPage({
                   Open lead
                 </a>
               )}
-              <a className="button-ghost" href={`/leads/${lead.id}`}>
-                Open lead
-              </a>
+              {normalizePhone(lead.contact?.phone || '') && (
+                <>
+                  <a className="button-ghost" href={`tel:${normalizePhone(lead.contact?.phone || '')}`}>
+                    Call clinic
+                  </a>
+                  <a className="button-link" href={`sms:${normalizePhone(lead.contact?.phone || '')}`}>
+                    Open text
+                  </a>
+                </>
+              )}
               <LeadStatusButton leadId={lead.id} companyId={lead.companyId} />
             </div>
           </section>

@@ -3,6 +3,7 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 import { safeLoad } from '@/lib/ui-data';
 import { notificationReadiness } from '@/lib/notifications';
 import { bookConversationAction, sendConversationMessageAction } from './actions';
+import { normalizePhone } from '@/lib/phone';
 
 function formatDateTime(value: Date | string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -132,6 +133,17 @@ export default async function ConversationDetailPage({
       }),
     []
   );
+  const associatedLead = await safeLoad(
+    () =>
+      db.lead.findFirst({
+        where: {
+          companyId: conversation.companyId,
+          contactId: conversation.contactId
+        },
+        select: { id: true }
+      }),
+    null
+  );
   const readiness = notificationReadiness();
   const lastMessage = conversation.messages[conversation.messages.length - 1] || null;
   const threadState = !lastMessage ? 'New thread' : lastMessage.direction === 'INBOUND' ? 'Needs reply' : 'Waiting on contact';
@@ -148,6 +160,7 @@ export default async function ConversationDetailPage({
       : telnyxMode === 'shared'
         ? 'Outbound SMS can run tonight, but replies are still on the shared fallback sender.'
         : 'Do not trust live SMS here until a shared sender or dedicated inbound number is configured.';
+  const normalizedPhone = normalizePhone(conversation.contact?.phone || '');
 
   return (
     <LayoutShell
@@ -168,6 +181,28 @@ export default async function ConversationDetailPage({
       )}
 
       <div className="conversation-layout">
+        <section className="panel panel-stack">
+          <div className="metric-label">Operator actions</div>
+          <h2 className="form-title">Work this lead in one screen.</h2>
+          <div className="inline-actions">
+            {normalizedPhone && (
+              <>
+                <a className="button" href={`tel:${normalizedPhone}`}>
+                  Call clinic
+                </a>
+                <a className="button-secondary" href={`sms:${normalizedPhone}`}>
+                  Open SMS
+                </a>
+              </>
+            )}
+            {associatedLead && (
+              <a className="button-ghost" href={`/leads/${associatedLead.id}`}>
+                Lead record
+              </a>
+            )}
+          </div>
+        </section>
+
         <section className="panel panel-stack">
           <div className="record-header">
             <div className="panel-stack">

@@ -3,6 +3,7 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
 import { safeLoad } from '@/lib/ui-data';
 import { bookingNotificationReadiness } from '@/lib/notifications';
+import { normalizePhone } from '@/lib/phone';
 
 export const dynamic = 'force-dynamic';
 
@@ -207,6 +208,7 @@ export default async function BookingsPage({
               const conversationHref = appointment.contact?.conversations?.[0]?.id
                 ? `/conversations/${appointment.contact.conversations[0].id}`
                 : `/conversations?companyId=${appointment.companyId}`;
+              const normalizedPhone = normalizePhone(appointment.contact?.phone || '');
 
               return (
                 <section key={appointment.id} className="record-card">
@@ -247,6 +249,26 @@ export default async function BookingsPage({
                     <a className="button-secondary" href={`/events?companyId=${appointment.companyId}`}>
                       View audit trail
                     </a>
+                    {normalizedPhone && (
+                      <>
+                        <a className="button-ghost" href={`tel:${normalizedPhone}`}>
+                          Call clinic
+                        </a>
+                        <a className="button-link" href={`sms:${normalizedPhone}`}>
+                          Text clinic
+                        </a>
+                      </>
+                    )}
+                    {selectedCompany?.notificationEmail && (
+                      <a
+                        className="button-link"
+                        href={`mailto:${selectedCompany.notificationEmail}?subject=${encodeURIComponent(
+                          `Booking confirmation ${formatDateTime(appointment.startTime)}`
+                        )}`}
+                      >
+                        Email clinic
+                      </a>
+                    )}
                   </div>
                 </section>
               );
@@ -271,6 +293,7 @@ export default async function BookingsPage({
               const conversationHref = appointment.contact?.conversations?.[0]?.id
                 ? `/conversations/${appointment.contact.conversations[0].id}`
                 : `/conversations?companyId=${appointment.companyId}`;
+              const normalizedPhone = normalizePhone(appointment.contact?.phone || '');
 
               return (
                 <section key={appointment.id} className="record-card">
@@ -295,6 +318,26 @@ export default async function BookingsPage({
                     <a className="button-secondary" href={`/events?companyId=${appointment.companyId}`}>
                       View audit trail
                     </a>
+                    {normalizedPhone && (
+                      <>
+                        <a className="button-ghost" href={`tel:${normalizedPhone}`}>
+                          Call clinic
+                        </a>
+                        <a className="button-link" href={`sms:${normalizedPhone}`}>
+                          Text clinic
+                        </a>
+                      </>
+                    )}
+                    {selectedCompany?.notificationEmail && (
+                      <a
+                        className="button-link"
+                        href={`mailto:${selectedCompany.notificationEmail}?subject=${encodeURIComponent(
+                          `Booking follow-up ${formatDateTime(appointment.startTime)}`
+                        )}`}
+                      >
+                        Email clinic
+                      </a>
+                    )}
                   </div>
                 </section>
               );
