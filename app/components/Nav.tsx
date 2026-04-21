@@ -1,9 +1,11 @@
 type NavProps = {
   companyId?: string;
+  companyName?: string;
+  usingRememberedCompany?: boolean;
   current?: 'home' | 'companies' | 'diagnostics' | 'leads' | 'conversations' | 'bookings' | 'events';
 };
 
-export function Nav({ companyId, current }: NavProps) {
+export function Nav({ companyId, companyName, usingRememberedCompany, current }: NavProps) {
   const withCompany = (path: string) =>
     companyId ? `${path}?companyId=${encodeURIComponent(companyId)}` : path;
 
@@ -33,6 +35,11 @@ export function Nav({ companyId, current }: NavProps) {
         </a>
       </nav>
       <div className="hero-nav-utility">
+        {usingRememberedCompany && companyName && (
+          <span className="nav-context-label">
+            Using {companyName}
+          </span>
+        )}
         <a className={`nav-utility-link${current === 'diagnostics' ? ' is-active' : ''}`} href="/diagnostics">
           Diagnostics
         </a>

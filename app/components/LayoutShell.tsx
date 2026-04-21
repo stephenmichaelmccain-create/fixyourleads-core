@@ -1,7 +1,9 @@
 import { ReactNode } from 'react';
+import { PersistCompanyContext } from './PersistCompanyContext';
 import { Nav } from './Nav';
+import { getPersistedCompanyContext } from './company-context.server';
 
-export function LayoutShell({
+export async function LayoutShell({
   title,
   description,
   children,
@@ -16,9 +18,15 @@ export function LayoutShell({
   companyName?: string;
   section?: 'home' | 'companies' | 'diagnostics' | 'leads' | 'conversations' | 'bookings' | 'events';
 }) {
+  const persistedCompany = await getPersistedCompanyContext();
+  const activeCompanyId = companyId || persistedCompany?.companyId;
+  const activeCompanyName = companyName || persistedCompany?.companyName;
+  const usingRememberedCompany = !companyId && Boolean(persistedCompany?.companyId);
+
   return (
     <main className="app-shell">
       <section className="shell-hero">
+        {companyId && <PersistCompanyContext companyId={companyId} companyName={companyName} />}
         <div className="hero-eyebrow">Fix Your Leads Control</div>
         <h1 className="hero-title">{title}</h1>
         <p className="hero-copy">
@@ -32,23 +40,28 @@ export function LayoutShell({
           <span className="hero-chip">
             <strong>Focus</strong> Text, voice, booking
           </span>
-          {companyName && (
+          {activeCompanyName && (
             <span className="hero-chip">
-              <strong>Company</strong> {companyName}
+              <strong>{usingRememberedCompany ? 'Last workspace' : 'Company'}</strong> {activeCompanyName}
             </span>
           )}
-          {companyId && companyName && (
+          {activeCompanyId && activeCompanyName && (
             <span className="hero-chip hero-chip-subtle">
-              <strong>ID</strong> {companyId}
+              <strong>ID</strong> {activeCompanyId}
             </span>
           )}
-          {companyId && !companyName && (
+          {activeCompanyId && !activeCompanyName && (
             <span className="hero-chip">
-              <strong>Company</strong> {companyId}
+              <strong>{usingRememberedCompany ? 'Last workspace' : 'Company'}</strong> {activeCompanyId}
             </span>
           )}
         </div>
-        <Nav companyId={companyId} current={section} />
+        <Nav
+          companyId={activeCompanyId}
+          companyName={activeCompanyName}
+          usingRememberedCompany={usingRememberedCompany}
+          current={section}
+        />
       </section>
 
       <section className="shell-body">

@@ -1,4 +1,6 @@
 import { LayoutShell } from './components/LayoutShell';
+import { getPersistedCompanyContext } from './components/company-context.server';
+import { withCompanyContext } from './components/company-context.shared';
 import { safeCountSummary, safeWorkspaceOverview } from '@/lib/ui-data';
 import { notificationReadiness } from '@/lib/notifications';
 import { isGoogleMapsConfigured } from '@/lib/google-maps';
@@ -6,6 +8,7 @@ import { isGoogleMapsConfigured } from '@/lib/google-maps';
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
+  const persistedCompany = await getPersistedCompanyContext();
   const summary = await safeCountSummary();
   const overview = await safeWorkspaceOverview();
   const notifications = notificationReadiness();
@@ -94,8 +97,8 @@ export default async function HomePage() {
             <a className="button" href="/companies">
               Open companies
             </a>
-            <a className="button-secondary" href="/conversations">
-              Work conversations
+            <a className="button-secondary" href={withCompanyContext('/conversations', persistedCompany?.companyId)}>
+              {persistedCompany?.companyName ? `Resume ${persistedCompany.companyName}` : 'Work conversations'}
             </a>
           </div>
         </section>
@@ -108,6 +111,11 @@ export default async function HomePage() {
             <li>Reply instantly by text or voice and keep the conversation attached to the right company.</li>
             <li>Book the appointment and notify the client from the same operating system.</li>
           </ol>
+          {persistedCompany && (
+            <div className="text-muted">
+              Last workspace stays sticky across the main surfaces, so the fastest path back into work is {persistedCompany.companyName || persistedCompany.companyId}.
+            </div>
+          )}
         </section>
       </div>
 
@@ -137,8 +145,8 @@ export default async function HomePage() {
               </a>
             )}
             {dailyWorkspace && (
-              <a className="button-secondary" href={`/conversations?companyId=${dailyWorkspace.id}`}>
-                Work {dailyWorkspace.name}
+              <a className="button-secondary" href={withCompanyContext(`/conversations?companyId=${dailyWorkspace.id}`, persistedCompany?.companyId || dailyWorkspace.id)}>
+                Work {persistedCompany?.companyName || dailyWorkspace.name}
               </a>
             )}
             <a className="button-ghost" href="/bookings">

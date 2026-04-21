@@ -178,6 +178,8 @@ select {
 .hero-nav-utility {
   display: flex;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .nav-utility-link {
@@ -191,6 +193,14 @@ select {
 .nav-utility-link:hover,
 .nav-utility-link.is-active {
   color: var(--fyl-white);
+}
+
+.nav-context-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .nav-pill {
