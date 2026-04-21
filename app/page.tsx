@@ -41,6 +41,7 @@ export default async function HomePage() {
 
       <p>Available pages:</p>
       <ul>
+        <li><a href="/companies">Companies</a></li>
         <li><a href="/leads">Leads</a></li>
         <li><a href="/conversations">Conversations</a></li>
         <li><a href="/events">Events</a></li>

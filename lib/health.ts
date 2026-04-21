@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notificationReadiness } from '@/lib/notifications';
 import { getRedis } from '@/lib/redis';
 import { envPresence, missingRequiredEnvVars } from '@/lib/runtime-safe';
 
@@ -51,6 +52,7 @@ async function checkRedis(redisUrlSet: boolean): Promise<DependencyCheck> {
 
 export async function getRuntimeHealth() {
   const env = envPresence();
+  const notifications = notificationReadiness();
   const [database, redis] = await Promise.all([
     checkDatabase(env.databaseUrlSet),
     checkRedis(env.redisUrlSet)
@@ -94,6 +96,13 @@ export async function getRuntimeHealth() {
         : ({
             status: 'missing_config',
             detail: 'INTERNAL_API_KEY is missing'
+          } satisfies DependencyCheck),
+      notifications:
+        notifications.smtpUserSet && notifications.smtpPasswordSet
+          ? ({ status: 'ok', detail: 'SMTP notification path configured' } satisfies DependencyCheck)
+          : ({
+              status: 'missing_config',
+              detail: 'SMTP_USER and SMTP_PASSWORD are optional, but required for booking email notifications'
           } satisfies DependencyCheck)
     }
   };

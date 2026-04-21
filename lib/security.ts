@@ -3,7 +3,9 @@ import { z } from 'zod';
 export const leadWebhookSchema = z.object({
   companyId: z.string().min(1),
   name: z.string().min(1).optional(),
-  phone: z.string().min(7)
+  phone: z.string().min(7),
+  source: z.string().min(1).optional(),
+  sourceExternalId: z.string().min(1).optional()
 });
 
 export const telnyxWebhookSchema = z.object({

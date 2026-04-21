@@ -12,6 +12,6 @@ export async function POST(request: NextRequest) {
   const phone = body.phone || '+15555550123';
   const name = body.name || 'Sample Lead';
 
-  const result = await createLeadFlow(companyId, phone, name);
+  const result = await createLeadFlow({ companyId, phone, name, source: 'sample_seed' });
   return NextResponse.json({ ok: true, result });
 }

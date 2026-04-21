@@ -10,7 +10,9 @@ datasource db {
 enum LeadStatus {
   NEW
   CONTACTED
+  REPLIED
   BOOKED
+  SUPPRESSED
 }
 
 enum MessageDirection {
@@ -19,16 +21,17 @@ enum MessageDirection {
 }
 
 model Company {
-  id          String         @id @default(cuid())
-  name        String
-  createdAt   DateTime       @default(now())
-  contacts    Contact[]
-  leads       Lead[]
-  conversations Conversation[]
-  messages    Message[]
-  appointments Appointment[]
-  events      EventLog[]
-  keys        IdempotencyKey[]
+  id                String         @id @default(cuid())
+  name              String
+  notificationEmail String?
+  createdAt         DateTime       @default(now())
+  contacts          Contact[]
+  leads             Lead[]
+  conversations     Conversation[]
+  messages          Message[]
+  appointments      Appointment[]
+  events            EventLog[]
+  keys              IdempotencyKey[]
 }
 
 model Contact {
@@ -46,13 +49,19 @@ model Contact {
 }
 
 model Lead {
-  id         String     @id @default(cuid())
-  companyId  String
-  contactId  String
-  status     LeadStatus @default(NEW)
-  createdAt  DateTime   @default(now())
-  company    Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contact    Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  id                String     @id @default(cuid())
+  companyId         String
+  contactId         String
+  status            LeadStatus @default(NEW)
+  source            String?
+  sourceExternalId  String?
+  lastContactedAt   DateTime?
+  lastRepliedAt     DateTime?
+  suppressedAt      DateTime?
+  suppressionReason String?
+  createdAt         DateTime   @default(now())
+  company           Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact           Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
 }
 
 model Conversation {

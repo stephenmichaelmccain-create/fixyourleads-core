@@ -19,7 +19,10 @@ export function envPresence() {
     redisUrlSet: hasConfiguredEnv('REDIS_URL'),
     telnyxApiKeySet: hasConfiguredEnv('TELNYX_API_KEY'),
     telnyxFromNumberSet: hasConfiguredEnv('TELNYX_FROM_NUMBER'),
-    internalApiKeySet: hasConfiguredEnv('INTERNAL_API_KEY')
+    internalApiKeySet: hasConfiguredEnv('INTERNAL_API_KEY'),
+    smtpUserSet: hasConfiguredEnv('SMTP_USER'),
+    smtpPasswordSet: hasConfiguredEnv('SMTP_PASSWORD'),
+    notificationFromSet: hasConfiguredEnv('NOTIFICATION_FROM_EMAIL') || hasConfiguredEnv('SMTP_USER')
   };
 }
 

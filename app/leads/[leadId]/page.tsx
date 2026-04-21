@@ -29,11 +29,15 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
       <p><strong>Contact:</strong> {lead.contact?.name || 'Unnamed'}</p>
       <p><strong>Phone:</strong> {lead.contact?.phone}</p>
       <p><strong>Company ID:</strong> {lead.companyId}</p>
+      {lead.source && <p><strong>Source:</strong> {lead.source}</p>}
 
-      <LeadStatusButton leadId={lead.id} companyId={lead.companyId} />
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <LeadStatusButton leadId={lead.id} companyId={lead.companyId} />
+        <LeadStatusButton leadId={lead.id} companyId={lead.companyId} status="SUPPRESSED" label="Suppress lead" />
+      </div>
 
       <p style={{ color: '#666', marginTop: 16 }}>
-        Next useful step: add a server action for manual outbound follow-up messages using the existing contact + company model.
+        Next useful step: open the company conversation list and manage the text flow from there.
       </p>
     </LayoutShell>
   );

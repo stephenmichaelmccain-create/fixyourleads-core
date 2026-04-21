@@ -33,6 +33,8 @@ export default async function DiagnosticsPage() {
         <li>TELNYX_API_KEY: {env.telnyxApiKeySet ? 'set' : 'missing'}</li>
         <li>TELNYX_FROM_NUMBER: {env.telnyxFromNumberSet ? 'set' : 'missing'}</li>
         <li>INTERNAL_API_KEY: {env.internalApiKeySet ? 'set' : 'missing'}</li>
+        <li>SMTP_USER: {env.smtpUserSet ? 'set' : 'missing (optional)'}</li>
+        <li>SMTP_PASSWORD: {env.smtpPasswordSet ? 'set' : 'missing (optional)'}</li>
       </ul>
 
       <p>Dependency checks:</p>
@@ -43,6 +45,7 @@ export default async function DiagnosticsPage() {
         <li>TELNYX_API_KEY: {statusText(health.checks.telnyxApiKey.status)}{health.checks.telnyxApiKey.detail ? ` (${health.checks.telnyxApiKey.detail})` : ''}</li>
         <li>TELNYX_FROM_NUMBER: {statusText(health.checks.telnyxFromNumber.status)}{health.checks.telnyxFromNumber.detail ? ` (${health.checks.telnyxFromNumber.detail})` : ''}</li>
         <li>INTERNAL_API_KEY: {statusText(health.checks.internalApiKey.status)}{health.checks.internalApiKey.detail ? ` (${health.checks.internalApiKey.detail})` : ''}</li>
+        <li>Booking notifications: {statusText(health.checks.notifications.status)}{health.checks.notifications.detail ? ` (${health.checks.notifications.detail})` : ''}</li>
       </ul>
 
       {health.missingRequiredEnv.length > 0 && (

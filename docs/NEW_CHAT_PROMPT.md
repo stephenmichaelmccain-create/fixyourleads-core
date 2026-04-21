@@ -56,6 +56,11 @@ Already established:
   - Redis
 - Production also has a demo company and sample lead/conversation/event for
   smoke testing.
+- The app now has:
+  - a Companies page
+  - manual conversation send/book controls
+  - duplicate lead suppression by company/contact
+  - optional SMTP-based booking notifications
 
 Current product target:
 - lightweight multi-tenant CRM for clinic outreach

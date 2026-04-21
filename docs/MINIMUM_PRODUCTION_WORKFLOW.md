@@ -51,6 +51,7 @@ Do not add more production services unless a real workload forces it.
 - track companies, contacts, leads, conversations, appointments, and events
 - track latest outreach status per lead
 - show whether a lead is new, contacted, replied, booked, or suppressed
+- keep the client booking notification email on the company record
 
 ### Messaging and calling
 
@@ -71,6 +72,7 @@ Do not add more production services unless a real workload forces it.
 - do not contact the same clinic/contact twice by accident
 - use idempotency for inbound webhooks and internal actions
 - keep enough event history to reconstruct failures
+- honor stop/unsubscribe replies by suppressing the lead
 
 ## Current schema coverage
 

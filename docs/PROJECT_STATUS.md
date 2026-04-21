@@ -84,6 +84,14 @@ These are still expected to be filled separately for local runtime:
   - `cmo90bu4q0000oicgg06ml53d`
   - `Fix Your Leads Demo`
 - A sample lead, conversation, and event exist in production for smoke testing.
+- The app now includes a `Companies` page to manage client records and
+  notification emails in-app.
+- Conversation detail pages now support manual outbound texts and booking from
+  the UI.
+- Lead intake now normalizes phone numbers and suppresses duplicate lead
+  creation for the same company/contact.
+- Booking email notifications are now supported through optional SMTP/Gmail-like
+  env vars.
 - The list pages were updated to force dynamic rendering so live data appears:
   - `/leads`
   - `/conversations`
@@ -107,11 +115,10 @@ system should not depend on Codex or agents.
 
 ## Current likely bottlenecks
 
-- lead dedupe and suppression are still minimal
-- inbound and outbound Telnyx flows have not been fully verified end to end
-- booking workflow is still skeletal
-- client notification flow from `fixyourleadsadmin@gmail.com` is not yet wired
+- inbound and outbound Telnyx flows still need a full real-world smoke test
+- booking notification email still needs SMTP credentials configured
 - worker behavior is online but not fully exercised with real jobs
+- Google Maps lead sourcing is still not wired
 
 ## Minimum production focus
 

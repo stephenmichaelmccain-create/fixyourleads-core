@@ -8,12 +8,12 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { companyId, phone, name } = body;
+  const { companyId, phone, name, source, sourceExternalId } = body;
 
   if (!companyId || !phone) {
     return NextResponse.json({ error: 'companyId_and_phone_required' }, { status: 400 });
   }
 
-  const result = await createLeadFlow(companyId, phone, name);
+  const result = await createLeadFlow({ companyId, phone, name, source, sourceExternalId });
   return NextResponse.json({ ok: true, result });
 }

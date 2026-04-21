@@ -9,6 +9,7 @@ export function Nav({ companyId }: NavProps) {
   return (
     <nav style={{ marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
       <a href="/">Home</a>
+      <a href="/companies">Companies</a>
       <a href="/diagnostics">Diagnostics</a>
       <a href={withCompany('/leads')}>Leads</a>
       <a href={withCompany('/conversations')}>Conversations</a>

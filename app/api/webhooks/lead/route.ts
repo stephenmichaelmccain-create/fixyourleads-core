@@ -11,15 +11,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_payload' }, { status: 400 });
   }
 
-  const { companyId, phone, name } = parsed.data;
-  const result = await createLeadFlow(companyId, phone, name);
+  const { companyId, phone, name, source, sourceExternalId } = parsed.data;
+  const result = await createLeadFlow({ companyId, phone, name, source, sourceExternalId });
 
-  await getLeadQueue().add('process_new_lead', {
-    companyId,
-    leadId: result.lead.id,
-    contactId: result.contact.id,
-    conversationId: result.conversation.id
-  });
+  if (result.queueInitialOutreach) {
+    await getLeadQueue().add('process_new_lead', {
+      companyId,
+      leadId: result.lead.id,
+      contactId: result.contact.id,
+      conversationId: result.conversation.id
+    });
+  }
 
-  return NextResponse.json({ ok: true, leadId: result.lead.id });
+  return NextResponse.json({ ok: true, leadId: result.lead.id, duplicate: result.duplicate });
 }

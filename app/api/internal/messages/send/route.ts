@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MessageDirection } from '@prisma/client';
 import { requireApiKey } from '@/lib/api-auth';
 import { db } from '@/lib/db';
-import { sendSms } from '@/lib/telnyx';
+import { sendOutboundMessage } from '@/services/messaging';
 
 export async function POST(request: NextRequest) {
   if (!requireApiKey(request)) {
@@ -21,31 +20,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'contact_not_found' }, { status: 404 });
   }
 
-  const conversation = await db.conversation.upsert({
-    where: { companyId_contactId: { companyId, contactId } },
-    update: {},
-    create: { companyId, contactId }
-  });
-
-  const telnyxResult = await sendSms(contact.phone, text);
-
-  const message = await db.message.create({
-    data: {
-      companyId,
-      conversationId: conversation.id,
-      direction: MessageDirection.OUTBOUND,
-      content: text,
-      externalId: telnyxResult?.data?.id || null
-    }
-  });
-
-  await db.eventLog.create({
-    data: {
-      companyId,
-      eventType: 'manual_message_sent',
-      payload: { messageId: message.id, contactId }
-    }
-  });
+  const { message } = await sendOutboundMessage(companyId, contactId, text);
 
   return NextResponse.json({ ok: true, message });
 }

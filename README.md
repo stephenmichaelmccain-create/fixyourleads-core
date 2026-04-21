@@ -12,6 +12,7 @@ Code-first core system scaffold for multi-tenant lead intake, messaging, and boo
 - Postgres + Prisma
 - Redis + BullMQ
 - Telnyx
+- SMTP/Gmail-compatible booking notifications
 
 ## Required env
 - DATABASE_URL
@@ -20,6 +21,18 @@ Code-first core system scaffold for multi-tenant lead intake, messaging, and boo
 - TELNYX_FROM_NUMBER
 - APP_BASE_URL
 - INTERNAL_API_KEY
+
+## Optional env
+
+These are only needed for client booking notification emails:
+
+- SMTP_USER
+- SMTP_PASSWORD
+- SMTP_HOST (defaults to `smtp.gmail.com`)
+- SMTP_PORT (defaults to `465`)
+- SMTP_SECURE (defaults to `true`)
+- NOTIFICATION_FROM_EMAIL
+- DEFAULT_CLIENT_NOTIFICATION_EMAIL
 
 ## Local bootstrap
 Run `npm run env:openclaw` from the repo root to generate `.env.local` from the
@@ -36,3 +49,10 @@ You still need to provide:
 ## Current routes
 - POST /api/webhooks/lead
 - POST /api/webhooks/telnyx
+
+## Current pages
+- `/companies`
+- `/leads`
+- `/conversations`
+- `/events`
+- `/diagnostics`
