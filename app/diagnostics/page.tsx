@@ -84,7 +84,27 @@ export default async function DiagnosticsPage() {
           <div className="key-value-card"><span className="key-value-label">Companies</span>{health.telnyx.companiesTotal}</div>
           <div className="key-value-card"><span className="key-value-label">Routing ready</span>{health.telnyx.companiesWithRouting}</div>
           <div className="key-value-card"><span className="key-value-label">Routing missing</span>{health.telnyx.companiesMissingRouting}</div>
+          <div className="key-value-card"><span className="key-value-label">Webhook URL</span>{health.telnyx.webhookUrl || 'needs APP_BASE_URL'}</div>
+          <div className="key-value-card"><span className="key-value-label">Signature mode</span>{health.telnyx.signatureVerificationEnabled ? 'strict' : 'pilot'}</div>
+          <div className="key-value-card"><span className="key-value-label">Replay window</span>{`${health.telnyx.signatureMaxAgeSeconds}s`}</div>
         </div>
+      </section>
+
+      <section className="panel panel-stack">
+        <div className="metric-label">Telnyx webhook setup</div>
+        <ul className="list-clean">
+          <li>Point the Telnyx messaging profile or number webhook at <code>{health.telnyx.webhookUrl || '/api/webhooks/telnyx'}</code>.</li>
+          <li>
+            {health.telnyx.signatureVerificationEnabled
+              ? 'Strict signature verification is on. Telnyx requests older than the replay window will be rejected.'
+              : 'Pilot mode is still on. Enable TELNYX_VERIFY_SIGNATURES before relying on live inbound traffic.'}
+          </li>
+          <li>
+            {health.telnyx.publicKeySet
+              ? 'TELNYX_PUBLIC_KEY is present, so strict verification can validate Ed25519 signatures.'
+              : 'TELNYX_PUBLIC_KEY is still missing. Add it before turning strict verification on.'}
+          </li>
+        </ul>
       </section>
 
       <section className="panel panel-stack">

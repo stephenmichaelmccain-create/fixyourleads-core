@@ -80,9 +80,39 @@ export type NormalizedTelnyxWebhook =
     };
 
 type TelnyxSignatureVerificationResult =
-  | { enabled: false; ok: true; reason: 'verification_disabled' }
-  | { enabled: true; ok: true }
-  | { enabled: true; ok: false; reason: string };
+  | {
+      enabled: false;
+      ok: true;
+      reason: 'verification_disabled';
+      ageSeconds: null;
+      toleranceSeconds: number;
+      signatureHeaderPresent: boolean;
+      timestampHeaderPresent: boolean;
+    }
+  | {
+      enabled: true;
+      ok: true;
+      reason?: undefined;
+      ageSeconds: number;
+      toleranceSeconds: number;
+      signatureHeaderPresent: boolean;
+      timestampHeaderPresent: boolean;
+    }
+  | {
+      enabled: true;
+      ok: false;
+      reason: string;
+      ageSeconds: number | null;
+      toleranceSeconds: number;
+      signatureHeaderPresent: boolean;
+      timestampHeaderPresent: boolean;
+    };
+
+export type TelnyxWebhookSecurityConfig = {
+  verificationEnabled: boolean;
+  publicKeySet: boolean;
+  timestampToleranceSeconds: number;
+};
 
 function truthyEnv(value: string | undefined) {
   return /^(1|true|yes|on)$/i.test(String(value || '').trim());
@@ -95,6 +125,14 @@ function getTelnyxPublicKeyValue() {
 function getTelnyxTimestampToleranceSeconds() {
   const raw = Number(process.env.TELNYX_SIGNATURE_MAX_AGE_SECONDS || '300');
   return Number.isFinite(raw) && raw > 0 ? raw : 300;
+}
+
+export function getTelnyxWebhookSecurityConfig(): TelnyxWebhookSecurityConfig {
+  return {
+    verificationEnabled: truthyEnv(process.env.TELNYX_VERIFY_SIGNATURES),
+    publicKeySet: Boolean(getTelnyxPublicKeyValue()),
+    timestampToleranceSeconds: getTelnyxTimestampToleranceSeconds()
+  };
 }
 
 function parseTelnyxPublicKey(publicKeyValue: string) {
@@ -125,30 +163,72 @@ function parseTelnyxPublicKey(publicKeyValue: string) {
 }
 
 export function verifyTelnyxWebhookSignature(rawBody: string, signatureHeader?: string | null, timestampHeader?: string | null): TelnyxSignatureVerificationResult {
-  if (!truthyEnv(process.env.TELNYX_VERIFY_SIGNATURES)) {
-    return { enabled: false, ok: true, reason: 'verification_disabled' };
+  const securityConfig = getTelnyxWebhookSecurityConfig();
+
+  if (!securityConfig.verificationEnabled) {
+    return {
+      enabled: false,
+      ok: true,
+      reason: 'verification_disabled',
+      ageSeconds: null,
+      toleranceSeconds: securityConfig.timestampToleranceSeconds,
+      signatureHeaderPresent: Boolean(signatureHeader),
+      timestampHeaderPresent: Boolean(timestampHeader)
+    };
   }
 
   const publicKeyValue = getTelnyxPublicKeyValue();
 
   if (!publicKeyValue) {
-    return { enabled: true, ok: false, reason: 'missing_TELNYX_PUBLIC_KEY' };
+    return {
+      enabled: true,
+      ok: false,
+      reason: 'missing_TELNYX_PUBLIC_KEY',
+      ageSeconds: null,
+      toleranceSeconds: securityConfig.timestampToleranceSeconds,
+      signatureHeaderPresent: Boolean(signatureHeader),
+      timestampHeaderPresent: Boolean(timestampHeader)
+    };
   }
 
   if (!signatureHeader || !timestampHeader) {
-    return { enabled: true, ok: false, reason: 'missing_signature_headers' };
+    return {
+      enabled: true,
+      ok: false,
+      reason: 'missing_signature_headers',
+      ageSeconds: null,
+      toleranceSeconds: securityConfig.timestampToleranceSeconds,
+      signatureHeaderPresent: Boolean(signatureHeader),
+      timestampHeaderPresent: Boolean(timestampHeader)
+    };
   }
 
   const timestamp = Number(timestampHeader);
 
   if (!Number.isFinite(timestamp)) {
-    return { enabled: true, ok: false, reason: 'invalid_signature_timestamp' };
+    return {
+      enabled: true,
+      ok: false,
+      reason: 'invalid_signature_timestamp',
+      ageSeconds: null,
+      toleranceSeconds: securityConfig.timestampToleranceSeconds,
+      signatureHeaderPresent: true,
+      timestampHeaderPresent: true
+    };
   }
 
   const ageSeconds = Math.abs(Math.floor(Date.now() / 1000) - timestamp);
 
-  if (ageSeconds > getTelnyxTimestampToleranceSeconds()) {
-    return { enabled: true, ok: false, reason: 'stale_signature_timestamp' };
+  if (ageSeconds > securityConfig.timestampToleranceSeconds) {
+    return {
+      enabled: true,
+      ok: false,
+      reason: 'stale_signature_timestamp',
+      ageSeconds,
+      toleranceSeconds: securityConfig.timestampToleranceSeconds,
+      signatureHeaderPresent: true,
+      timestampHeaderPresent: true
+    };
   }
 
   try {
@@ -157,12 +237,33 @@ export function verifyTelnyxWebhookSignature(rawBody: string, signatureHeader?: 
     const signedPayload = Buffer.from(`${timestampHeader}|${rawBody}`);
     const ok = verify(null, signedPayload, publicKey, signature);
 
-    return ok ? { enabled: true, ok: true } : { enabled: true, ok: false, reason: 'signature_mismatch' };
+    return ok
+      ? {
+          enabled: true,
+          ok: true,
+          ageSeconds,
+          toleranceSeconds: securityConfig.timestampToleranceSeconds,
+          signatureHeaderPresent: true,
+          timestampHeaderPresent: true
+        }
+      : {
+          enabled: true,
+          ok: false,
+          reason: 'signature_mismatch',
+          ageSeconds,
+          toleranceSeconds: securityConfig.timestampToleranceSeconds,
+          signatureHeaderPresent: true,
+          timestampHeaderPresent: true
+        };
   } catch (error) {
     return {
       enabled: true,
       ok: false,
-      reason: error instanceof Error ? error.message : 'signature_verification_failed'
+      reason: error instanceof Error ? error.message : 'signature_verification_failed',
+      ageSeconds,
+      toleranceSeconds: securityConfig.timestampToleranceSeconds,
+      signatureHeaderPresent: true,
+      timestampHeaderPresent: true
     };
   }
 }

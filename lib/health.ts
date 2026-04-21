@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { notificationReadiness } from '@/lib/notifications';
 import { getRedis } from '@/lib/redis';
 import { envPresence, missingRequiredEnvVars } from '@/lib/runtime-safe';
+import { getTelnyxWebhookSecurityConfig } from '@/lib/security';
 
 type CheckStatus = 'ok' | 'missing_config' | 'error';
 
@@ -57,6 +58,8 @@ async function checkRedis(redisUrlSet: boolean): Promise<DependencyCheck> {
 export async function getRuntimeHealth() {
   const env = envPresence();
   const notifications = notificationReadiness();
+  const telnyxWebhookSecurity = getTelnyxWebhookSecurityConfig();
+  const appBaseUrl = process.env.APP_BASE_URL?.trim() || null;
   const sentryDsnSet = hasConfiguredEnv('SENTRY_DSN') || hasConfiguredEnv('NEXT_PUBLIC_SENTRY_DSN');
   const [database, redis, companyRouting] = await Promise.all([
     checkDatabase(env.databaseUrlSet),
@@ -86,15 +89,15 @@ export async function getRuntimeHealth() {
   const companiesWithRouting = companyRouting.filter((company) => company.telnyxInboundNumber).length;
   const companiesMissingRouting = companyRouting.length - companiesWithRouting;
   const telnyxWebhookVerificationStatus =
-    !env.telnyxVerifySignaturesEnabled
+    !telnyxWebhookSecurity.verificationEnabled
       ? ({
           status: 'missing_config',
-          detail: 'TELNYX_VERIFY_SIGNATURES is disabled; pilot traffic can run, but webhook authenticity is not enforced'
+          detail: `TELNYX_VERIFY_SIGNATURES is disabled; pilot traffic can run, but webhook authenticity is not enforced. Current timestamp tolerance is ${telnyxWebhookSecurity.timestampToleranceSeconds}s once enabled.`
         } satisfies DependencyCheck)
-      : env.telnyxPublicKeySet
+      : telnyxWebhookSecurity.publicKeySet
         ? ({
             status: 'ok',
-            detail: 'Webhook signature verification is enabled'
+            detail: `Webhook signature verification is enabled with a ${telnyxWebhookSecurity.timestampToleranceSeconds}s replay window`
           } satisfies DependencyCheck)
         : ({
             status: 'error',
@@ -140,7 +143,11 @@ export async function getRuntimeHealth() {
     telnyx: {
       companiesTotal: companyRouting.length,
       companiesWithRouting,
-      companiesMissingRouting
+      companiesMissingRouting,
+      webhookUrl: appBaseUrl ? new URL('/api/webhooks/telnyx', appBaseUrl).toString() : null,
+      signatureVerificationEnabled: telnyxWebhookSecurity.verificationEnabled,
+      publicKeySet: telnyxWebhookSecurity.publicKeySet,
+      signatureMaxAgeSeconds: telnyxWebhookSecurity.timestampToleranceSeconds
     },
     missingRequiredEnv,
     checks: {
