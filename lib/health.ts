@@ -4,6 +4,7 @@ import { getBookingQueue, getLeadQueue, getMessageQueue } from '@/lib/queue';
 import { getRedis } from '@/lib/redis';
 import { envPresence, missingRequiredEnvVars } from '@/lib/runtime-safe';
 import { getTelnyxWebhookSecurityConfig } from '@/lib/security';
+import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
 
 type CheckStatus = 'ok' | 'missing_config' | 'error';
 
@@ -158,7 +159,12 @@ export async function getRuntimeHealth() {
     db.company.findMany({
       select: {
         id: true,
-        telnyxInboundNumber: true
+        name: true,
+        notificationEmail: true,
+        telnyxInboundNumber: true,
+        telnyxInboundNumbers: {
+          select: { number: true }
+        }
       }
     }),
     Promise.all([
@@ -235,7 +241,66 @@ export async function getRuntimeHealth() {
     uptimeSeconds: Math.round(process.uptime())
   };
 
-  const companiesWithRouting = companyRouting.filter((company) => company.telnyxInboundNumber).length;
+  const companiesMissingNotification = companyRouting.filter((company) => !company.notificationEmail).length;
+  const topRoutingGaps = companyRouting
+    .filter((company) => !hasInboundRouting(company))
+    .slice()
+    .sort((left, right) => {
+      const leftHasNotification = Number(Boolean(left.notificationEmail));
+      const rightHasNotification = Number(Boolean(right.notificationEmail));
+
+      if (leftHasNotification !== rightHasNotification) {
+        return rightHasNotification - leftHasNotification;
+      }
+
+      return left.name.localeCompare(right.name);
+    })
+    .slice(0, 10)
+    .map((company) => ({
+      id: company.id,
+      name: company.name,
+      notificationEmailSet: Boolean(company.notificationEmail)
+    }));
+
+  const numberToCompanies = new Map<string, { id: string; name: string }[]>();
+
+  for (const company of companyRouting) {
+    const numbers = allInboundNumbers(company);
+
+    for (const number of numbers) {
+      const entries = numberToCompanies.get(number) || [];
+      entries.push({ id: company.id, name: company.name });
+      numberToCompanies.set(number, entries);
+    }
+  }
+
+  const routingConflicts = [...numberToCompanies.entries()]
+    .filter(([, companies]) => companies.length > 1)
+    .sort((left, right) => right[1].length - left[1].length || left[0].localeCompare(right[0]))
+    .slice(0, 8)
+    .map(([number, companies]) => ({ number, companies }));
+
+  const multiNumberCompanies = companyRouting
+    .filter((company) => allInboundNumbers(company).length > 1)
+    .slice()
+    .sort((left, right) => {
+      const leftCount = allInboundNumbers(left).length;
+      const rightCount = allInboundNumbers(right).length;
+
+      if (rightCount !== leftCount) {
+        return rightCount - leftCount;
+      }
+
+      return left.name.localeCompare(right.name);
+    })
+    .slice(0, 8)
+    .map((company) => ({
+      id: company.id,
+      name: company.name,
+      inboundCount: allInboundNumbers(company).length
+    }));
+
+  const companiesWithRouting = companyRouting.filter((company) => hasInboundRouting(company)).length;
   const companiesMissingRouting = companyRouting.length - companiesWithRouting;
   const telnyxWebhookVerificationStatus =
     !telnyxWebhookSecurity.verificationEnabled
@@ -263,10 +328,10 @@ export async function getRuntimeHealth() {
             status: 'ok',
             detail: `All ${companyRouting.length} companies have inbound routing numbers`
           } satisfies DependencyCheck)
-        : ({
-            status: 'missing_config',
-            detail: `${companiesMissingRouting} of ${companyRouting.length} companies are missing telnyxInboundNumber`
-          } satisfies DependencyCheck);
+      : ({
+          status: 'missing_config',
+          detail: `${companiesMissingRouting} of ${companyRouting.length} companies are missing inbound routing number`
+        } satisfies DependencyCheck);
 
   const missingRequiredEnv = missingRequiredEnvVars(env);
   const queueOk = queueHealth.every((entry) => entry.status !== 'error');
@@ -303,6 +368,10 @@ export async function getRuntimeHealth() {
       companiesTotal: companyRouting.length,
       companiesWithRouting,
       companiesMissingRouting,
+      companiesMissingNotification,
+      topRoutingGaps,
+      multiNumberCompanies,
+      routingConflicts,
       webhookUrl: appBaseUrl ? new URL('/api/webhooks/telnyx', appBaseUrl).toString() : null,
       signatureVerificationEnabled: telnyxWebhookSecurity.verificationEnabled,
       publicKeySet: telnyxWebhookSecurity.publicKeySet,

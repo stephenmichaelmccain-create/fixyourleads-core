@@ -120,8 +120,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true, ignored: true, reason: 'missing_inbound_number' });
       }
 
-      const company = await db.company.findUnique({
-        where: { telnyxInboundNumber: inboundNumber },
+      const company = await db.company.findFirst({
+        where: {
+          OR: [
+            { telnyxInboundNumber: inboundNumber },
+            {
+              telnyxInboundNumbers: {
+                some: {
+                  number: inboundNumber
+                }
+              }
+            }
+          ]
+        },
         select: { id: true }
       });
 

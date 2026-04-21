@@ -25,6 +25,7 @@ model Company {
   name              String
   notificationEmail String?
   telnyxInboundNumber String?      @unique
+  telnyxInboundNumbers CompanyTelnyxNumber[]
   createdAt         DateTime       @default(now())
   contacts          Contact[]
   leads             Lead[]
@@ -47,6 +48,16 @@ model Contact {
   appointments  Appointment[]
 
   @@unique([companyId, phone])
+}
+
+model CompanyTelnyxNumber {
+  id        String   @id @default(cuid())
+  companyId String
+  number    String   @unique
+  createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 model Lead {

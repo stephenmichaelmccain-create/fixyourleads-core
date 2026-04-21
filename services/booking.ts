@@ -1,5 +1,6 @@
 import { LeadStatus, MessageDirection, type Appointment } from '@prisma/client';
 import { db } from '@/lib/db';
+import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 import { sendBookingNotification } from '@/lib/notifications';
 import { sendSms } from '@/lib/telnyx';
 
@@ -42,7 +43,18 @@ export function resolveAppointmentStartTime(startTime?: Date) {
 export async function createAppointmentFlow({ companyId, contactId, startTime }: CreateAppointmentInput): Promise<CreateAppointmentResult> {
   const appointmentTime = resolveAppointmentStartTime(startTime);
 
-  const company = await db.company.findUniqueOrThrow({ where: { id: companyId } });
+  const company = await db.company.findUniqueOrThrow({
+    where: { id: companyId },
+    select: {
+      id: true,
+      name: true,
+      notificationEmail: true,
+      telnyxInboundNumber: true,
+      telnyxInboundNumbers: {
+        select: { number: true }
+      }
+    }
+  });
   const contact = await db.contact.findUniqueOrThrow({ where: { id: contactId } });
   const conversation = await db.conversation.findUniqueOrThrow({
     where: { companyId_contactId: { companyId, contactId } }
@@ -114,7 +126,8 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
   let confirmationMessageId: string | null = null;
 
   try {
-    const telnyxResult = await sendSms(contact.phone, confirmationText, company.telnyxInboundNumber);
+    const fromNumber = companyPrimaryInboundNumber(company);
+    const telnyxResult = await sendSms(contact.phone, confirmationText, fromNumber);
     confirmationMessageId = telnyxResult?.data?.id || null;
 
     await db.message.create({

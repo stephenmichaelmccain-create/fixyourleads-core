@@ -4,6 +4,7 @@ import { safeLoad } from '@/lib/ui-data';
 import { notificationReadiness } from '@/lib/notifications';
 import { bookConversationAction, sendConversationMessageAction } from './actions';
 import { normalizePhone } from '@/lib/phone';
+import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 
 function formatDateTime(value: Date | string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -148,8 +149,9 @@ export default async function ConversationDetailPage({
   const lastMessage = conversation.messages[conversation.messages.length - 1] || null;
   const threadState = !lastMessage ? 'New thread' : lastMessage.direction === 'INBOUND' ? 'Needs reply' : 'Waiting on contact';
   const sharedTelnyxSender = process.env.TELNYX_FROM_NUMBER?.trim() || null;
-  const activeSenderNumber = conversation.company?.telnyxInboundNumber || sharedTelnyxSender;
-  const telnyxMode = conversation.company?.telnyxInboundNumber
+  const primaryRoutingNumber = companyPrimaryInboundNumber(conversation.company);
+  const activeSenderNumber = primaryRoutingNumber || sharedTelnyxSender;
+  const telnyxMode = primaryRoutingNumber
     ? 'dedicated'
     : sharedTelnyxSender
       ? 'shared'

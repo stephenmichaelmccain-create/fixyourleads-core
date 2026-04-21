@@ -1,19 +1,29 @@
 type WorkspaceReadinessBannerProps = {
   companyId: string;
   companyName?: string | null;
+  telnyxInboundNumbers?: { number: string }[] | null;
   telnyxInboundNumber?: string | null;
   notificationEmail?: string | null;
   includeNotificationHint?: boolean;
 };
 
+function hasCompanyRouting(company: {
+  telnyxInboundNumber?: string | null;
+  telnyxInboundNumbers?: { number: string }[] | null;
+}) {
+  return Boolean(company.telnyxInboundNumber) || Boolean(company.telnyxInboundNumbers?.length);
+}
+
 export function WorkspaceReadinessBanner({
   companyId,
   companyName,
   telnyxInboundNumber,
+  telnyxInboundNumbers,
   notificationEmail,
   includeNotificationHint = false
 }: WorkspaceReadinessBannerProps) {
-  const missingRouting = !telnyxInboundNumber;
+  const hasInboundRouting = hasCompanyRouting({ telnyxInboundNumber, telnyxInboundNumbers });
+  const missingRouting = !hasInboundRouting;
   const missingNotifications = !notificationEmail;
 
   if (!missingRouting && !missingNotifications) {

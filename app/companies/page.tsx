@@ -1,6 +1,7 @@
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { safeLoad } from '@/lib/ui-data';
+import { formatInboundNumbersForInput, hasInboundRouting } from '@/lib/inbound-numbers';
 import { createCompanyAction, updateCompanyAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,10 @@ export default async function CompaniesPage({
       db.company.findMany({
         orderBy: { createdAt: 'desc' },
         include: {
+          telnyxInboundNumbers: {
+            select: { number: true },
+            orderBy: { createdAt: 'asc' }
+          },
           _count: {
             select: {
               leads: true,
@@ -33,8 +38,8 @@ export default async function CompaniesPage({
     []
   );
   const rankedCompanies = [...companies].sort((left, right) => {
-    const leftMissing = Number(!left.telnyxInboundNumber) + Number(!left.notificationEmail);
-    const rightMissing = Number(!right.telnyxInboundNumber) + Number(!right.notificationEmail);
+    const leftMissing = Number(!hasInboundRouting(left)) + Number(!left.notificationEmail);
+    const rightMissing = Number(!hasInboundRouting(right)) + Number(!right.notificationEmail);
 
     if (leftMissing !== rightMissing) {
       return rightMissing - leftMissing;
@@ -42,15 +47,15 @@ export default async function CompaniesPage({
 
     return left.name.localeCompare(right.name);
   });
-  const readyCompanies = companies.filter((company) => company.notificationEmail && company.telnyxInboundNumber).length;
-  const missingRouting = companies.filter((company) => !company.telnyxInboundNumber).length;
+  const readyCompanies = companies.filter((company) => company.notificationEmail && hasInboundRouting(company)).length;
+  const missingRouting = companies.filter((company) => !hasInboundRouting(company)).length;
   const missingNotifications = companies.filter((company) => !company.notificationEmail).length;
   const nextSetupWorkspace =
-    rankedCompanies.find((company) => !company.telnyxInboundNumber || !company.notificationEmail) || null;
+    rankedCompanies.find((company) => !hasInboundRouting(company) || !company.notificationEmail) || null;
   const firstReadyWorkspace =
-    rankedCompanies.find((company) => company.notificationEmail && company.telnyxInboundNumber) || null;
+    rankedCompanies.find((company) => company.notificationEmail && hasInboundRouting(company)) || null;
   const setupSprintCompanies = rankedCompanies
-    .filter((company) => !company.telnyxInboundNumber || !company.notificationEmail)
+    .filter((company) => !hasInboundRouting(company) || !company.notificationEmail)
     .slice(0, 4);
 
   return (
@@ -150,13 +155,15 @@ export default async function CompaniesPage({
           </div>
           <div className="field-stack">
             <label className="key-value-label" htmlFor="new-company-number">
-              Telnyx inbound number
+              Telnyx inbound numbers
             </label>
-            <input
+            <textarea
               id="new-company-number"
-              className="text-input"
+              className="text-area"
               name="telnyxInboundNumber"
-              placeholder="+13125550001"
+              placeholder="+13125550001
++12125550002"
+              rows={3}
             />
           </div>
           <div className="text-muted">
@@ -212,8 +219,8 @@ export default async function CompaniesPage({
                   <div className="setup-sprint-header">
                     <strong>{company.name}</strong>
                     <div className="workspace-readiness">
-                      <span className={`readiness-pill${company.telnyxInboundNumber ? ' is-ready' : ''}`}>
-                        {company.telnyxInboundNumber ? 'Routing ready' : 'Need routing'}
+                      <span className={`readiness-pill${hasInboundRouting(company) ? ' is-ready' : ''}`}>
+                        {hasInboundRouting(company) ? 'Routing ready' : 'Need routing'}
                       </span>
                       <span className={`readiness-pill${company.notificationEmail ? ' is-ready' : ''}`}>
                         {company.notificationEmail ? 'Clinic email ready' : 'Need clinic email'}
@@ -221,9 +228,11 @@ export default async function CompaniesPage({
                     </div>
                   </div>
                   <div className="text-muted">
-                    {!company.telnyxInboundNumber
-                      ? 'Add the Telnyx inbound number so replies and booking follow-up route back to this client.'
-                      : 'Add the clinic notification email so booked appointments can notify the client automatically.'}
+                    {!hasInboundRouting(company)
+                      ? 'Add at least one Telnyx inbound number so replies and booking follow-up route back to this client.'
+                      : !company.notificationEmail
+                        ? 'Add the clinic notification email so booked appointments can notify the client automatically.'
+                        : 'Workspace is ready for next setup steps.'}
                   </div>
                 </div>
                 <div className="setup-sprint-actions">
@@ -259,8 +268,8 @@ export default async function CompaniesPage({
               {nextSetupWorkspace && (
                 <>
                   <div className="workspace-readiness">
-                    <span className={`readiness-pill${nextSetupWorkspace.telnyxInboundNumber ? ' is-ready' : ''}`}>
-                      {nextSetupWorkspace.telnyxInboundNumber ? 'Inbound routing ready' : 'Inbound routing missing'}
+                    <span className={`readiness-pill${hasInboundRouting(nextSetupWorkspace) ? ' is-ready' : ''}`}>
+                      {hasInboundRouting(nextSetupWorkspace) ? 'Inbound routing ready' : 'Inbound routing missing'}
                     </span>
                     <span className={`readiness-pill${nextSetupWorkspace.notificationEmail ? ' is-ready' : ''}`}>
                       {nextSetupWorkspace.notificationEmail ? 'Clinic email ready' : 'Clinic email missing'}
@@ -312,7 +321,8 @@ export default async function CompaniesPage({
         {companies.length === 0 && <div className="empty-state">No companies yet.</div>}
 
         {rankedCompanies.map((company) => {
-          const nextStep = !company.telnyxInboundNumber
+          const hasRouting = hasInboundRouting(company);
+          const nextStep = !hasRouting
             ? 'Assign the inbound number so replies land in the right workspace.'
             : !company.notificationEmail
               ? 'Add the client notification email before trusting bookings.'
@@ -332,10 +342,10 @@ export default async function CompaniesPage({
                 <h2 className="record-title">{company.name}</h2>
               </div>
               <div className="inline-row">
-                <span className={`status-chip ${company.telnyxInboundNumber ? '' : 'status-chip-muted'}`}>
-                  <strong>Routing</strong> {company.telnyxInboundNumber ? 'ready' : 'missing'}
+                <span className={`status-chip ${hasRouting ? '' : 'status-chip-muted'}`}>
+                  <strong>Routing</strong> {hasRouting ? 'ready' : 'missing'}
                 </span>
-                {!company.telnyxInboundNumber && sharedSenderAvailable && (
+                {!hasRouting && sharedSenderAvailable && (
                   <span className="status-chip status-chip-attention">
                     <strong>SMS tonight</strong> shared sender
                   </span>
@@ -391,15 +401,17 @@ export default async function CompaniesPage({
                 />
               </div>
               <div className="field-stack">
-                <label className="key-value-label" htmlFor={`company-number-${company.id}`}>
-                  Telnyx inbound number
+                <label className="key-value-label" htmlFor={`company-numbers-${company.id}`}>
+                  Telnyx inbound numbers
                 </label>
-                <input
-                  id={`company-number-${company.id}`}
+                <textarea
+                  id={`company-numbers-${company.id}`}
+                  className="text-area"
                   name="telnyxInboundNumber"
-                  defaultValue={company.telnyxInboundNumber || ''}
-                  placeholder="Inbound routing number"
-                  className="text-input"
+                  defaultValue={formatInboundNumbersForInput(company)}
+                  placeholder="+13125550001
++12125550002"
+                  rows={3}
                 />
               </div>
               <div className="field-stack">
@@ -408,7 +420,7 @@ export default async function CompaniesPage({
               </div>
             </div>
             <button type="submit" className="button-secondary">
-              {company.telnyxInboundNumber && company.notificationEmail ? 'Save workspace settings' : 'Save and finish setup'}
+              {hasRouting && company.notificationEmail ? 'Save workspace settings' : 'Save and finish setup'}
             </button>
           </form>
           );

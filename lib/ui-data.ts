@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { envPresence } from '@/lib/runtime-safe';
+import { hasInboundRouting } from '@/lib/inbound-numbers';
 
 export async function safeLoad<T>(loader: () => Promise<T>, fallback: T) {
   try {
@@ -56,6 +57,9 @@ export async function safeWorkspaceOverview() {
   try {
     const companies = await db.company.findMany({
       include: {
+        telnyxInboundNumbers: {
+          select: { number: true }
+        },
         _count: {
           select: {
             leads: true,
@@ -69,7 +73,7 @@ export async function safeWorkspaceOverview() {
 
     const workspaces = companies
       .map((company) => {
-        const missingSetupCount = Number(!company.telnyxInboundNumber) + Number(!company.notificationEmail);
+        const missingRouting = Number(!hasInboundRouting(company));
         const activityScore = company._count.conversations * 3 + company._count.leads * 2 + company._count.appointments;
 
         return {
@@ -77,10 +81,11 @@ export async function safeWorkspaceOverview() {
           name: company.name,
           notificationEmail: company.notificationEmail,
           telnyxInboundNumber: company.telnyxInboundNumber,
+          telnyxInboundCount: company.telnyxInboundNumbers.length,
           leads: company._count.leads,
           conversations: company._count.conversations,
           appointments: company._count.appointments,
-          missingSetupCount,
+          missingSetupCount: missingRouting + Number(!company.notificationEmail),
           activityScore
         };
       })

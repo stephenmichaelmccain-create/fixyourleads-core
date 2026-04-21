@@ -162,7 +162,7 @@ export default async function HomePage() {
             <div className="empty-state">No workspaces yet. Start by creating the first client in Companies.</div>
           ) : (
             <div className="workspace-list">
-              {topWorkspaces.map((workspace) => (
+      {topWorkspaces.map((workspace) => (
                 <section key={workspace.id} className="workspace-list-item">
                   <div className="workspace-list-header">
                     <strong>{workspace.name}</strong>
@@ -176,7 +176,7 @@ export default async function HomePage() {
                     <span>Bookings: {workspace.appointments}</span>
                   </div>
                   <div className="tiny-muted">
-                    {!workspace.telnyxInboundNumber
+                    {!workspace.telnyxInboundNumber && workspace.telnyxInboundCount === 0
                       ? 'Missing inbound routing number.'
                       : !workspace.notificationEmail
                         ? 'Missing client notification email.'

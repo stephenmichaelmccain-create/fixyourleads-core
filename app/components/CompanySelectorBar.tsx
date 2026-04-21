@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { safeLoad } from '@/lib/ui-data';
+import { hasInboundRouting } from '@/lib/inbound-numbers';
 import { CompanySelectorForm } from './CompanySelectorForm';
 
 type CompanySelectorBarProps = {
@@ -22,6 +23,9 @@ export async function CompanySelectorBar({
           name: true,
           notificationEmail: true,
           telnyxInboundNumber: true,
+          telnyxInboundNumbers: {
+            select: { number: true }
+          },
           _count: {
             select: {
               leads: true,
@@ -37,18 +41,21 @@ export async function CompanySelectorBar({
   const currentCompany = companies.find((company) => company.id === initialCompanyId) || null;
   const suggestedCompany = currentCompany || (companies.length === 1 ? companies[0] : null);
   const initialSelection = initialCompanyId || (companies.length === 1 ? companies[0].id : '');
+  const suggestedRoutingReady = suggestedCompany ? hasInboundRouting(suggestedCompany) : true;
   const setupGaps = suggestedCompany
     ? [
-        !suggestedCompany.telnyxInboundNumber ? 'Inbound routing number' : null,
+        !suggestedRoutingReady ? 'Inbound routing number' : null,
         !suggestedCompany.notificationEmail ? 'Clinic notification email' : null
       ].filter(Boolean) as string[]
     : [];
-  const missingSetupCount = companies.filter((company) => !company.telnyxInboundNumber || !company.notificationEmail).length;
+  const missingSetupCount = companies.filter(
+    (company) => !hasInboundRouting(company) || !company.notificationEmail
+  ).length;
   const companyOptions = companies.map((company) => ({
     id: company.id,
     name: company.name,
     isActive: company.id === initialSelection,
-    needsRouting: !company.telnyxInboundNumber,
+    needsRouting: !hasInboundRouting(company),
     needsEmail: !company.notificationEmail
   }));
   const compactMode = Boolean(currentCompany);
@@ -129,8 +136,8 @@ export async function CompanySelectorBar({
                     : `Fix ${setupGaps.join(' and ')} before you trust inbound replies and clinic-facing booking follow-up.`}
                 </div>
                 <div className="readiness-pills">
-                  <span className={`readiness-pill${suggestedCompany.telnyxInboundNumber ? ' is-ready' : ' is-warn'}`}>
-                    {suggestedCompany.telnyxInboundNumber ? 'Inbound routing ready' : 'Inbound routing missing'}
+                  <span className={`readiness-pill${suggestedRoutingReady ? ' is-ready' : ' is-warn'}`}>
+                    {suggestedRoutingReady ? 'Inbound routing ready' : 'Inbound routing missing'}
                   </span>
                   <span className={`readiness-pill${suggestedCompany.notificationEmail ? ' is-ready' : ' is-warn'}`}>
                     {suggestedCompany.notificationEmail ? 'Clinic email ready' : 'Clinic email missing'}
@@ -159,10 +166,10 @@ export async function CompanySelectorBar({
               </div>
             )}
             <div className="context-summary-card">
-              <span className="key-value-label">Launch readiness</span>
-              <div className="readiness-pills">
-                <span className={`readiness-pill${suggestedCompany.telnyxInboundNumber ? ' is-ready' : ' is-warn'}`}>
-                  {suggestedCompany.telnyxInboundNumber ? 'Inbound routing set' : 'Needs routing'}
+                <span className="key-value-label">Launch readiness</span>
+                <div className="readiness-pills">
+                <span className={`readiness-pill${suggestedRoutingReady ? ' is-ready' : ' is-warn'}`}>
+                  {suggestedRoutingReady ? 'Inbound routing set' : 'Needs routing'}
                 </span>
                 <span className={`readiness-pill${suggestedCompany.notificationEmail ? ' is-ready' : ' is-warn'}`}>
                   {suggestedCompany.notificationEmail ? 'Clinic email set' : 'Needs clinic email'}

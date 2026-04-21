@@ -250,11 +250,44 @@ export default async function DiagnosticsPage() {
         <div className="key-value-grid">
           <div className="key-value-card"><span className="key-value-label">Companies</span>{health.telnyx.companiesTotal}</div>
           <div className="key-value-card"><span className="key-value-label">Routing ready</span>{health.telnyx.companiesWithRouting}</div>
-          <div className="key-value-card"><span className="key-value-label">Routing missing</span>{health.telnyx.companiesMissingRouting}</div>
+          <div className="key-value-card"><span className="key-value-label">Missing routing</span>{health.telnyx.companiesMissingRouting}</div>
+          <div className="key-value-card"><span className="key-value-label">Missing clinic email</span>{health.telnyx.companiesMissingNotification}</div>
+          <div className="key-value-card"><span className="key-value-label">Multi-number clinics</span>{health.telnyx.multiNumberCompanies.length}</div>
+          <div className="key-value-card"><span className="key-value-label">Routing conflicts</span>{health.telnyx.routingConflicts.length}</div>
           <div className="key-value-card"><span className="key-value-label">Webhook URL</span>{health.telnyx.webhookUrl || 'needs APP_BASE_URL'}</div>
           <div className="key-value-card"><span className="key-value-label">Signature mode</span>{health.telnyx.signatureVerificationEnabled ? 'strict' : 'pilot'}</div>
           <div className="key-value-card"><span className="key-value-label">Replay window</span>{`${health.telnyx.signatureMaxAgeSeconds}s`}</div>
         </div>
+      </section>
+
+      <section className="panel panel-stack">
+        <div className="metric-label">Routing gaps</div>
+        {health.telnyx.topRoutingGaps.length === 0 ? (
+          <p className="text-muted">No routing gaps detected.</p>
+        ) : (
+          <ul className="list-clean">
+            {health.telnyx.topRoutingGaps.map((entry: { id: string; name: string; notificationEmailSet: boolean }) => (
+              <li key={entry.id}>
+                {entry.name} ({entry.id}) — notification email set: {entry.notificationEmailSet ? 'yes' : 'no'}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="panel panel-stack">
+        <div className="metric-label">Inbound number overlap</div>
+        {health.telnyx.routingConflicts.length === 0 ? (
+          <p className="text-muted">No shared inbound numbers across clinics found.</p>
+        ) : (
+          <ul className="list-clean">
+            {health.telnyx.routingConflicts.map((entry) => (
+              <li key={entry.number}>
+                <strong>{entry.number}</strong> used by {entry.companies.length} clinics ({entry.companies.map((clinic) => clinic.name).join(', ')})
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="panel panel-stack">

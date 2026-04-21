@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { normalizePhone } from '@/lib/phone';
+import { parseInboundNumberList } from '@/lib/inbound-numbers';
 
 function optionalText(value: FormDataEntryValue | null) {
   const text = String(value || '').trim();
@@ -30,17 +30,29 @@ function companiesPath(values: { notice?: string; targetCompanyId?: string } = {
 export async function createCompanyAction(formData: FormData) {
   const name = String(formData.get('name') || '').trim();
   const notificationEmail = optionalText(formData.get('notificationEmail'));
-  const telnyxInboundNumber = optionalText(formData.get('telnyxInboundNumber'));
+  const telnyxInboundInput = formData.get('telnyxInboundNumber');
   const nextSurface = String(formData.get('nextSurface') || '').trim();
-  const normalizedInboundNumber = telnyxInboundNumber ? normalizePhone(telnyxInboundNumber) : null;
+  const inboundNumbers = parseInboundNumberList(telnyxInboundInput);
+  const normalizedInboundNumber = inboundNumbers[0] || null;
 
   if (!name) {
     throw new Error('company_name_required');
   }
 
-  if (normalizedInboundNumber) {
+  if (inboundNumbers.length > 0) {
     const existingCompany = await db.company.findFirst({
-      where: { telnyxInboundNumber: normalizedInboundNumber },
+      where: {
+        OR: [
+          { telnyxInboundNumber: { in: inboundNumbers } },
+          {
+            telnyxInboundNumbers: {
+              some: {
+                number: { in: inboundNumbers }
+              }
+            }
+          }
+        ]
+      },
       select: { id: true }
     });
 
@@ -53,7 +65,14 @@ export async function createCompanyAction(formData: FormData) {
     data: {
       name,
       notificationEmail,
-      telnyxInboundNumber: normalizedInboundNumber
+      telnyxInboundNumber: normalizedInboundNumber,
+      ...(inboundNumbers.length > 0
+        ? {
+            telnyxInboundNumbers: {
+              create: inboundNumbers.map((number) => ({ number }))
+            }
+          }
+        : {})
     }
   });
 
@@ -71,18 +90,28 @@ export async function updateCompanyAction(formData: FormData) {
   const companyId = String(formData.get('companyId') || '').trim();
   const name = String(formData.get('name') || '').trim();
   const notificationEmail = optionalText(formData.get('notificationEmail'));
-  const telnyxInboundNumber = optionalText(formData.get('telnyxInboundNumber'));
-  const normalizedInboundNumber = telnyxInboundNumber ? normalizePhone(telnyxInboundNumber) : null;
+  const telnyxInboundInput = formData.get('telnyxInboundNumber');
+  const inboundNumbers = parseInboundNumberList(telnyxInboundInput);
+  const normalizedInboundNumber = inboundNumbers[0] || null;
 
   if (!companyId || !name) {
     throw new Error('company_id_and_name_required');
   }
 
-  if (normalizedInboundNumber) {
+  if (inboundNumbers.length > 0) {
     const existingCompany = await db.company.findFirst({
       where: {
-        telnyxInboundNumber: normalizedInboundNumber,
-        NOT: { id: companyId }
+        NOT: { id: companyId },
+        OR: [
+          { telnyxInboundNumber: { in: inboundNumbers } },
+          {
+            telnyxInboundNumbers: {
+              some: {
+                number: { in: inboundNumbers }
+              }
+            }
+          }
+        ]
       },
       select: { id: true }
     });
@@ -97,7 +126,11 @@ export async function updateCompanyAction(formData: FormData) {
     data: {
       name,
       notificationEmail,
-      telnyxInboundNumber: normalizedInboundNumber
+      telnyxInboundNumber: normalizedInboundNumber,
+      telnyxInboundNumbers: {
+        deleteMany: {},
+        create: inboundNumbers.map((number) => ({ number }))
+      }
     }
   });
 

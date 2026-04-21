@@ -1,6 +1,7 @@
 import { LeadStatus, MessageDirection } from '@prisma/client';
 import { db } from '@/lib/db';
 import { normalizePhone } from '@/lib/phone';
+import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 import { sendSms } from '@/lib/telnyx';
 
 export async function storeInboundMessage(companyId: string, phone: string, content: string, externalId: string) {
@@ -66,7 +67,12 @@ export async function sendOutboundMessage(companyId: string, contactId: string, 
   const contact = await db.contact.findUniqueOrThrow({ where: { id: contactId } });
   const company = await db.company.findUniqueOrThrow({
     where: { id: companyId },
-    select: { telnyxInboundNumber: true }
+    select: {
+      telnyxInboundNumber: true,
+      telnyxInboundNumbers: {
+        select: { number: true }
+      }
+    }
   });
   const latestLead = await db.lead.findFirst({
     where: { companyId, contactId },
@@ -83,7 +89,7 @@ export async function sendOutboundMessage(companyId: string, contactId: string, 
     create: { companyId, contactId }
   });
 
-  const telnyxResult = await sendSms(contact.phone, content, company.telnyxInboundNumber);
+  const telnyxResult = await sendSms(contact.phone, content, companyPrimaryInboundNumber(company));
 
   const message = await db.message.create({
     data: {
@@ -194,8 +200,19 @@ export async function resolveTelnyxDeliveryContext(messageId: string, fromPhone?
     };
   }
 
-  const company = await db.company.findUnique({
-    where: { telnyxInboundNumber: normalizedFrom },
+  const company = await db.company.findFirst({
+    where: {
+      OR: [
+        { telnyxInboundNumber: normalizedFrom },
+        {
+          telnyxInboundNumbers: {
+            some: {
+              number: normalizedFrom
+            }
+          }
+        }
+      ]
+    },
     select: { id: true }
   });
 
