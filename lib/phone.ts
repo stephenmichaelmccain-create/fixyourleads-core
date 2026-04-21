@@ -1,5 +1,9 @@
+function stripExtension(raw: string) {
+  return raw.replace(/\s*(?:ext\.?|extension|x)\s*\d+.*$/i, '');
+}
+
 export function normalizePhone(phone: string) {
-  const trimmed = String(phone || '').trim();
+  const trimmed = stripExtension(String(phone || '').trim());
 
   if (!trimmed) {
     return '';
@@ -8,12 +12,16 @@ export function normalizePhone(phone: string) {
   const hasPlus = trimmed.startsWith('+');
   const digits = trimmed.replace(/\D/g, '');
 
-  if (!digits) {
+  if (!digits || digits.length < 10 || digits.length > 15) {
     return '';
   }
 
   if (hasPlus) {
     return `+${digits}`;
+  }
+
+  if (digits.startsWith('00') && digits.length > 10) {
+    return `+${digits.slice(2)}`;
   }
 
   if (digits.length === 10) {
