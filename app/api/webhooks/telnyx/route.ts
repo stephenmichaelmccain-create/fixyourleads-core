@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { telnyxWebhookSchema } from '@/lib/security';
-import { messageQueue } from '@/lib/queue';
+import { getMessageQueue } from '@/lib/queue';
 import { db } from '@/lib/db';
 import { storeInboundMessage } from '@/services/messaging';
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
   const result = await storeInboundMessage(companyId, from, text, messageId);
 
-  await messageQueue.add('handle_incoming_message', {
+  await getMessageQueue().add('handle_incoming_message', {
     companyId,
     contactId: result.contact.id,
     conversationId: result.conversation.id,

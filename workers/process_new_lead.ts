@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import { LeadStatus, MessageDirection } from '@prisma/client';
 import { db } from '@/lib/db';
-import { redis } from '@/lib/redis';
+import { getRedis } from '@/lib/redis';
 import { sendSms } from '@/lib/telnyx';
 
 new Worker('lead_queue', async (job) => {
@@ -22,4 +22,4 @@ new Worker('lead_queue', async (job) => {
 
   await db.lead.update({ where: { id: leadId }, data: { status: LeadStatus.CONTACTED } });
   await db.eventLog.create({ data: { companyId, eventType: 'message_sent', payload: { leadId, contactId } } });
-}, { connection: redis });
+}, { connection: getRedis() });
