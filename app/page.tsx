@@ -90,7 +90,7 @@ export default async function HomePage() {
           <a className="button-secondary" href="/events">
             Events
           </a>
-          <a className="button-secondary" href="/diagnostics">
+          <a className="button-ghost" href="/diagnostics">
             Diagnostics
           </a>
           <a className="button-ghost" href="/api/health">

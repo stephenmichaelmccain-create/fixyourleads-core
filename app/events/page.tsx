@@ -8,6 +8,16 @@ export const dynamic = 'force-dynamic';
 export default async function EventsPage({ searchParams }: { searchParams?: Promise<{ companyId?: string }> }) {
   const params = (await searchParams) || {};
   const companyId = params.companyId || '';
+  const selectedCompany = companyId
+    ? await safeLoad(
+        () =>
+          db.company.findUnique({
+            where: { id: companyId },
+            select: { id: true, name: true }
+          }),
+        null
+      )
+    : null;
 
   const events = companyId
     ? await safeLoad(
@@ -26,11 +36,12 @@ export default async function EventsPage({ searchParams }: { searchParams?: Prom
       title="Events"
       description="Every lead touch, message, suppression, and booking should leave a trail. This page is the operating audit log."
       companyId={companyId}
+      companyName={selectedCompany?.name || undefined}
       section="events"
     >
       <CompanySelectorBar action="/events" initialCompanyId={companyId} />
 
-      {!companyId && <div className="empty-state">Enter a company ID to load events.</div>}
+      {!companyId && <div className="empty-state">Choose a company by name to load the audit trail.</div>}
 
       {companyId && events.length === 0 && (
         <div className="empty-state">No events found yet, or the database is not ready for event queries.</div>

@@ -11,25 +11,29 @@ export function Nav({ companyId, current }: NavProps) {
     `nav-pill${current === name ? ' is-active' : ''}`;
 
   return (
-    <nav className="hero-nav">
-      <a className={linkClass('home')} href="/">
-        Home
-      </a>
-      <a className={linkClass('companies')} href="/companies">
-        Companies
-      </a>
-      <a className={linkClass('diagnostics')} href="/diagnostics">
-        Diagnostics
-      </a>
-      <a className={linkClass('leads')} href={withCompany('/leads')}>
-        Leads
-      </a>
-      <a className={linkClass('conversations')} href={withCompany('/conversations')}>
-        Conversations
-      </a>
-      <a className={linkClass('events')} href={withCompany('/events')}>
-        Events
-      </a>
-    </nav>
+    <div className="hero-nav-wrap">
+      <nav className="hero-nav">
+        <a className={linkClass('home')} href="/">
+          Home
+        </a>
+        <a className={linkClass('companies')} href="/companies">
+          Companies
+        </a>
+        <a className={linkClass('leads')} href={withCompany('/leads')}>
+          Leads
+        </a>
+        <a className={linkClass('conversations')} href={withCompany('/conversations')}>
+          Conversations
+        </a>
+        <a className={linkClass('events')} href={withCompany('/events')}>
+          Events
+        </a>
+      </nav>
+      <div className="hero-nav-utility">
+        <a className={`nav-utility-link${current === 'diagnostics' ? ' is-active' : ''}`} href="/diagnostics">
+          Diagnostics
+        </a>
+      </div>
+    </div>
   );
 }

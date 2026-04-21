@@ -35,7 +35,8 @@ a {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -142,11 +143,42 @@ textarea {
   color: inherit;
 }
 
+.hero-chip-subtle {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .hero-nav {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.hero-nav-wrap {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   margin-top: 24px;
+}
+
+.hero-nav-utility {
+  display: flex;
+  align-items: center;
+}
+
+.nav-utility-link {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.nav-utility-link:hover,
+.nav-utility-link.is-active {
+  color: var(--fyl-white);
 }
 
 .nav-pill {
@@ -314,7 +346,8 @@ textarea {
 }
 
 .text-input,
-.text-area {
+.text-area,
+.select-input {
   width: 100%;
   border: 1px solid var(--fyl-line-strong);
   border-radius: 18px;
@@ -325,10 +358,15 @@ textarea {
 }
 
 .text-input:focus,
-.text-area:focus {
+.text-area:focus,
+.select-input:focus {
   outline: none;
   border-color: var(--fyl-black);
   box-shadow: 0 0 0 4px rgba(5, 5, 5, 0.08);
+}
+
+.select-input {
+  appearance: none;
 }
 
 .text-area {
@@ -372,6 +410,12 @@ textarea {
   border: 1px solid var(--fyl-line-strong);
   background: var(--fyl-white);
   color: var(--fyl-black);
+}
+
+.button-secondary.is-current-view,
+.button-ghost.is-current-view {
+  border-color: var(--fyl-black);
+  box-shadow: 0 0 0 2px rgba(5, 5, 5, 0.05);
 }
 
 .button-ghost {
@@ -430,6 +474,37 @@ textarea {
   gap: 12px;
 }
 
+.context-form {
+  display: grid;
+  gap: 14px;
+}
+
+.context-field {
+  min-width: min(100%, 420px);
+}
+
+.context-summary {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.context-summary-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid var(--fyl-line);
+  background: var(--fyl-soft);
+}
+
+.context-summary-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+}
+
 .record-header {
   display: flex;
   justify-content: space-between;
@@ -441,6 +516,20 @@ textarea {
 .record-subtitle {
   color: var(--fyl-muted);
   line-height: 1.5;
+}
+
+.queue-card-meta {
+  align-items: flex-end;
+}
+
+.queue-state-chip {
+  align-self: flex-end;
+}
+
+.queue-state-chip.needs-attention {
+  background: rgba(240, 82, 61, 0.12);
+  border-color: rgba(240, 82, 61, 0.24);
+  color: #b73d2d;
 }
 
 .message-thread {
@@ -560,6 +649,15 @@ textarea {
 
   .hero-title {
     font-size: 2.45rem;
+  }
+
+  .hero-nav-wrap {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .context-summary-links {
+    width: 100%;
   }
 
   .message-bubble {

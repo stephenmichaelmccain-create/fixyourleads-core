@@ -6,12 +6,14 @@ export function LayoutShell({
   description,
   children,
   companyId,
+  companyName,
   section
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   companyId?: string;
+  companyName?: string;
   section?: 'home' | 'companies' | 'diagnostics' | 'leads' | 'conversations' | 'events';
 }) {
   return (
@@ -30,7 +32,17 @@ export function LayoutShell({
           <span className="hero-chip">
             <strong>Focus</strong> Text, voice, booking
           </span>
-          {companyId && (
+          {companyName && (
+            <span className="hero-chip">
+              <strong>Company</strong> {companyName}
+            </span>
+          )}
+          {companyId && companyName && (
+            <span className="hero-chip hero-chip-subtle">
+              <strong>ID</strong> {companyId}
+            </span>
+          )}
+          {companyId && !companyName && (
             <span className="hero-chip">
               <strong>Company</strong> {companyId}
             </span>
