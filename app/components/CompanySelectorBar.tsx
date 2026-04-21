@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { safeLoad } from '@/lib/ui-data';
+import { CompanySelectorForm } from './CompanySelectorForm';
 
 type CompanySelectorBarProps = {
   action?: '/leads' | '/conversations' | '/bookings' | '/events';
@@ -43,14 +44,24 @@ export async function CompanySelectorBar({
       ].filter(Boolean) as string[]
     : [];
   const missingSetupCount = companies.filter((company) => !company.telnyxInboundNumber || !company.notificationEmail).length;
+  const companyOptions = companies.map((company) => ({
+    id: company.id,
+    name: company.name,
+    isActive: company.id === initialSelection,
+    needsRouting: !company.telnyxInboundNumber,
+    needsEmail: !company.notificationEmail
+  }));
+  const compactMode = Boolean(currentCompany);
 
   return (
     <section className="panel panel-stack">
-      <div className="inline-row justify-between">
+      <div className={`inline-row justify-between${compactMode ? ' context-header-compact' : ''}`}>
         <div className="panel-stack">
           <div className="metric-label">{label}</div>
           <div className="text-muted">
-            Pick the clinic by name once, then keep moving through leads, conversations, and events without retyping IDs.
+            {compactMode
+              ? 'Your active clinic stays sticky here. Pick a different workspace and the page opens immediately.'
+              : 'Pick the clinic by name once, then keep moving through leads, conversations, and events without retyping IDs.'}
           </div>
           {companies.length > 0 && (
             <div className="tiny-muted">
@@ -67,38 +78,13 @@ export async function CompanySelectorBar({
         )}
       </div>
 
-      <form action={action} method="get" className="context-form">
-        <div className="field-stack context-field">
-          <label className="key-value-label" htmlFor="companyId">
-            {label}
-          </label>
-          <select id="companyId" name="companyId" defaultValue={initialSelection} className="text-input select-input">
-            <option value="">Choose a company</option>
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name}
-                {company.id === initialSelection
-                  ? ' — active'
-                  : !company.telnyxInboundNumber
-                    ? ' — needs routing'
-                    : !company.notificationEmail
-                      ? ' — needs clinic email'
-                      : ' — ready'}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="inline-actions">
-          <button type="submit" className="button">
-            {currentCompany ? 'Switch workspace' : suggestedCompany ? `Open ${suggestedCompany.name}` : 'Load workspace'}
-          </button>
-          {initialCompanyId && (
-            <a className="button-ghost" href={action}>
-              Clear
-            </a>
-          )}
-        </div>
-      </form>
+      <CompanySelectorForm
+        action={action}
+        label={label}
+        initialSelection={initialSelection}
+        compact={compactMode}
+        options={companyOptions}
+      />
 
       {companies.length === 0 && (
         <div className="empty-state">No companies yet. Add a company first so operators can work a real clinic workspace.</div>
@@ -135,11 +121,13 @@ export async function CompanySelectorBar({
           )}
 
           <div className="context-summary">
-            <div className="context-summary-card">
-              <span className="key-value-label">{currentCompany ? 'Current company' : 'Suggested company'}</span>
-              <strong>{suggestedCompany.name}</strong>
-              <span className="tiny-muted">{suggestedCompany.id}</span>
-            </div>
+            {!compactMode && (
+              <div className="context-summary-card">
+                <span className="key-value-label">Suggested company</span>
+                <strong>{suggestedCompany.name}</strong>
+                <span className="tiny-muted">{suggestedCompany.id}</span>
+              </div>
+            )}
             <div className="context-summary-card">
               <span className="key-value-label">Launch readiness</span>
               <div className="readiness-pills">
