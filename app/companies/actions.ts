@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { normalizePhone } from '@/lib/phone';
 
@@ -13,12 +14,13 @@ export async function createCompanyAction(formData: FormData) {
   const name = String(formData.get('name') || '').trim();
   const notificationEmail = optionalText(formData.get('notificationEmail'));
   const telnyxInboundNumber = optionalText(formData.get('telnyxInboundNumber'));
+  const nextSurface = String(formData.get('nextSurface') || '').trim();
 
   if (!name) {
     throw new Error('company_name_required');
   }
 
-  await db.company.create({
+  const company = await db.company.create({
     data: {
       name,
       notificationEmail,
@@ -28,6 +30,10 @@ export async function createCompanyAction(formData: FormData) {
 
   revalidatePath('/companies');
   revalidatePath('/');
+
+  if (nextSurface === 'conversations') {
+    redirect(`/conversations?companyId=${company.id}`);
+  }
 }
 
 export async function updateCompanyAction(formData: FormData) {

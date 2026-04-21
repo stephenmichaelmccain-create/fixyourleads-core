@@ -35,6 +35,10 @@ export default async function CompaniesPage() {
   const readyCompanies = companies.filter((company) => company.notificationEmail && company.telnyxInboundNumber).length;
   const missingRouting = companies.filter((company) => !company.telnyxInboundNumber).length;
   const missingNotifications = companies.filter((company) => !company.notificationEmail).length;
+  const nextSetupWorkspace =
+    rankedCompanies.find((company) => !company.telnyxInboundNumber || !company.notificationEmail) || null;
+  const firstReadyWorkspace =
+    rankedCompanies.find((company) => company.notificationEmail && company.telnyxInboundNumber) || null;
 
   return (
     <LayoutShell
@@ -67,6 +71,22 @@ export default async function CompaniesPage() {
               <span className="key-value-label">Need notification email</span>
               <strong>{missingNotifications}</strong>
             </div>
+          </div>
+          <div className="action-cluster">
+            {nextSetupWorkspace ? (
+              <a className="button" href={`#company-${nextSetupWorkspace.id}`}>
+                Finish {nextSetupWorkspace.name}
+              </a>
+            ) : (
+              <a className="button" href="/companies">
+                Review workspaces
+              </a>
+            )}
+            {firstReadyWorkspace && (
+              <a className="button-secondary" href={`/conversations?companyId=${firstReadyWorkspace.id}`}>
+                Work {firstReadyWorkspace.name}
+              </a>
+            )}
           </div>
         </section>
 
@@ -107,11 +127,84 @@ export default async function CompaniesPage() {
           <div className="text-muted">
             Operators should be able to start from this workspace immediately after save.
           </div>
-          <button type="submit" className="button">
-            Create workspace
-          </button>
+          <div className="inline-actions">
+            <button type="submit" className="button" name="nextSurface" value="conversations">
+              Create and open conversations
+            </button>
+            <button type="submit" className="button-secondary">
+              Create workspace
+            </button>
+          </div>
         </form>
       </div>
+
+      {companies.length > 0 && (
+        <section className="panel panel-stack">
+          <div className="metric-label">Tonight&apos;s client launch</div>
+          <div className="workspace-hub-grid">
+            <section className="workspace-hub-card">
+              <div className="metric-label">Next setup step</div>
+              <h2 className="section-title">
+                {nextSetupWorkspace
+                  ? `${nextSetupWorkspace.name} is the next workspace to finish.`
+                  : 'Every workspace already has the basics in place.'}
+              </h2>
+              <p className="text-muted">
+                {nextSetupWorkspace
+                  ? 'Get the inbound number and clinic notification email right, then the operator can trust replies and bookings.'
+                  : 'You can treat Companies like a quick review screen instead of a blocking setup page tonight.'}
+              </p>
+              {nextSetupWorkspace && (
+                <>
+                  <div className="workspace-readiness">
+                    <span className={`readiness-pill${nextSetupWorkspace.telnyxInboundNumber ? ' is-ready' : ''}`}>
+                      {nextSetupWorkspace.telnyxInboundNumber ? 'Inbound routing ready' : 'Inbound routing missing'}
+                    </span>
+                    <span className={`readiness-pill${nextSetupWorkspace.notificationEmail ? ' is-ready' : ''}`}>
+                      {nextSetupWorkspace.notificationEmail ? 'Clinic email ready' : 'Clinic email missing'}
+                    </span>
+                  </div>
+                  <div className="action-cluster">
+                    <a className="button" href={`#company-${nextSetupWorkspace.id}`}>
+                      Jump to setup
+                    </a>
+                    <a className="button-ghost" href={`/leads?companyId=${nextSetupWorkspace.id}`}>
+                      Preview leads
+                    </a>
+                  </div>
+                </>
+              )}
+            </section>
+
+            <section className="workspace-hub-card">
+              <div className="metric-label">Daily operator start</div>
+              <h2 className="section-title">
+                {firstReadyWorkspace
+                  ? `When setup is done, start the day inside ${firstReadyWorkspace.name}.`
+                  : 'Once one workspace is ready, operators should live in conversations and bookings.'}
+              </h2>
+              <p className="text-muted">
+                {firstReadyWorkspace
+                  ? 'The best default path is conversations first, then leads and bookings without making the operator hunt for context.'
+                  : 'You do not need more setup screens than this. Finish one workspace and move into live work.'}
+              </p>
+              {firstReadyWorkspace && (
+                <div className="action-cluster">
+                  <a className="button" href={`/conversations?companyId=${firstReadyWorkspace.id}`}>
+                    Work conversations
+                  </a>
+                  <a className="button-secondary" href={`/bookings?companyId=${firstReadyWorkspace.id}`}>
+                    View bookings
+                  </a>
+                  <a className="button-ghost" href={`/leads?companyId=${firstReadyWorkspace.id}`}>
+                    Open leads
+                  </a>
+                </div>
+              )}
+            </section>
+          </div>
+        </section>
+      )}
 
       <div className="record-grid">
         {companies.length === 0 && <div className="empty-state">No companies yet.</div>}
@@ -126,6 +219,7 @@ export default async function CompaniesPage() {
           return (
           <form
             key={company.id}
+            id={`company-${company.id}`}
             action={updateCompanyAction}
             className="record-card"
           >
@@ -165,8 +259,8 @@ export default async function CompaniesPage() {
               <a className="button-secondary" href={`/leads?companyId=${company.id}`}>
                 Work leads
               </a>
-              <a className="button-ghost" href={`/events?companyId=${company.id}`}>
-                Audit trail
+              <a className="button-ghost" href={`/bookings?companyId=${company.id}`}>
+                Bookings
               </a>
             </div>
             <div className="record-subtitle">{nextStep}</div>
@@ -207,7 +301,7 @@ export default async function CompaniesPage() {
               </div>
             </div>
             <button type="submit" className="button-secondary">
-              Save workspace settings
+              {company.telnyxInboundNumber && company.notificationEmail ? 'Save workspace settings' : 'Save and finish setup'}
             </button>
           </form>
           );
