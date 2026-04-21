@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireApiKey } from '@/lib/api-auth';
-import { createAppointmentFlow } from '@/services/booking';
+import { createAppointmentFlow, resolveAppointmentStartTime } from '@/services/booking';
 
 export async function POST(request: NextRequest) {
   if (!requireApiKey(request)) {
@@ -10,19 +10,34 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { companyId, contactId, startTime } = body;
 
-  if (!companyId || !contactId) {
-    return NextResponse.json({ error: 'companyId_and_contactId_required' }, { status: 400 });
+  if (!companyId || !contactId || !startTime) {
+    return NextResponse.json({ error: 'companyId_contactId_startTime_required' }, { status: 400 });
   }
 
-  if (startTime && Number.isNaN(new Date(startTime).getTime())) {
+  if (Number.isNaN(new Date(startTime).getTime())) {
     return NextResponse.json({ error: 'invalid_startTime' }, { status: 400 });
   }
 
-  const result = await createAppointmentFlow({
-    companyId,
-    contactId,
-    startTime: startTime ? new Date(startTime) : undefined
-  });
+  try {
+    const result = await createAppointmentFlow({
+      companyId,
+      contactId,
+      startTime: resolveAppointmentStartTime(new Date(startTime))
+    });
 
-  return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json(
+      {
+        ok: true,
+        ...result
+      },
+      { status: result.bookingStatus === 'created' ? 201 : 200 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : 'booking_failed'
+      },
+      { status: 400 }
+    );
+  }
 }

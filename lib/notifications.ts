@@ -17,6 +17,10 @@ type NotificationResult =
   | {
       status: 'skipped';
       detail: string;
+    }
+  | {
+      status: 'failed';
+      detail: string;
     };
 
 function smtpConfig() {
@@ -77,22 +81,29 @@ export async function sendBookingNotification(input: BookingNotificationInput): 
   const timeText = input.appointmentTime.toLocaleString();
   const contactName = input.contactName || 'Unnamed contact';
 
-  const info = await transporter.sendMail({
-    from: config.from,
-    to: input.to,
-    subject: `Booked appointment for ${contactName}`,
-    text: [
-      `A new FixYourLeads appointment was booked for ${input.companyName}.`,
-      '',
-      `Contact: ${contactName}`,
-      `Phone: ${input.contactPhone}`,
-      `Appointment time: ${timeText}`
-    ].join('\n')
-  });
+  try {
+    const info = await transporter.sendMail({
+      from: config.from,
+      to: input.to,
+      subject: `Booked appointment for ${contactName}`,
+      text: [
+        `A new FixYourLeads appointment was booked for ${input.companyName}.`,
+        '',
+        `Contact: ${contactName}`,
+        `Phone: ${input.contactPhone}`,
+        `Appointment time: ${timeText}`
+      ].join('\n')
+    });
 
-  return {
-    status: 'sent',
-    detail: `notification sent to ${input.to}`,
-    messageId: info.messageId
-  };
+    return {
+      status: 'sent',
+      detail: `notification sent to ${input.to}`,
+      messageId: info.messageId
+    };
+  } catch (error) {
+    return {
+      status: 'failed',
+      detail: error instanceof Error ? error.message : 'notification_send_failed'
+    };
+  }
 }
