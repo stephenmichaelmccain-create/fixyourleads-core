@@ -3,6 +3,8 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
 import { safeLoad } from '@/lib/ui-data';
 
+export const dynamic = 'force-dynamic';
+
 export default async function EventsPage({ searchParams }: { searchParams?: Promise<{ companyId?: string }> }) {
   const params = (await searchParams) || {};
   const companyId = params.companyId || '';
