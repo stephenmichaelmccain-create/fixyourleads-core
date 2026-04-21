@@ -4,8 +4,8 @@ Last updated: 2026-04-21
 
 ## Purpose
 
-`fixyourleads-core` is the code-first core system for lead intake, SMS follow-up,
-and booking workflows for clinics.
+`fixyourleads-core` is the code-first core system for clinic lead intake,
+outreach, messaging, and booking workflows.
 
 ## Current stack
 
@@ -26,6 +26,7 @@ and booking workflows for clinics.
 
 - `README.md`
 - `docs/PROJECT_STATUS.md`
+- `docs/MINIMUM_PRODUCTION_WORKFLOW.md`
 - `docs/NEW_CHAT_PROMPT.md`
 - `railway-worker.md`
 - `package.json`
@@ -62,48 +63,68 @@ These are still expected to be filled separately for local runtime:
 - `REDIS_URL`
 - `TELNYX_FROM_NUMBER`
 
-## Current known state
+## Current confirmed live state
 
-Confirmed:
-
-- Railway MCP works in Codex after OAuth.
-- Railway `list-projects` works.
-- `whoami` on Railway is unreliable because of a Railway-side validation issue.
-- The app repo includes an explicit Railway-safe start command:
-  `next start -p ${PORT:-3000} -H 0.0.0.0`
+- Railway `app`, `worker`, `Postgres`, and `Redis` are online in the
+  `adorable-commitment` production environment.
+- The live app URL is reachable:
+  `https://app-production-9ba1.up.railway.app`
+- The diagnostics and health surfaces are up:
+  - `/diagnostics`
+  - `/api/health`
+- The Railway runtime env contract is now present in production:
+  - `DATABASE_URL`
+  - `REDIS_URL`
+  - `TELNYX_API_KEY`
+  - `TELNYX_FROM_NUMBER`
+  - `APP_BASE_URL`
+  - `INTERNAL_API_KEY`
+- The live Prisma schema has been pushed to the production database.
+- A demo company exists in production:
+  - `cmo90bu4q0000oicgg06ml53d`
+  - `Fix Your Leads Demo`
+- A sample lead, conversation, and event exist in production for smoke testing.
+- The list pages were updated to force dynamic rendering so live data appears:
+  - `/leads`
+  - `/conversations`
+  - `/events`
 - GitHub should be treated as the stable backup and history source for repo-safe
   changes.
 
-Reported / last observed:
+## Current product position
 
-- The live app URL has been returning `502`.
-- Earlier logs indicated the process can reach a `Ready` state before Railway
-  appears to recycle or lose the instance.
-- A Railway variables screen reportedly showed shared values for:
-  `APP_BASE_URL`, `DATABASE_URL`, `INTERNAL_API_KEY`, `NODE_ENV`, and
-  `REDIS_URL`.
+The product should stay narrow:
 
-Still not confirmed live:
+- source clinic leads
+- avoid duplicate outreach
+- contact leads by text and call
+- handle inbound replies
+- book appointments
+- notify clients when appointments are booked
 
-- `TELNYX_API_KEY` on the Railway app service
-- `TELNYX_FROM_NUMBER` on the Railway app service
-- Whether `prisma db push` has been run against the live database
-- The exact reason the live app returns `502` after startup
+This should remain a code-first app. Codex helps build it, but the runtime
+system should not depend on Codex or agents.
 
-## Likely current bottlenecks
+## Current likely bottlenecks
 
-- Incomplete live runtime env on Railway
-- App or worker service mismatch in Railway settings
-- Post-start crash or restart after initial boot
-- Missing live schema setup even if `DATABASE_URL` exists
+- lead dedupe and suppression are still minimal
+- inbound and outbound Telnyx flows have not been fully verified end to end
+- booking workflow is still skeletal
+- client notification flow from `fixyourleadsadmin@gmail.com` is not yet wired
+- worker behavior is online but not fully exercised with real jobs
 
-## Safe next debugging steps
+## Minimum production focus
 
-1. Verify the Railway app service has all six required env vars.
-2. Verify the worker service has the same shared runtime vars it needs.
-3. Confirm the live database schema has been pushed.
-4. Read the latest Railway app logs around startup and first health traffic.
-5. Re-test `/api/health` after env and schema confirmation.
+See `docs/MINIMUM_PRODUCTION_WORKFLOW.md`.
+
+The next real build target is:
+
+1. lead import and dedupe
+2. first outbound SMS flow
+3. inbound SMS webhook handling
+4. booking creation
+5. client notification email
+6. voice workflow on top of the same records
 
 ## GitHub policy
 

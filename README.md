@@ -4,6 +4,7 @@ Code-first core system scaffold for multi-tenant lead intake, messaging, and boo
 
 ## Start here
 - `docs/PROJECT_STATUS.md` for the current handoff and deploy state
+- `docs/MINIMUM_PRODUCTION_WORKFLOW.md` for the narrow product target
 - `docs/NEW_CHAT_PROMPT.md` for a paste-ready fresh-chat brief
 
 ## Stack

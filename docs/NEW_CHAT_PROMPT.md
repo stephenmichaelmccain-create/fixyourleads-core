@@ -8,6 +8,7 @@ You are joining an in-progress Railway + OpenClaw + FixYourLeads project.
 Start by reading these files in the repo:
 - README.md
 - docs/PROJECT_STATUS.md
+- docs/MINIMUM_PRODUCTION_WORKFLOW.md
 - docs/NEW_CHAT_PROMPT.md
 - railway-worker.md
 - package.json
@@ -16,7 +17,7 @@ Project anchors:
 - Repo: fixyourleads-core
 - Local path: ~/.openclaw/workspace/fixyourleads-core
 - Railway project: adorable-commitment
-- Reported live app URL: https://app-production-9ba1.up.railway.app
+- Live app URL: https://app-production-9ba1.up.railway.app
 
 Important rules:
 - Do not expose secret values.
@@ -47,14 +48,31 @@ Already established:
   - DATABASE_URL
   - REDIS_URL
   - TELNYX_FROM_NUMBER
-- The live app has recently been returning 502.
+- The live app is up and the production schema has been pushed.
+- Production currently has:
+  - app
+  - worker
+  - Postgres
+  - Redis
+- Production also has a demo company and sample lead/conversation/event for
+  smoke testing.
+
+Current product target:
+- lightweight multi-tenant CRM for clinic outreach
+- lead sourcing from Google Maps and similar sources
+- dedupe/suppression so the same clinic is not contacted twice
+- Telnyx for SMS and voice
+- appointment booking
+- client notifications from fixyourleadsadmin@gmail.com
+- no bloated generic CRM features
+- no agent-dependent runtime behavior
 
 What I need from you:
 1. Summarize current repo state and deploy assumptions.
 2. Check git status and recent commits.
 3. Confirm what is already wired correctly.
-4. Identify what is still missing locally and on Railway.
-5. Recommend the smallest next actions to stabilize the live app.
+4. Identify the smallest missing pieces for the minimum production workflow.
+5. Prefer product progress over infra churn unless production is actually broken.
 6. If you make repo-safe changes, prepare them for commit/push.
 
 Give me:
