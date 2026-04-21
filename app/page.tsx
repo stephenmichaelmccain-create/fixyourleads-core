@@ -10,8 +10,23 @@ export default async function HomePage() {
   const overview = await safeWorkspaceOverview();
   const notifications = notificationReadiness();
   const googleMapsConfigured = isGoogleMapsConfigured();
-  const topWorkspaces = overview.workspaces.slice(0, 4);
+  const topWorkspaces = [...overview.workspaces]
+    .sort((left, right) => {
+      if (left.missingSetupCount !== right.missingSetupCount) {
+        return right.missingSetupCount - left.missingSetupCount;
+      }
+
+      if (left.activityScore !== right.activityScore) {
+        return right.activityScore - left.activityScore;
+      }
+
+      return left.name.localeCompare(right.name);
+    })
+    .slice(0, 4);
   const missingWorkspaceSetupCount = overview.workspaces.filter((workspace) => workspace.missingSetupCount > 0).length;
+  const nextSetupWorkspace = topWorkspaces.find((workspace) => workspace.missingSetupCount > 0) || null;
+  const dailyWorkspace =
+    overview.workspaces.find((workspace) => workspace.missingSetupCount === 0) || overview.workspaces[0] || null;
   const launchChecklist = [
     {
       label: 'Company workspaces ready',
@@ -111,6 +126,25 @@ export default async function HomePage() {
               </div>
             ))}
           </div>
+          <div className="action-cluster">
+            {nextSetupWorkspace ? (
+              <a className="button" href={`/companies#company-${nextSetupWorkspace.id}`}>
+                Finish {nextSetupWorkspace.name}
+              </a>
+            ) : (
+              <a className="button" href="/companies">
+                Review companies
+              </a>
+            )}
+            {dailyWorkspace && (
+              <a className="button-secondary" href={`/conversations?companyId=${dailyWorkspace.id}`}>
+                Work {dailyWorkspace.name}
+              </a>
+            )}
+            <a className="button-ghost" href="/bookings">
+              Check bookings
+            </a>
+          </div>
         </section>
 
         <section className="panel panel-stack">
@@ -121,7 +155,7 @@ export default async function HomePage() {
           ) : (
             <div className="workspace-list">
               {topWorkspaces.map((workspace) => (
-                <a key={workspace.id} className="workspace-list-item" href={`/companies`}>
+                <section key={workspace.id} className="workspace-list-item">
                   <div className="workspace-list-header">
                     <strong>{workspace.name}</strong>
                     <span className={`status-chip ${workspace.missingSetupCount === 0 ? '' : 'status-chip-muted'}`}>
@@ -140,7 +174,24 @@ export default async function HomePage() {
                         ? 'Missing client notification email.'
                         : 'Ready for live operator work.'}
                   </div>
-                </a>
+                  <div className="workspace-list-actions">
+                    {workspace.missingSetupCount > 0 ? (
+                      <a className="button" href={`/companies#company-${workspace.id}`}>
+                        Finish setup
+                      </a>
+                    ) : (
+                      <a className="button" href={`/conversations?companyId=${workspace.id}`}>
+                        Work conversations
+                      </a>
+                    )}
+                    <a className="button-secondary" href={`/leads?companyId=${workspace.id}`}>
+                      Leads
+                    </a>
+                    <a className="button-ghost" href={`/bookings?companyId=${workspace.id}`}>
+                      Bookings
+                    </a>
+                  </div>
+                </section>
               ))}
             </div>
           )}

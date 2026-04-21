@@ -779,6 +779,30 @@ select {
   flex-wrap: wrap;
 }
 
+.workspace-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.workspace-action-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--fyl-black);
+  color: var(--fyl-white);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.workspace-action-pill-muted {
+  background: var(--fyl-white);
+  color: var(--fyl-black);
+  border: 1px solid var(--fyl-line);
+}
+
 @media (max-width: 720px) {
   .app-shell {
     padding-inline: 14px;
