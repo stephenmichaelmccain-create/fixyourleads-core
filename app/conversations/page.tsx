@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { LayoutShell } from '@/app/components/LayoutShell';
 
 export default async function ConversationsPage({ searchParams }: { searchParams?: Promise<{ companyId?: string }> }) {
   const params = (await searchParams) || {};
@@ -14,15 +15,14 @@ export default async function ConversationsPage({ searchParams }: { searchParams
     : [];
 
   return (
-    <main style={{ fontFamily: 'sans-serif', padding: 24 }}>
-      <h1>Conversations</h1>
+    <LayoutShell title="Conversations">
       <p>Pass <code>?companyId=...</code> in the URL.</p>
       {conversations.map((conversation) => (
         <section key={conversation.id} style={{ marginBottom: 24, paddingBottom: 12, borderBottom: '1px solid #ddd' }}>
-          <h2 style={{ marginBottom: 6 }}>{conversation.contact?.name || 'Unnamed contact'}</h2>
+          <h2 style={{ marginBottom: 6 }}><a href={`/conversations/${conversation.id}`}>{conversation.contact?.name || 'Unnamed contact'}</a></h2>
           <div style={{ marginBottom: 8 }}>{conversation.contact?.phone}</div>
           <ul>
-            {conversation.messages.map((message) => (
+            {conversation.messages.slice(-3).map((message) => (
               <li key={message.id}>
                 <strong>{message.direction}:</strong> {message.content}
               </li>
@@ -30,6 +30,6 @@ export default async function ConversationsPage({ searchParams }: { searchParams
           </ul>
         </section>
       ))}
-    </main>
+    </LayoutShell>
   );
 }

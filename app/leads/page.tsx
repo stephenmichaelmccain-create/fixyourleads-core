@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { LayoutShell } from '@/app/components/LayoutShell';
 
 export default async function LeadsPage({ searchParams }: { searchParams?: Promise<{ companyId?: string }> }) {
   const params = (await searchParams) || {};
@@ -14,19 +15,18 @@ export default async function LeadsPage({ searchParams }: { searchParams?: Promi
     : [];
 
   return (
-    <main style={{ fontFamily: 'sans-serif', padding: 24 }}>
-      <h1>Leads</h1>
+    <LayoutShell title="Leads">
       <p>Pass <code>?companyId=...</code> in the URL.</p>
       <ul>
         {leads.map((lead) => (
           <li key={lead.id} style={{ marginBottom: 12 }}>
-            <strong>{lead.contact?.name || 'Unnamed contact'}</strong><br />
+            <strong><a href={`/leads/${lead.id}`}>{lead.contact?.name || 'Unnamed contact'}</a></strong><br />
             {lead.contact?.phone}<br />
             status: {lead.status}<br />
             leadId: {lead.id}
           </li>
         ))}
       </ul>
-    </main>
+    </LayoutShell>
   );
 }

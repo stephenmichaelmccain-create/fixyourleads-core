@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { LayoutShell } from '@/app/components/LayoutShell';
 
 export default async function EventsPage({ searchParams }: { searchParams?: Promise<{ companyId?: string }> }) {
   const params = (await searchParams) || {};
@@ -13,8 +14,7 @@ export default async function EventsPage({ searchParams }: { searchParams?: Prom
     : [];
 
   return (
-    <main style={{ fontFamily: 'sans-serif', padding: 24 }}>
-      <h1>Events</h1>
+    <LayoutShell title="Events">
       <p>Pass <code>?companyId=...</code> in the URL.</p>
       <ul>
         {events.map((event) => (
@@ -25,6 +25,6 @@ export default async function EventsPage({ searchParams }: { searchParams?: Prom
           </li>
         ))}
       </ul>
-    </main>
+    </LayoutShell>
   );
 }
