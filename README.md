@@ -2,6 +2,10 @@
 
 Code-first core system scaffold for multi-tenant lead intake, messaging, and booking.
 
+## Start here
+- `docs/PROJECT_STATUS.md` for the current handoff and deploy state
+- `docs/NEW_CHAT_PROMPT.md` for a paste-ready fresh-chat brief
+
 ## Stack
 - Next.js
 - Postgres + Prisma
