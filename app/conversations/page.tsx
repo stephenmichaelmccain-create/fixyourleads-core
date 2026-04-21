@@ -1,9 +1,10 @@
 import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
+import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
 
 export default async function ConversationsPage({ searchParams }: { searchParams?: Promise<{ companyId?: string }> }) {
   const params = (await searchParams) || {};
-  const companyId = params.companyId;
+  const companyId = params.companyId || '';
 
   const conversations = companyId
     ? await db.conversation.findMany({
@@ -15,21 +16,53 @@ export default async function ConversationsPage({ searchParams }: { searchParams
     : [];
 
   return (
-    <LayoutShell title="Conversations">
-      <p>Pass <code>?companyId=...</code> in the URL.</p>
-      {conversations.map((conversation) => (
-        <section key={conversation.id} style={{ marginBottom: 24, paddingBottom: 12, borderBottom: '1px solid #ddd' }}>
-          <h2 style={{ marginBottom: 6 }}><a href={`/conversations/${conversation.id}`}>{conversation.contact?.name || 'Unnamed contact'}</a></h2>
-          <div style={{ marginBottom: 8 }}>{conversation.contact?.phone}</div>
-          <ul>
-            {conversation.messages.slice(-3).map((message) => (
-              <li key={message.id}>
-                <strong>{message.direction}:</strong> {message.content}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+    <LayoutShell title="Conversations" companyId={companyId}>
+      <CompanySelectorBar action="/conversations" initialCompanyId={companyId} />
+
+      {!companyId && <p>Enter a company ID to load conversations.</p>}
+
+      <div style={{ display: 'grid', gap: 16 }}>
+        {conversations.map((conversation) => {
+          const lastMessage = conversation.messages[conversation.messages.length - 1];
+          return (
+            <section
+              key={conversation.id}
+              style={{
+                padding: 16,
+                border: '1px solid #ddd',
+                borderRadius: 12,
+                background: '#fff'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 18 }}>
+                    <a href={`/conversations/${conversation.id}`}>{conversation.contact?.name || 'Unnamed contact'}</a>
+                  </h2>
+                  <div style={{ color: '#555', marginTop: 4 }}>{conversation.contact?.phone || 'No phone'}</div>
+                </div>
+                <div style={{ color: '#777', fontSize: 12 }}>
+                  {lastMessage ? new Date(lastMessage.createdAt).toLocaleString() : 'No messages'}
+                </div>
+              </div>
+
+              <div style={{ marginTop: 12, color: '#333' }}>
+                {lastMessage ? (
+                  <>
+                    <strong>{lastMessage.direction}:</strong> {lastMessage.content}
+                  </>
+                ) : (
+                  'No messages yet.'
+                )}
+              </div>
+
+              <div style={{ marginTop: 10, color: '#888', fontSize: 12 }}>
+                {conversation.messages.length} message{conversation.messages.length === 1 ? '' : 's'}
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </LayoutShell>
   );
 }

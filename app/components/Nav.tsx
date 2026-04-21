@@ -1,11 +1,18 @@
-export function Nav() {
+type NavProps = {
+  companyId?: string;
+};
+
+export function Nav({ companyId }: NavProps) {
+  const withCompany = (path: string) =>
+    companyId ? `${path}?companyId=${encodeURIComponent(companyId)}` : path;
+
   return (
-    <nav style={{ marginBottom: 20 }}>
-      <a href="/" style={{ marginRight: 12 }}>Home</a>
-      <a href="/diagnostics" style={{ marginRight: 12 }}>Diagnostics</a>
-      <a href="/leads?companyId=test-company" style={{ marginRight: 12 }}>Leads</a>
-      <a href="/conversations?companyId=test-company" style={{ marginRight: 12 }}>Conversations</a>
-      <a href="/events?companyId=test-company">Events</a>
+    <nav style={{ marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      <a href="/">Home</a>
+      <a href="/diagnostics">Diagnostics</a>
+      <a href={withCompany('/leads')}>Leads</a>
+      <a href={withCompany('/conversations')}>Conversations</a>
+      <a href={withCompany('/events')}>Events</a>
     </nav>
   );
 }
