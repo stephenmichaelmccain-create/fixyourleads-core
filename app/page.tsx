@@ -1,7 +1,7 @@
 import { LayoutShell } from './components/LayoutShell';
 import { ProspectStatus } from '@prisma/client';
 import { db } from '@/lib/db';
-import { intakeStageDetails, normalizeClinicKey } from '@/lib/client-intake';
+import { intakeStageDetails, normalizeClinicKey, parseProspectMetadata } from '@/lib/client-intake';
 import { isDemoLabel } from '@/lib/demo';
 import { safeLoad } from '@/lib/ui-data';
 import { hasInboundRouting } from '@/lib/inbound-numbers';
@@ -153,7 +153,8 @@ export default async function HomePage() {
           },
           select: {
             id: true,
-            name: true
+            name: true,
+            notes: true
           }
         }),
       []
@@ -164,15 +165,17 @@ export default async function HomePage() {
   const intakeCounts = soldProspects.reduce(
     (acc, prospect) => {
       const matchedCompany = companyByKey.get(normalizeClinicKey(prospect.name)) || null;
+      const profile = parseProspectMetadata(prospect.notes);
       const stage = intakeStageDetails({
         hasWorkspace: Boolean(matchedCompany),
         hasRouting: matchedCompany ? hasInboundRouting(matchedCompany) : false,
-        hasNotificationEmail: Boolean(matchedCompany?.notificationEmail)
+        hasNotificationEmail: Boolean(matchedCompany?.notificationEmail),
+        hasSignupReceived: Boolean(profile.signup_received_at)
       });
       acc.total += 1;
       if (stage.stage === 'waiting_signup') {
         acc.waiting += 1;
-      } else if (stage.stage === 'setup_pending') {
+      } else if (stage.stage === 'setup_pending' || stage.stage === 'workspace_created') {
         acc.setup += 1;
       } else if (stage.stage === 'ready') {
         acc.ready += 1;

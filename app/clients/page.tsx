@@ -3,7 +3,7 @@ import { createCompanyAction } from '@/app/companies/actions';
 import { ProspectStatus } from '@prisma/client';
 import { db } from '@/lib/db';
 import { isDemoLabel } from '@/lib/demo';
-import { intakeStageDetails, normalizeClinicKey } from '@/lib/client-intake';
+import { intakeStageDetails, normalizeClinicKey, parseProspectMetadata } from '@/lib/client-intake';
 import { safeLoad } from '@/lib/ui-data';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
 import { redirect } from 'next/navigation';
@@ -121,6 +121,7 @@ export default async function ClientsPage({
           select: {
             id: true,
             name: true,
+            notes: true,
             nextActionAt: true
           },
           orderBy: [{ nextActionAt: 'asc' }, { updatedAt: 'desc' }],
@@ -135,17 +136,19 @@ export default async function ClientsPage({
   const companyByKey = new Map(clients.map((client) => [normalizeClinicKey(client.name), client]));
   const intakeRows = soldProspects.map((prospect) => {
     const matchedCompany = companyByKey.get(normalizeClinicKey(prospect.name)) || null;
+    const profile = parseProspectMetadata(prospect.notes);
     const stage = intakeStageDetails({
       hasWorkspace: Boolean(matchedCompany),
       hasRouting: matchedCompany ? hasInboundRouting(matchedCompany) : false,
-      hasNotificationEmail: Boolean(matchedCompany?.notificationEmail)
+      hasNotificationEmail: Boolean(matchedCompany?.notificationEmail),
+      hasSignupReceived: Boolean(profile.signup_received_at)
     });
 
     return { prospect, matchedCompany, stage };
   });
   const intakeCounts = {
     waiting: intakeRows.filter((row) => row.stage.stage === 'waiting_signup').length,
-    setup: intakeRows.filter((row) => row.stage.stage === 'setup_pending').length,
+    setup: intakeRows.filter((row) => row.stage.stage === 'setup_pending' || row.stage.stage === 'workspace_created').length,
     ready: intakeRows.filter((row) => row.stage.stage === 'ready').length
   };
 
