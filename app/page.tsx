@@ -59,7 +59,7 @@ export default async function HomePage() {
     {
       href: '/companies',
       eyebrow: 'Clinic setup',
-      title: 'Keep every clinic launch-ready.',
+      title: 'Keep every clinic workspace ready.',
       body: 'Set inbound numbers, notification emails, and move straight into the right client workspace.'
     },
     {

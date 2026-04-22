@@ -160,7 +160,7 @@ export default async function ConversationDetailPage({
     telnyxMode === 'dedicated'
       ? 'Replies should route back to this company cleanly.'
       : telnyxMode === 'shared'
-        ? 'Outbound SMS can run tonight, but replies are still on the shared fallback sender.'
+        ? 'Outbound SMS is available, but replies are still on the shared fallback sender.'
         : 'Do not trust live SMS here until a shared sender or dedicated inbound number is configured.';
   const normalizedPhone = normalizePhone(conversation.contact?.phone || '');
 
@@ -285,7 +285,7 @@ export default async function ConversationDetailPage({
           <section className="panel panel-stack">
             <div className="metric-label">Telnyx sender path</div>
             <div className="inline-row justify-between">
-              <h2 className="form-title">What number this workspace is using tonight</h2>
+              <h2 className="form-title">Active sending number for this workspace</h2>
               <div className={`status-chip ${
                 telnyxMode === 'dedicated'
                   ? ''

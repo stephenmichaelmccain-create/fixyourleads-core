@@ -127,8 +127,8 @@ export async function CompanySelectorBar({
                 <div className="metric-label">Workspace setup</div>
                 <strong>
                   {compactMode
-                    ? `${suggestedCompany.name} still has one launch blocker to clear.`
-                    : `${suggestedCompany.name} is not fully launch-ready yet.`}
+                    ? `${suggestedCompany.name} still has one setup blocker to clear.`
+                    : `${suggestedCompany.name} still needs setup before operators should trust routing and follow-up.`}
                 </strong>
                 <div className="text-muted">
                   {compactMode
@@ -146,7 +146,7 @@ export async function CompanySelectorBar({
               </div>
               <div className="action-cluster">
                 <a className="button" href={`/companies#company-${suggestedCompany.id}`}>
-                  Fix workspace setup
+                  Complete clinic setup
                 </a>
                 {!compactMode && (
                   <a className="button-ghost" href={`/companies`}>

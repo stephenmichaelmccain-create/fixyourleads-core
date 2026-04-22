@@ -226,7 +226,7 @@ export default async function CompaniesPage({
           <p className="text-muted">
             {sharedSenderAvailable
               ? `Right now ${missingRouting} workspace${missingRouting === 1 ? '' : 's'} will fall back to the shared TELNYX_FROM_NUMBER. Outbound can still work, but replies are not fully isolated until each clinic has its own inbound number.`
-              : 'Before trusting live SMS work, either assign a Telnyx inbound number to each workspace or configure a shared TELNYX_FROM_NUMBER as the temporary sender lane.'}
+              : 'Before trusting live SMS work, either assign a Telnyx inbound number to each workspace or configure a shared TELNYX_FROM_NUMBER as the fallback sender lane.'}
           </p>
           <div className="workspace-readiness">
             <span className={`readiness-pill${sharedSenderAvailable ? ' is-ready' : ''}`}>
@@ -241,8 +241,8 @@ export default async function CompaniesPage({
 
       {setupSprintCompanies.length > 0 && (
         <section className="panel panel-stack">
-          <div className="metric-label">Setup sprint</div>
-          <h2 className="section-title">Clear the launch blockers in one pass.</h2>
+          <div className="metric-label">Workspace gaps</div>
+          <h2 className="section-title">Clear the remaining setup blockers in one pass.</h2>
           <p className="text-muted">
             These are the workspaces still missing routing or clinic notification setup. Finish them here, then move
             straight into conversations and bookings.
@@ -286,7 +286,7 @@ export default async function CompaniesPage({
 
       {companies.length > 0 && (
         <section className="panel panel-stack">
-          <div className="metric-label">Tonight&apos;s client launch</div>
+          <div className="metric-label">Client rollout</div>
           <div className="workspace-hub-grid">
             <section className="workspace-hub-card">
               <div className="metric-label">Next setup step</div>
@@ -298,7 +298,7 @@ export default async function CompaniesPage({
               <p className="text-muted">
                 {nextSetupWorkspace
                   ? 'Get the inbound number and clinic notification email right, then the operator can trust replies and bookings.'
-                  : 'You can treat Companies like a quick review screen instead of a blocking setup page tonight.'}
+                  : 'You can treat Companies like a quick review screen instead of a blocking setup page.'}
               </p>
               {nextSetupWorkspace && (
                 <>
@@ -382,7 +382,7 @@ export default async function CompaniesPage({
                 </span>
                 {!hasRouting && sharedSenderAvailable && (
                   <span className="status-chip status-chip-attention">
-                    <strong>SMS tonight</strong> shared sender
+                    <strong>SMS path</strong> shared sender
                   </span>
                 )}
                 <span className={`status-chip ${company.notificationEmail ? '' : 'status-chip-muted'}`}>

@@ -145,7 +145,7 @@ export default async function BookingsPage({
           <div className="record-header">
             <div>
               <div className="metric-label">Booking readiness</div>
-              <h2 className="record-title">What happens after an appointment is booked tonight</h2>
+              <h2 className="record-title">What happens after an appointment is booked</h2>
             </div>
             <span className={bookingStatusChipClass(notificationStatus.status)}>
               <strong>Email path</strong> {notificationStatus.label}
