@@ -1487,6 +1487,53 @@ select {
   gap: 10px;
 }
 
+.queue-card-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.queue-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(176, 137, 244, 0.16);
+  background: linear-gradient(180deg, rgba(248, 243, 255, 0.98), rgba(242, 233, 255, 0.98));
+  box-shadow: 0 12px 28px rgba(52, 16, 88, 0.06);
+}
+
+.queue-card.is-active {
+  border-color: rgba(110, 63, 209, 0.42);
+  box-shadow: 0 16px 34px rgba(52, 16, 88, 0.12);
+}
+
+.queue-card-count {
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: var(--fyl-accent-strong);
+  line-height: 1;
+}
+
+.queue-card-next {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(176, 137, 244, 0.16);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--fyl-black);
+}
+
+.queue-card-next span {
+  color: var(--fyl-muted);
+  font-size: 0.88rem;
+}
+
+.queue-card-next.is-empty {
+  color: var(--fyl-muted);
+}
+
 .workspace-action-pill {
   display: inline-flex;
   align-items: center;

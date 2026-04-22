@@ -128,6 +128,23 @@ function operatorQueueLabel(value: OperatorQueueState) {
   }
 }
 
+function operatorQueueDescription(value: OperatorQueueState) {
+  switch (value) {
+    case 'needs_reply':
+      return 'Inbound texts waiting on an operator reply.';
+    case 'delivery_issue':
+      return 'Outbound texts that failed or need manual attention.';
+    case 'awaiting_delivery':
+      return 'Recent sends still waiting on final carrier confirmation.';
+    case 'waiting_on_contact':
+      return 'Open threads where the next move is another touch later.';
+    case 'no_thread':
+      return 'Leads that still need the first outbound text started.';
+    default:
+      return 'Queue view';
+  }
+}
+
 function operatorQueueStateForLead(
   conversationId: string,
   latestThreadMessage: {
@@ -640,6 +657,19 @@ export default async function ClientWorkspacePage({
       no_thread: 0
     } as Record<OperatorQueueState, number>
   );
+  const nextLeadByQueue = operatorQueueStates.reduce(
+    (acc, value) => {
+      acc[value] = leadRows.find((row) => row.threadStateKey === value) || null;
+      return acc;
+    },
+    {
+      needs_reply: null,
+      delivery_issue: null,
+      awaiting_delivery: null,
+      waiting_on_contact: null,
+      no_thread: null
+    } as Record<OperatorQueueState, (typeof leadRows)[number] | null>
+  );
   const filteredLeadRows = queue ? leadRows.filter((row) => row.threadStateKey === queue) : leadRows;
   const totalPages = Math.max(1, Math.ceil(filteredLeadRows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -960,6 +990,58 @@ export default async function ClientWorkspacePage({
               </a>
             </div>
           </form>
+
+          <div className="queue-card-grid">
+            {operatorQueueStates.map((value) => {
+              const nextRow = nextLeadByQueue[value];
+              const queueHref = buildClientHref(
+                company.id,
+                { window: windowDays, status, source, queue, sort, dir, page: currentPage },
+                { queue: value, page: 1 }
+              );
+
+              return (
+                <section key={value} className={`queue-card${queue === value ? ' is-active' : ''}`}>
+                  <div className="workspace-list-header">
+                    <div className="panel-stack">
+                      <div className="metric-label">{operatorQueueLabel(value)}</div>
+                      <div className="queue-card-count">{queueCounts[value]}</div>
+                    </div>
+                    <span
+                      className={`status-chip ${
+                        value === 'needs_reply' || value === 'delivery_issue'
+                          ? 'status-chip-attention'
+                          : 'status-chip-muted'
+                      }`}
+                    >
+                      {queueCounts[value] > 0 ? 'Active' : 'Clear'}
+                    </span>
+                  </div>
+                  <div className="metric-copy">{operatorQueueDescription(value)}</div>
+                  {nextRow ? (
+                    <div className="queue-card-next">
+                      <strong>{nextRow.lead.contact.name || 'Unknown lead'}</strong>
+                      <span>
+                        {nextRow.lead.source || 'Unknown source'} • {formatCompactDateTime(latestLeadActivity(nextRow.lead))}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="queue-card-next is-empty">Nothing waiting in this queue right now.</div>
+                  )}
+                  <div className="workspace-list-actions">
+                    <a className="workspace-action-pill workspace-action-pill-muted" href={queueHref}>
+                      Open queue
+                    </a>
+                    {nextRow ? (
+                      <a className="workspace-action-pill" href={nextRow.href}>
+                        Work next
+                      </a>
+                    ) : null}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
 
           <div className="filter-bar">
             <a
