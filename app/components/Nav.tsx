@@ -6,9 +6,6 @@ type NavProps = {
 };
 
 export function Nav({ companyId, companyName, usingRememberedCompany, current }: NavProps) {
-  const withCompany = (path: string) =>
-    companyId ? `${path}?companyId=${encodeURIComponent(companyId)}` : path;
-
   const linkClass = (name: NavProps['current']) =>
     `nav-pill${current === name ? ' is-active' : ''}`;
 
@@ -21,17 +18,8 @@ export function Nav({ companyId, companyName, usingRememberedCompany, current }:
         <a className={linkClass('companies')} href="/companies">
           Companies
         </a>
-        <a className={linkClass('leads')} href={withCompany('/leads')}>
+        <a className={linkClass('leads')} href="/leads">
           Leads
-        </a>
-        <a className={linkClass('conversations')} href={withCompany('/conversations')}>
-          Conversations
-        </a>
-        <a className={linkClass('bookings')} href={withCompany('/bookings')}>
-          Bookings
-        </a>
-        <a className={linkClass('events')} href={withCompany('/events')}>
-          Events
         </a>
       </nav>
       <div className="hero-nav-utility">

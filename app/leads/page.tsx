@@ -1,13 +1,49 @@
-import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
-import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
-import { LeadStatusButton } from './LeadStatusButton';
+import { CompanyWorkspaceTabs } from '@/app/components/CompanyWorkspaceTabs';
+import { db } from '@/lib/db';
 import { safeLoad } from '@/lib/ui-data';
 import { isGoogleMapsConfigured } from '@/lib/google-maps';
 import { normalizePhone } from '@/lib/phone';
+import { LeadStatusButton } from './LeadStatusButton';
 import { importGoogleMapsLeadsAction, quickAddLeadAction } from './actions';
 
 export const dynamic = 'force-dynamic';
+
+const leadStatuses = [
+  { label: 'All leads', value: '' },
+  { label: 'New', value: 'NEW' },
+  { label: 'Contacted', value: 'CONTACTED' },
+  { label: 'Replied', value: 'REPLIED' },
+  { label: 'Booked', value: 'BOOKED' },
+  { label: 'Suppressed', value: 'SUPPRESSED' }
+] as const;
+
+function buildLeadFilterHref({
+  companyId,
+  status,
+  source
+}: {
+  companyId?: string;
+  status?: string;
+  source?: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (companyId) {
+    params.set('companyId', companyId);
+  }
+
+  if (status) {
+    params.set('status', status);
+  }
+
+  if (source) {
+    params.set('source', source);
+  }
+
+  const query = params.toString();
+  return query ? `/leads?${query}` : '/leads';
+}
 
 export default async function LeadsPage({
   searchParams
@@ -15,6 +51,7 @@ export default async function LeadsPage({
   searchParams?: Promise<{
     companyId?: string;
     status?: string;
+    source?: string;
     importQuery?: string;
     imported?: string;
     duplicates?: string;
@@ -24,8 +61,9 @@ export default async function LeadsPage({
   }>;
 }) {
   const params = (await searchParams) || {};
-  const companyId = params.companyId || '';
+  const requestedCompanyId = params.companyId || '';
   const status = params.status || '';
+  const source = params.source || '';
   const importQuery = params.importQuery || '';
   const imported = Number(params.imported || 0);
   const duplicates = Number(params.duplicates || 0);
@@ -33,23 +71,102 @@ export default async function LeadsPage({
   const skippedNoPhone = Number(params.skippedNoPhone || 0);
   const importError = params.importError || '';
   const googleMapsConfigured = isGoogleMapsConfigured();
-  const selectedCompany = companyId
-    ? await safeLoad(
-        () =>
-          db.company.findUnique({
-            where: { id: companyId },
-            select: { id: true, name: true, notificationEmail: true, telnyxInboundNumber: true }
-          }),
-        null
-      )
-    : null;
-  const conversations = companyId
+
+  const companies = await safeLoad(
+    () =>
+      db.company.findMany({
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          name: true
+        }
+      }),
+    []
+  );
+
+  const selectedCompany = companies.find((company) => company.id === requestedCompanyId) || null;
+  const companyId = selectedCompany?.id || '';
+  const leadWhere = {
+    ...(companyId ? { companyId } : {}),
+    ...(source ? { source } : {})
+  };
+
+  const allLeads = await safeLoad(
+    () =>
+      db.lead.findMany({
+        where: leadWhere,
+        include: {
+          company: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          contact: {
+            include: {
+              _count: {
+                select: {
+                  leads: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 150
+      }),
+    []
+  );
+
+  const sourceRows = await safeLoad(
+    () =>
+      db.lead.findMany({
+        where: companyId ? { companyId } : {},
+        select: { source: true },
+        orderBy: { createdAt: 'desc' },
+        take: 250
+      }),
+    []
+  );
+
+  const sourceOptions = Array.from(
+    new Set(
+      sourceRows
+        .map((row) => row.source?.trim())
+        .filter((value): value is string => Boolean(value))
+    )
+  ).sort((left, right) => left.localeCompare(right));
+
+  const statusCounts = {
+    NEW: allLeads.filter((lead) => lead.status === 'NEW').length,
+    CONTACTED: allLeads.filter((lead) => lead.status === 'CONTACTED').length,
+    REPLIED: allLeads.filter((lead) => lead.status === 'REPLIED').length,
+    BOOKED: allLeads.filter((lead) => lead.status === 'BOOKED').length,
+    SUPPRESSED: allLeads.filter((lead) => lead.status === 'SUPPRESSED').length
+  };
+
+  const visibleLeads = status ? allLeads.filter((lead) => lead.status === status) : allLeads;
+  const conversationClauses = Array.from(
+    new Set(allLeads.map((lead) => `${lead.companyId}:${lead.contactId}`))
+  ).map((key) => {
+    const [companyIdValue, contactId] = key.split(':');
+
+    return {
+      companyId: companyIdValue,
+      contactId
+    };
+  });
+
+  const conversations = conversationClauses.length
     ? await safeLoad(
         () =>
           db.conversation.findMany({
-            where: { companyId },
+            where: {
+              OR: conversationClauses
+            },
             select: {
               id: true,
+              companyId: true,
               contactId: true
             }
           }),
@@ -57,30 +174,10 @@ export default async function LeadsPage({
       )
     : [];
 
-  const leads = companyId
-    ? await safeLoad(
-        () =>
-          db.lead.findMany({
-            where: { companyId },
-            include: {
-              contact: {
-                include: {
-                  _count: {
-                    select: {
-                      leads: true
-                    }
-                  }
-                }
-              }
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 100
-          }),
-        []
-      )
-    : [];
-  const visibleLeads = status ? leads.filter((lead) => lead.status === status) : leads;
-  const conversationByContactId = new Map(conversations.map((conversation) => [conversation.contactId, conversation.id]));
+  const conversationByKey = new Map(
+    conversations.map((conversation) => [`${conversation.companyId}:${conversation.contactId}`, conversation.id])
+  );
+
   const priorityRank = (leadStatus: string) => {
     if (leadStatus === 'NEW') {
       return 0;
@@ -100,45 +197,119 @@ export default async function LeadsPage({
 
     return 4;
   };
+
   const callableLeads = visibleLeads.filter((lead) => lead.status !== 'SUPPRESSED' && lead.status !== 'BOOKED');
-  const sortedWorkQueueLeads = [...callableLeads].sort((left, right) => {
-    const leftRank = priorityRank(left.status);
-    const rightRank = priorityRank(right.status);
+  const nextLead =
+    [...callableLeads].sort((left, right) => {
+      const leftRank = priorityRank(left.status);
+      const rightRank = priorityRank(right.status);
 
-    if (leftRank !== rightRank) {
-      return leftRank - rightRank;
-    }
+      if (leftRank !== rightRank) {
+        return leftRank - rightRank;
+      }
 
-    return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
-  });
-  const nextLead = sortedWorkQueueLeads[0] || visibleLeads[0] || null;
-  const statusCounts = {
-    NEW: leads.filter((lead) => lead.status === 'NEW').length,
-    CONTACTED: leads.filter((lead) => lead.status === 'CONTACTED').length,
-    REPLIED: leads.filter((lead) => lead.status === 'REPLIED').length,
-    BOOKED: leads.filter((lead) => lead.status === 'BOOKED').length,
-    SUPPRESSED: leads.filter((lead) => lead.status === 'SUPPRESSED').length
-  };
+      return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+    })[0] ||
+    visibleLeads[0] ||
+    null;
 
   return (
     <LayoutShell
       title="Leads"
-      description="Work the top of the funnel without contacting the same clinic twice. Every lead here should map cleanly to one company, one contact, and one conversation path."
+      description="Work every lead from one place, then drop into a company workspace only when you need that client’s exact booking or follow-up lane."
       companyId={companyId}
       companyName={selectedCompany?.name || undefined}
       section="leads"
     >
-      <CompanySelectorBar action="/leads" initialCompanyId={companyId} />
+      {selectedCompany && (
+        <CompanyWorkspaceTabs companyId={selectedCompany.id} companyName={selectedCompany.name} active="leads" />
+      )}
 
-      {!companyId && <div className="empty-state">Choose a company by name to load the lead workspace.</div>}
+      <section className="panel panel-stack">
+        <div className="metric-label">{selectedCompany ? 'Company leads' : 'All leads'}</div>
+        <div className="inline-row justify-between">
+          <div className="panel-stack">
+            <h2 className="form-title">
+              {selectedCompany
+                ? `Lead queue for ${selectedCompany.name}`
+                : 'Global lead queue across every company'}
+            </h2>
+            <p className="page-copy">
+              Filter by company, status, or source, then move straight into the exact thread instead of hunting around the app.
+            </p>
+          </div>
+          <div className="company-summary-strip company-summary-strip-compact">
+            <div className="company-summary-item">
+              <span className="key-value-label">Visible</span>
+              <strong>{visibleLeads.length}</strong>
+            </div>
+            <div className="company-summary-item">
+              <span className="key-value-label">Ready</span>
+              <strong>{statusCounts.NEW + statusCounts.CONTACTED + statusCounts.REPLIED}</strong>
+            </div>
+            <div className="company-summary-item">
+              <span className="key-value-label">Companies</span>
+              <strong>{companyId ? 1 : companies.length}</strong>
+            </div>
+          </div>
+        </div>
+
+        <form action="/leads" className="workspace-filter-form">
+          <div className="workspace-filter-row">
+            <div className="field-stack">
+              <label className="key-value-label" htmlFor="lead-company-filter">
+                Company
+              </label>
+              <select id="lead-company-filter" name="companyId" className="select-input" defaultValue={companyId}>
+                <option value="">All companies</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field-stack">
+              <label className="key-value-label" htmlFor="lead-status-filter">
+                Status
+              </label>
+              <select id="lead-status-filter" name="status" className="select-input" defaultValue={status}>
+                {leadStatuses.map((option) => (
+                  <option key={option.label} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field-stack">
+              <label className="key-value-label" htmlFor="lead-source-filter">
+                Source
+              </label>
+              <select id="lead-source-filter" name="source" className="select-input" defaultValue={source}>
+                <option value="">All sources</option>
+                {sourceOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="workspace-filter-actions">
+            <button type="submit" className="button">
+              Apply filters
+            </button>
+            <a className="button-ghost" href="/leads">
+              Clear filters
+            </a>
+          </div>
+        </form>
+      </section>
 
       {companyId && (
         <section className="panel panel-stack">
           <div className="metric-label">Quick add</div>
-          <h2 className="form-title">Drop a lead in fast and open the thread immediately.</h2>
-          <p className="page-copy">
-            Use this when you already have the clinic phone number from a list, call sheet, or manual research and do not want to bounce through extra setup.
-          </p>
+          <h2 className="form-title">Drop a lead into {selectedCompany?.name} and open the thread.</h2>
           <form action={quickAddLeadAction} className="panel-stack">
             <input type="hidden" name="companyId" value={companyId} />
             <div className="field-row">
@@ -146,13 +317,13 @@ export default async function LeadsPage({
               <input className="text-input" name="phone" placeholder="Phone number" />
             </div>
             <div className="field-row">
-              <input className="text-input" name="source" placeholder="Source label (optional)" defaultValue="manual_operator" />
+              <input className="text-input" name="source" placeholder="Source label" defaultValue="manual_operator" />
             </div>
             <div className="inline-actions">
               <button type="submit" className="button">
                 Create lead and open thread
               </button>
-              <span className="tiny-muted">The lead is deduped on create, then routed straight into the conversation workspace.</span>
+              <span className="tiny-muted">Quick add stays company-specific so the lead lands in the right workspace.</span>
             </div>
           </form>
         </section>
@@ -161,10 +332,7 @@ export default async function LeadsPage({
       {companyId && (
         <section className="panel panel-stack">
           <div className="metric-label">Google Maps import</div>
-          <h2 className="form-title">Import clinics into {selectedCompany?.name || 'this company'}</h2>
-          <p className="page-copy">
-            Keep the path thin: search clinics, normalize phones, suppress duplicates, and only create leads that can be worked.
-          </p>
+          <h2 className="form-title">Import clinics into {selectedCompany?.name}</h2>
           <form action={importGoogleMapsLeadsAction} className="panel-stack">
             <input type="hidden" name="companyId" value={companyId} />
             <div className="field-row">
@@ -182,13 +350,13 @@ export default async function LeadsPage({
               </button>
               <span className="tiny-muted">
                 {googleMapsConfigured
-                  ? 'Uses the configured Google Maps / Places API key without exposing it in the UI.'
+                  ? 'Imports directly into the selected company.'
                   : 'Google Maps import is disabled until GOOGLE_MAPS_API_KEY or GOOGLE_API_KEY is set.'}
               </span>
             </div>
           </form>
 
-          {importError && <div className="empty-state">Lead workspace error: {importError}</div>}
+          {importError && <div className="empty-state">Lead import error: {importError}</div>}
 
           {!importError && importQuery && (
             <div className="inline-row text-muted">
@@ -196,24 +364,26 @@ export default async function LeadsPage({
               <span>Imported: {imported}</span>
               <span>Duplicates: {duplicates}</span>
               <span>Suppressed: {suppressedDuplicates}</span>
-              <span>Skipped without usable phone: {skippedNoPhone}</span>
+              <span>Skipped no phone: {skippedNoPhone}</span>
             </div>
           )}
         </section>
       )}
 
-      {companyId && nextLead && (
+      {nextLead && (
         <section className="panel panel-stack">
-          <div className="metric-label">Lead work queue</div>
+          <div className="metric-label">Next lead</div>
           <div className="inline-row justify-between">
             <div className="panel-stack">
-              <h2 className="form-title">Work the next lead without losing context.</h2>
+              <h2 className="form-title">
+                {selectedCompany ? 'Work the next lead inside this company workspace.' : 'Work the next lead from the global queue.'}
+              </h2>
               <div className="inline-row text-muted">
                 <span>New: {statusCounts.NEW}</span>
                 <span>Contacted: {statusCounts.CONTACTED}</span>
                 <span>Replied: {statusCounts.REPLIED}</span>
                 <span>Booked: {statusCounts.BOOKED}</span>
-              <span>Suppressed: {statusCounts.SUPPRESSED}</span>
+                <span>Suppressed: {statusCounts.SUPPRESSED}</span>
               </div>
             </div>
             <div className="inline-actions">
@@ -225,43 +395,40 @@ export default async function LeadsPage({
               <a
                 className="button"
                 href={
-                  conversationByContactId.get(nextLead.contactId)
-                    ? `/conversations/${conversationByContactId.get(nextLead.contactId)}`
+                  conversationByKey.get(`${nextLead.companyId}:${nextLead.contactId}`)
+                    ? `/conversations/${conversationByKey.get(`${nextLead.companyId}:${nextLead.contactId}`)}`
                     : `/leads/${nextLead.id}`
                 }
               >
-                {conversationByContactId.get(nextLead.contactId) ? 'Open next thread' : 'Open next lead'}
-              </a>
-              <a className="button-ghost" href={`/leads/${nextLead.id}`}>
-                Open lead record
+                {conversationByKey.get(`${nextLead.companyId}:${nextLead.contactId}`) ? 'Open next thread' : 'Open next lead'}
               </a>
             </div>
           </div>
         </section>
       )}
 
-      {companyId && leads.length > 0 && (
+      {allLeads.length > 0 && (
         <section className="panel panel-stack">
-          <div className="metric-label">Lead status filters</div>
+          <div className="metric-label">Status filters</div>
           <div className="filter-bar">
-            {[
-              { label: 'All leads', value: '', count: leads.length },
-              { label: 'New', value: 'NEW', count: statusCounts.NEW },
-              { label: 'Contacted', value: 'CONTACTED', count: statusCounts.CONTACTED },
-              { label: 'Replied', value: 'REPLIED', count: statusCounts.REPLIED },
-              { label: 'Booked', value: 'BOOKED', count: statusCounts.BOOKED },
-              { label: 'Suppressed', value: 'SUPPRESSED', count: statusCounts.SUPPRESSED }
-            ].map((filter) => {
-              const href = filter.value ? `/leads?companyId=${companyId}&status=${filter.value}` : `/leads?companyId=${companyId}`;
+            {leadStatuses.map((filter) => {
+              const count =
+                filter.value === ''
+                  ? allLeads.length
+                  : statusCounts[filter.value as keyof typeof statusCounts];
 
               return (
                 <a
                   key={filter.label}
                   className={`filter-chip${status === filter.value ? ' is-active' : ''}`}
-                  href={href}
+                  href={buildLeadFilterHref({
+                    companyId,
+                    source,
+                    status: filter.value
+                  })}
                 >
                   <strong>{filter.label}</strong>
-                  <span>{filter.count}</span>
+                  <span>{count}</span>
                 </a>
               );
             })}
@@ -269,62 +436,74 @@ export default async function LeadsPage({
         </section>
       )}
 
-      {companyId && leads.length === 0 && (
-        <div className="empty-state">No leads found yet, or the database is not ready for lead queries.</div>
+      {allLeads.length === 0 && (
+        <div className="empty-state">
+          {selectedCompany
+            ? `No leads found yet for ${selectedCompany.name}.`
+            : 'No leads found yet across any company.'}
+        </div>
       )}
 
-      {companyId && leads.length > 0 && visibleLeads.length === 0 && (
-        <div className="empty-state">No leads match the current status filter.</div>
+      {allLeads.length > 0 && visibleLeads.length === 0 && (
+        <div className="empty-state">No leads match the current filters.</div>
       )}
 
       <div className="record-grid">
-        {visibleLeads.map((lead) => (
-          <section key={lead.id} className="record-card">
-            <div className="record-header">
-              <div>
-                <div className="metric-label">Lead</div>
-                <strong className="record-title">
-                  <a href={`/leads/${lead.id}`}>{lead.contact?.name || 'Unnamed contact'}</a>
-                </strong>
-                <div className="record-subtitle">{lead.contact?.phone || 'No phone'}</div>
+        {visibleLeads.map((lead) => {
+          const conversationId = conversationByKey.get(`${lead.companyId}:${lead.contactId}`);
+          const normalizedPhone = normalizePhone(lead.contact?.phone || '');
+
+          return (
+            <section key={lead.id} className="record-card">
+              <div className="record-header">
+                <div>
+                  <div className="metric-label">Lead</div>
+                  <strong className="record-title">
+                    <a href={`/leads/${lead.id}`}>{lead.contact?.name || 'Unnamed contact'}</a>
+                  </strong>
+                  <div className="record-subtitle">{lead.contact?.phone || 'No phone'}</div>
+                </div>
+                <span
+                  className={`status-chip ${lead.status === 'REPLIED' ? 'status-chip-attention' : lead.status === 'SUPPRESSED' ? 'status-chip-muted' : ''}`}
+                >
+                  <strong>Status</strong> {lead.status}
+                </span>
               </div>
-              <span className={`status-chip ${lead.status === 'REPLIED' ? 'status-chip-attention' : lead.status === 'SUPPRESSED' ? 'status-chip-muted' : ''}`}>
-                <strong>Status</strong> {lead.status}
-              </span>
-            </div>
-            <div className="inline-row text-muted">
-              {lead.contact?._count?.leads ? <span>Contact touches: {lead.contact._count.leads}</span> : null}
-              {lead.source && <span>Source: {lead.source}</span>}
-              {lead.sourceExternalId && <span>External ID: {lead.sourceExternalId}</span>}
-            </div>
-            <div className="inline-row text-muted">
-              <span>Lead ID: {lead.id}</span>
-              <span>Company: {lead.companyId}</span>
-            </div>
-            <div className="record-links">
-              {conversationByContactId.get(lead.contactId) ? (
-                <a className="button" href={`/conversations/${conversationByContactId.get(lead.contactId)}`}>
-                  Open thread
-                </a>
-              ) : (
-                <a className="button-secondary" href={`/leads/${lead.id}`}>
-                  Open lead
-                </a>
-              )}
-              {normalizePhone(lead.contact?.phone || '') && (
-                <>
-                  <a className="button-ghost" href={`tel:${normalizePhone(lead.contact?.phone || '')}`}>
-                    Call clinic
+              <div className="inline-row text-muted">
+                {!selectedCompany && <span>Company: {lead.company?.name || 'Unknown company'}</span>}
+                {lead.contact?._count?.leads ? <span>Contact touches: {lead.contact._count.leads}</span> : null}
+                {lead.source && <span>Source: {lead.source}</span>}
+                {lead.sourceExternalId && <span>External ID: {lead.sourceExternalId}</span>}
+              </div>
+              <div className="inline-row text-muted">
+                <span>Lead ID: {lead.id}</span>
+                <span>Company ID: {lead.companyId}</span>
+              </div>
+              <div className="record-links">
+                {conversationId ? (
+                  <a className="button" href={`/conversations/${conversationId}`}>
+                    Open thread
                   </a>
-                  <a className="button-link" href={`sms:${normalizePhone(lead.contact?.phone || '')}`}>
-                    Open text
+                ) : (
+                  <a className="button-secondary" href={`/leads/${lead.id}`}>
+                    Open lead
                   </a>
-                </>
-              )}
-              <LeadStatusButton leadId={lead.id} companyId={lead.companyId} />
-            </div>
-          </section>
-        ))}
+                )}
+                {normalizedPhone && (
+                  <>
+                    <a className="button-ghost" href={`tel:${normalizedPhone}`}>
+                      Call clinic
+                    </a>
+                    <a className="button-link" href={`sms:${normalizedPhone}`}>
+                      Open text
+                    </a>
+                  </>
+                )}
+                <LeadStatusButton leadId={lead.id} companyId={lead.companyId} />
+              </div>
+            </section>
+          );
+        })}
       </div>
     </LayoutShell>
   );

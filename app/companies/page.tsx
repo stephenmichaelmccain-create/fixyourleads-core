@@ -158,8 +158,8 @@ export default async function CompaniesPage({
               </a>
             )}
             {firstReadyWorkspace && (
-              <a className="button-secondary" href={`/conversations?companyId=${firstReadyWorkspace.id}`}>
-                Work {firstReadyWorkspace.name}
+              <a className="button-secondary" href={`/companies/${firstReadyWorkspace.id}`}>
+                Open {firstReadyWorkspace.name}
               </a>
             )}
           </div>
@@ -274,7 +274,7 @@ export default async function CompaniesPage({
                   <a className="button" href={`#company-${company.id}`}>
                     Fix workspace
                   </a>
-                  <a className="button-ghost" href={`/conversations?companyId=${company.id}`}>
+                  <a className="button-ghost" href={`/companies/${company.id}`}>
                     Open workspace
                   </a>
                 </div>
@@ -314,8 +314,8 @@ export default async function CompaniesPage({
                     <a className="button" href={`#company-${nextSetupWorkspace.id}`}>
                       Jump to setup
                     </a>
-                    <a className="button-ghost" href={`/leads?companyId=${nextSetupWorkspace.id}`}>
-                      Preview leads
+                    <a className="button-ghost" href={`/companies/${nextSetupWorkspace.id}`}>
+                      Open workspace
                     </a>
                   </div>
                 </>
@@ -336,8 +336,8 @@ export default async function CompaniesPage({
               </p>
               {firstReadyWorkspace && (
                 <div className="action-cluster">
-                  <a className="button" href={`/conversations?companyId=${firstReadyWorkspace.id}`}>
-                    Work conversations
+                  <a className="button" href={`/companies/${firstReadyWorkspace.id}`}>
+                    Open workspace
                   </a>
                   <a className="button-secondary" href={`/bookings?companyId=${firstReadyWorkspace.id}`}>
                     View bookings
@@ -413,8 +413,8 @@ export default async function CompaniesPage({
               </div>
             </div>
             <div className="record-links">
-              <a className="button" href={`/conversations?companyId=${company.id}`}>
-                Work conversations
+              <a className="button" href={`/companies/${company.id}`}>
+                Open workspace
               </a>
               {readyLeadsByCompany[company.id].NEW + readyLeadsByCompany[company.id].CONTACTED + readyLeadsByCompany[company.id].REPLIED > 0 ? (
                 <a className="button-secondary" href={`/leads?companyId=${company.id}&status=NEW`}>
