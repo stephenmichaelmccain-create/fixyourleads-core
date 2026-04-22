@@ -5,6 +5,7 @@ import { updateCompanyAction } from '@/app/companies/actions';
 import { db } from '@/lib/db';
 import { safeLoad } from '@/lib/ui-data';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
+import { normalizePhone } from '@/lib/phone';
 
 export const dynamic = 'force-dynamic';
 
@@ -666,7 +667,68 @@ export default async function ClientWorkspacePage({
           <div className="metric-label">Conversation thread</div>
           {selectedConversation ? (
             <>
-              <h2 className="section-title">{selectedConversation.contact?.name || 'Conversation'}</h2>
+              {(() => {
+                const threadPhone = normalizePhone(selectedConversation.contact?.phone || '');
+                const lastMessage = selectedConversation.messages[selectedConversation.messages.length - 1] || null;
+                const threadState = !lastMessage
+                  ? 'New thread'
+                  : lastMessage.direction === 'INBOUND'
+                    ? 'Needs reply'
+                    : 'Waiting on contact';
+
+                return (
+                  <>
+                    <div className="record-header">
+                      <div className="panel-stack">
+                        <h2 className="section-title">{selectedConversation.contact?.name || 'Conversation'}</h2>
+                        <div className="inline-row">
+                          <span className={`status-chip ${threadState === 'Needs reply' ? 'status-chip-attention' : threadState === 'Waiting on contact' ? 'status-chip-muted' : ''}`}>
+                            <strong>Queue</strong> {threadState}
+                          </span>
+                          <span className="status-chip status-chip-muted">
+                            <strong>Messages</strong> {selectedConversation.messages.length}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="inline-actions">
+                        {threadPhone && (
+                          <>
+                            <a className="button-secondary" href={`tel:${threadPhone}`}>
+                              Call
+                            </a>
+                            <a className="button-secondary" href={`sms:${threadPhone}`}>
+                              Open SMS
+                            </a>
+                          </>
+                        )}
+                        {selectedLead ? (
+                          <a className="button-ghost" href={`/leads/${selectedLead.id}`}>
+                            Lead record
+                          </a>
+                        ) : null}
+                        <a className="button-ghost" href={`/conversations/${selectedConversation.id}`}>
+                          Full thread
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="key-value-grid">
+                      <div className="key-value-card">
+                        <span className="key-value-label">Phone</span>
+                        {selectedConversation.contact?.phone || 'No phone'}
+                      </div>
+                      <div className="key-value-card">
+                        <span className="key-value-label">Last message</span>
+                        {lastMessage ? formatCompactDateTime(lastMessage.createdAt) : 'No messages yet'}
+                      </div>
+                      <div className="key-value-card">
+                        <span className="key-value-label">Conversation ID</span>
+                        <span className="tiny-muted">{selectedConversation.id}</span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
               <div className="message-thread">
                 {selectedConversation.messages.length === 0 ? (
                   <div className="empty-state">This thread has no messages yet.</div>
@@ -687,6 +749,35 @@ export default async function ClientWorkspacePage({
           ) : selectedLead ? (
             <>
               <h2 className="section-title">{selectedLead.contact.name || 'Lead selected'}</h2>
+              <div className="key-value-grid">
+                <div className="key-value-card">
+                  <span className="key-value-label">Phone</span>
+                  {selectedLead.contact.phone || 'No phone'}
+                </div>
+                <div className="key-value-card">
+                  <span className="key-value-label">Lead status</span>
+                  {formatStatusLabel(selectedLead.status)}
+                </div>
+                <div className="key-value-card">
+                  <span className="key-value-label">Last activity</span>
+                  {formatCompactDateTime(latestLeadActivity(selectedLead))}
+                </div>
+              </div>
+              <div className="inline-actions">
+                {normalizePhone(selectedLead.contact.phone || '') ? (
+                  <>
+                    <a className="button-secondary" href={`tel:${normalizePhone(selectedLead.contact.phone || '')}`}>
+                      Call
+                    </a>
+                    <a className="button-secondary" href={`sms:${normalizePhone(selectedLead.contact.phone || '')}`}>
+                      Open SMS
+                    </a>
+                  </>
+                ) : null}
+                <a className="button-ghost" href={`/leads/${selectedLead.id}`}>
+                  Open lead
+                </a>
+              </div>
               <div className="empty-state">
                 No conversation thread exists for this lead yet. When Telnyx creates one, it will open here.
               </div>
