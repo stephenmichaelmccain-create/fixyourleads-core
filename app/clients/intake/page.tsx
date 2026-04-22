@@ -23,7 +23,7 @@ function formatDateTime(value: Date | string | null | undefined) {
 }
 
 export default async function ClientIntakePage() {
-  const [soldProspects, companies] = await Promise.all([
+  const [soldProspects, companies, signupEvents] = await Promise.all([
     safeLoad(
       () =>
         db.prospect.findMany({
@@ -44,6 +44,23 @@ export default async function ClientIntakePage() {
           }
         }),
       []
+    ),
+    safeLoad(
+      () =>
+        db.eventLog.findMany({
+          where: {
+            eventType: 'client_signup_received'
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+          select: {
+            id: true,
+            companyId: true,
+            createdAt: true,
+            payload: true
+          }
+        }),
+      []
     )
   ]);
 
@@ -60,17 +77,70 @@ export default async function ClientIntakePage() {
     const inboundNumbers = matchedCompany ? allInboundNumbers(matchedCompany) : [];
 
     return {
+      rowId: `prospect:${prospect.id}`,
       prospect,
       profile,
       matchedCompany,
       stage,
-      inboundNumbers
+      inboundNumbers,
+      signupReceivedAt: profile.signup_received_at || null
     };
   });
 
-  const waitingCount = intakeRows.filter((row) => row.stage.stage === 'waiting_signup').length;
-  const setupPendingCount = intakeRows.filter((row) => row.stage.stage === 'setup_pending').length;
-  const readyCount = intakeRows.filter((row) => row.stage.stage === 'ready').length;
+  const matchedCompanyIds = new Set(intakeRows.map((row) => row.matchedCompany?.id).filter(Boolean));
+  const directSignupRows = signupEvents.flatMap((event) => {
+    if (matchedCompanyIds.has(event.companyId)) {
+      return [];
+    }
+
+    const matchedCompany = companies.find((company) => company.id === event.companyId) || null;
+
+    if (!matchedCompany) {
+      return [];
+    }
+
+    const payload =
+      event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
+        ? (event.payload as Record<string, unknown>)
+        : {};
+
+    const stage = intakeStageDetails({
+      hasWorkspace: true,
+      hasRouting: hasInboundRouting(matchedCompany),
+      hasNotificationEmail: Boolean(matchedCompany.notificationEmail),
+      hasSignupReceived: true
+    });
+
+    return [
+      {
+        rowId: `signup:${event.id}`,
+        prospect: null,
+        profile: {
+          source: String(payload.source || 'website'),
+          clinic_type: '',
+          predicted_revenue: '',
+          import_batch: '',
+          source_record: '',
+          signup_contact_name: String(payload.contactName || ''),
+          signup_notification_email: String(payload.notificationEmail || ''),
+          signup_phone: String(payload.phone || ''),
+          signup_website: String(payload.website || '')
+        } as Record<string, string>,
+        matchedCompany,
+        stage,
+        inboundNumbers: allInboundNumbers(matchedCompany),
+        signupReceivedAt:
+          typeof payload.signupReceivedAt === 'string' ? payload.signupReceivedAt : event.createdAt.toISOString()
+      }
+    ];
+  });
+  const allRows = [...intakeRows, ...directSignupRows].sort((a, b) =>
+    String(b.signupReceivedAt || '').localeCompare(String(a.signupReceivedAt || ''))
+  );
+
+  const waitingCount = allRows.filter((row) => row.stage.stage === 'waiting_signup').length;
+  const setupPendingCount = allRows.filter((row) => row.stage.stage === 'setup_pending').length;
+  const readyCount = allRows.filter((row) => row.stage.stage === 'ready').length;
 
   return (
     <LayoutShell
@@ -81,8 +151,8 @@ export default async function ClientIntakePage() {
       <div className="metric-grid">
         <section className="metric-card panel-stack">
           <div className="metric-label">Sold clinics</div>
-          <div className="metric-value">{intakeRows.length}</div>
-          <div className="metric-copy">Prospects already marked sold and moving toward client onboarding.</div>
+          <div className="metric-value">{allRows.length}</div>
+          <div className="metric-copy">Sold prospects and direct signups moving toward client onboarding.</div>
         </section>
         <section className="metric-card panel-stack">
           <div className="metric-label">Waiting for signup</div>
@@ -107,7 +177,7 @@ export default async function ClientIntakePage() {
             <div className="metric-label">Sold to signup bridge</div>
             <h2 className="section-title">Keep sold clinics from disappearing between the call and the website signup.</h2>
             <p className="page-copy">
-              This queue is the handoff from outbound sales into real client setup. It is built from sold prospects and matched against existing client workspaces.
+              This queue is the handoff from outbound sales into real client setup. It combines sold prospects with direct signup events so nothing disappears between the close and onboarding.
             </p>
           </div>
           <div className="inline-actions">
@@ -132,24 +202,27 @@ export default async function ClientIntakePage() {
               </tr>
             </thead>
             <tbody>
-              {intakeRows.length === 0 ? (
+              {allRows.length === 0 ? (
                 <tr>
                   <td colSpan={5}>
                     <div className="empty-state">No sold prospects are waiting on signup or onboarding right now.</div>
                   </td>
                 </tr>
               ) : (
-                intakeRows.map((row) => (
-                  <tr key={row.prospect.id}>
+                allRows.map((row) => (
+                  <tr key={row.rowId}>
                     <td>
                       <div className="panel-stack" style={{ gap: 6 }}>
                         <span className="inline-row">
-                          <strong>{row.prospect.name}</strong>
-                          {isDemoLabel(row.prospect.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
+                          <strong>{row.matchedCompany?.name || row.prospect?.name || 'Signup in flight'}</strong>
+                          {isDemoLabel(row.matchedCompany?.name || row.prospect?.name || '')
+                            ? <span className="status-chip status-chip-muted">Demo</span>
+                            : null}
+                          {!row.prospect ? <span className="status-chip status-chip-muted">Direct signup</span> : null}
                         </span>
                         <span className="tiny-muted">
                           {row.profile.clinic_type || 'Clinic type not set'}
-                          {row.prospect.city ? ` • ${row.prospect.city}` : ''}
+                          {row.prospect?.city ? ` • ${row.prospect.city}` : ''}
                           {row.profile.predicted_revenue ? ` • ${row.profile.predicted_revenue}` : ''}
                         </span>
                       </div>
@@ -190,26 +263,38 @@ export default async function ClientIntakePage() {
                       <div className="panel-stack" style={{ gap: 6 }}>
                         <span>{row.profile.source || 'Manual add'}</span>
                         <span className="tiny-muted">
-                          {row.profile.signup_received_at
-                            ? `Signup received ${formatDateTime(row.profile.signup_received_at)}`
-                            : row.profile.import_batch || row.profile.source_record || row.prospect.lastCallOutcome || 'No source batch'}
+                          {row.signupReceivedAt
+                            ? `Signup received ${formatDateTime(row.signupReceivedAt)}`
+                            : row.profile.import_batch ||
+                              row.profile.source_record ||
+                              row.prospect?.lastCallOutcome ||
+                              'No source batch'}
                         </span>
                       </div>
                     </td>
                     <td>
                       <div className="panel-stack" style={{ gap: 6 }}>
-                        <span>{formatDateTime(row.prospect.nextActionAt)}</span>
+                        <span>{formatDateTime(row.prospect?.nextActionAt || row.signupReceivedAt)}</span>
                         <div className="inline-actions">
-                          <a className="button-ghost" href={`/our-leads?prospectId=${encodeURIComponent(row.prospect.id)}`}>
-                            Open lead
-                          </a>
+                          {row.prospect ? (
+                            <a
+                              className="button-ghost"
+                              href={`/our-leads?prospectId=${encodeURIComponent(row.prospect.id)}`}
+                            >
+                              Open lead
+                            </a>
+                          ) : (
+                            <a className="button-ghost" href={`/clients/${row.matchedCompany?.id}#setup`}>
+                              Open signup
+                            </a>
+                          )}
                           {row.matchedCompany ? (
                             <a className="button-ghost" href={`/clients/${row.matchedCompany.id}#setup`}>
                               Open setup
                             </a>
                           ) : (
                             <form action={createClientFromProspectAction}>
-                              <input type="hidden" name="prospectId" value={row.prospect.id} />
+                              <input type="hidden" name="prospectId" value={row.prospect?.id || ''} />
                               <button type="submit" className="button-secondary">
                                 Create workspace
                               </button>

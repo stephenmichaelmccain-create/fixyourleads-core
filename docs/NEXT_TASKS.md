@@ -4,6 +4,7 @@
 - Keep all changes deploy-safe on `main`. No destructive schema or config changes without review.
 
 ## Next
+- Wire the real website form into `/api/internal/clients/intake` now that the route accepts flexible payloads and direct signups surface in `/clients/intake`.
 - Turn the new `/clients/intake` bridge into a fuller signup/onboarding pipeline once website form data starts landing.
 - Tighten diagnostics around queues, events, and client health only where they speed up debugging.
 - Improve conversation workflows further with even fewer clicks and better thread-level operator controls.
