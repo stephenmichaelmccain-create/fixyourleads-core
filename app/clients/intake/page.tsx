@@ -1,6 +1,7 @@
 import { ProspectStatus } from '@prisma/client';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
+import { createClientFromProspectAction } from '@/app/clients/intake/actions';
 import { isDemoLabel } from '@/lib/demo';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
 import { intakeStageDetails, normalizeClinicKey } from '@/lib/client-intake';
@@ -224,7 +225,14 @@ export default async function ClientIntakePage() {
                             <a className="button-ghost" href={`/clients/${row.matchedCompany.id}#setup`}>
                               Open setup
                             </a>
-                          ) : null}
+                          ) : (
+                            <form action={createClientFromProspectAction}>
+                              <input type="hidden" name="prospectId" value={row.prospect.id} />
+                              <button type="submit" className="button-secondary">
+                                Create workspace
+                              </button>
+                            </form>
+                          )}
                         </div>
                       </div>
                     </td>
