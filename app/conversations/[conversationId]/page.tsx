@@ -124,6 +124,60 @@ function buildSendFlash(searchParams: Record<string, string | string[] | undefin
   };
 }
 
+function threadActionSummary(options: {
+  hasMessage: boolean;
+  threadState: string;
+  lastLifecycleTone?: 'ok' | 'warn' | 'error' | 'muted';
+  activeSenderNumber: string | null;
+  assignedRoutingNumbers: string[];
+}) {
+  if (!options.hasMessage) {
+    return {
+      tone: 'warn' as const,
+      title: 'Start the thread',
+      body: 'There is no message history yet. Send the first outbound text or call the clinic now so the thread becomes active.'
+    };
+  }
+
+  if (options.threadState === 'Needs reply') {
+    return {
+      tone: 'error' as const,
+      title: 'Reply now',
+      body: 'The latest activity is inbound from the contact, so the next best move is an operator reply or a call if the thread needs escalation.'
+    };
+  }
+
+  if (options.lastLifecycleTone === 'error') {
+    return {
+      tone: 'error' as const,
+      title: 'Fix delivery',
+      body: 'The latest outbound text failed. Check the sender context and send the next message only after the routing issue is understood.'
+    };
+  }
+
+  if (!options.activeSenderNumber) {
+    return {
+      tone: 'warn' as const,
+      title: 'Finish setup first',
+      body: 'This thread does not have a trusted sender configured yet, so outbound work is risky until routing is fixed.'
+    };
+  }
+
+  if (options.assignedRoutingNumbers.length > 1) {
+    return {
+      tone: 'warn' as const,
+      title: 'Watch the sender lane',
+      body: 'This client has multiple assigned numbers. The client scope is safe, but the exact line used on each message is not stored separately yet.'
+    };
+  }
+
+  return {
+    tone: 'ok' as const,
+    title: 'Waiting on contact',
+    body: 'The thread is healthy and waiting on the clinic. Follow up only if your queue policy says it is due.'
+  };
+}
+
 export default async function ConversationDetailPage({
   params,
   searchParams
@@ -222,6 +276,16 @@ export default async function ConversationDetailPage({
     []
   );
   const lifecycleByMessageId = buildLifecycleByMessageId(conversationLifecycleEvents);
+  const lastLifecycle = lastMessage
+    ? lifecycleForMessage(lastMessage, lifecycleByMessageId.get(lastMessage.id) || [])
+    : null;
+  const nextAction = threadActionSummary({
+    hasMessage: Boolean(lastMessage),
+    threadState,
+    lastLifecycleTone: lastLifecycle?.tone,
+    activeSenderNumber,
+    assignedRoutingNumbers
+  });
 
   return (
     <LayoutShell
@@ -304,6 +368,34 @@ export default async function ConversationDetailPage({
               <span className="tiny-muted">{activeConversation.id}</span>
             </div>
           </div>
+
+          <section className="context-alert is-compact">
+            <div className="panel-stack">
+              <div className="metric-label">Operator next step</div>
+              <div className="inline-row">
+                <span
+                  className={`status-chip ${
+                    nextAction.tone === 'error'
+                      ? 'status-chip-attention'
+                      : nextAction.tone === 'warn'
+                        ? 'status-chip-muted'
+                        : ''
+                  }`}
+                >
+                  {nextAction.title}
+                </span>
+                <span className="tiny-muted">
+                  Routing memory:{' '}
+                  {assignedRoutingNumbers.length > 1
+                    ? 'client-safe, exact sender line not stored per message yet'
+                    : activeSenderNumber
+                      ? 'single sender context is clear'
+                      : 'sender missing'}
+                </span>
+              </div>
+              <div className="text-muted">{nextAction.body}</div>
+            </div>
+          </section>
 
           <div className="message-thread">
             {activeConversation.messages.length === 0 && <div className="empty-state">No messages yet.</div>}
