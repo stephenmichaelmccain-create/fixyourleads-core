@@ -105,50 +105,46 @@ export async function POST(request: NextRequest) {
   const idempotencyKey = `telnyx:${normalized.eventType}:${normalized.eventId || normalized.messageId}`;
 
   if (normalized.eventType === 'message.received') {
-    let companyId = normalized.companyId;
+    const inboundNumber = normalizePhone(normalized.to || '');
 
-    if (!companyId) {
-      const inboundNumber = normalizePhone(normalized.to || '');
+    if (!inboundNumber) {
+      logTelnyxWebhook('warn', 'ignored_event', {
+        reason: 'missing_inbound_number',
+        eventType: normalized.eventType,
+        eventId: normalized.eventId || null,
+        messageId: normalized.messageId || null
+      });
+      return NextResponse.json({ ok: true, ignored: true, reason: 'missing_inbound_number' });
+    }
 
-      if (!inboundNumber) {
-        logTelnyxWebhook('warn', 'ignored_event', {
-          reason: 'missing_inbound_number',
-          eventType: normalized.eventType,
-          eventId: normalized.eventId || null,
-          messageId: normalized.messageId || null
-        });
-        return NextResponse.json({ ok: true, ignored: true, reason: 'missing_inbound_number' });
-      }
-
-      const company = await db.company.findFirst({
-        where: {
-          OR: [
-            { telnyxInboundNumber: inboundNumber },
-            {
-              telnyxInboundNumbers: {
-                some: {
-                  number: inboundNumber
-                }
+    const company = await db.company.findFirst({
+      where: {
+        OR: [
+          { telnyxInboundNumber: inboundNumber },
+          {
+            telnyxInboundNumbers: {
+              some: {
+                number: inboundNumber
               }
             }
-          ]
-        },
-        select: { id: true }
+          }
+        ]
+      },
+      select: { id: true }
+    });
+
+    if (!company) {
+      logTelnyxWebhook('warn', 'ignored_event', {
+        reason: 'no_company_for_inbound_number',
+        inboundNumber,
+        eventType: normalized.eventType,
+        eventId: normalized.eventId || null,
+        messageId: normalized.messageId || null
       });
-
-      if (!company) {
-        logTelnyxWebhook('warn', 'ignored_event', {
-          reason: 'no_company_for_inbound_number',
-          inboundNumber,
-          eventType: normalized.eventType,
-          eventId: normalized.eventId || null,
-          messageId: normalized.messageId || null
-        });
-        return NextResponse.json({ ok: true, ignored: true, reason: 'no_company_for_inbound_number' });
-      }
-
-      companyId = company.id;
+      return NextResponse.json({ ok: true, ignored: true, reason: 'no_company_for_inbound_number' });
     }
+
+    const companyId = company.id;
 
     const { messageId, from, text } = normalized;
 
