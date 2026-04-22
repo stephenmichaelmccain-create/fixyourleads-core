@@ -20,6 +20,13 @@ const operatorQueueStates = [
   'waiting_on_contact',
   'no_thread'
 ] as const;
+const operatorQueuePriority = [
+  'needs_reply',
+  'delivery_issue',
+  'no_thread',
+  'awaiting_delivery',
+  'waiting_on_contact'
+] as const;
 
 type OperatorQueueState = (typeof operatorQueueStates)[number];
 
@@ -670,6 +677,22 @@ export default async function ClientWorkspacePage({
       no_thread: null
     } as Record<OperatorQueueState, (typeof leadRows)[number] | null>
   );
+  const topPriorityQueue = operatorQueuePriority.find((value) => queueCounts[value] > 0);
+  const topPriorityRow = topPriorityQueue ? nextLeadByQueue[topPriorityQueue] : null;
+  const topPriorityHref =
+    topPriorityQueue && topPriorityRow
+      ? buildClientHref(
+          company.id,
+          { window: windowDays, status, source, queue, sort, dir, page },
+          {
+            queue: topPriorityQueue,
+            page: 1,
+            conversationId: topPriorityRow.conversationId || undefined,
+            leadId: topPriorityRow.lead.id
+          }
+        )
+      : '';
+  const urgentQueueCount = queueCounts.needs_reply + queueCounts.delivery_issue + queueCounts.no_thread;
   const filteredLeadRows = queue ? leadRows.filter((row) => row.threadStateKey === queue) : leadRows;
   const totalPages = Math.max(1, Math.ceil(filteredLeadRows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -851,7 +874,28 @@ export default async function ClientWorkspacePage({
             </div>
           </div>
           <div className="panel-stack" style={{ alignItems: 'flex-end' }}>
+            {topPriorityRow ? (
+              <div className="context-alert is-compact">
+                <div className="panel-stack">
+                  <div className="metric-label">Work next</div>
+                  <div>
+                    {topPriorityRow.lead.contact.name || 'Unknown lead'} • {operatorQueueLabel(topPriorityQueue!)}
+                  </div>
+                  <div className="tiny-muted">
+                    {topPriorityRow.lead.source || 'Unknown source'} • {formatCompactDateTime(latestLeadActivity(topPriorityRow.lead))}
+                  </div>
+                </div>
+                <div className="inline-actions">
+                  <a className="button" href={topPriorityHref}>
+                    Open next lead
+                  </a>
+                </div>
+              </div>
+            ) : null}
             <div className="inline-actions">
+              <span className={`status-chip ${urgentQueueCount > 0 ? 'status-chip-attention' : 'status-chip-muted'}`}>
+                <strong>Urgent queue</strong> {urgentQueueCount}
+              </span>
               <a className="button-secondary" href={`/diagnostics/clients/${company.id}`}>
                 Client Health
               </a>
