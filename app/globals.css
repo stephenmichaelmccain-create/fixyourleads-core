@@ -1181,6 +1181,12 @@ select {
   top: 18px;
 }
 
+.client-panel-actions-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
 .sticky-panel {
   position: sticky;
   top: 18px;

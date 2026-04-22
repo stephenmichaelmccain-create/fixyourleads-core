@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { LeadStatus } from '@prisma/client';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { updateCompanyAction } from '@/app/companies/actions';
+import { bookConversationAction, sendConversationMessageAction } from '@/app/conversations/[conversationId]/actions';
 import { db } from '@/lib/db';
 import { safeLoad } from '@/lib/ui-data';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
@@ -37,6 +38,22 @@ function formatCompactDateTime(value: Date | string | null | undefined) {
     hour: 'numeric',
     minute: '2-digit'
   }).format(new Date(value));
+}
+
+function formatDateTimeLocalInput(value: Date) {
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return [
+    value.getFullYear(),
+    pad(value.getMonth() + 1),
+    pad(value.getDate())
+  ].join('-') + `T${pad(value.getHours())}:${pad(value.getMinutes())}`;
+}
+
+function defaultBookingInputValue() {
+  const value = new Date();
+  value.setDate(value.getDate() + 1);
+  value.setHours(10, 0, 0, 0);
+  return formatDateTimeLocalInput(value);
 }
 
 function formatStatusLabel(value: string) {
@@ -77,6 +94,103 @@ function bookingRate(bookingCount: number, total: number) {
   }
 
   return `${Math.round((bookingCount / total) * 100)}%`;
+}
+
+function buildBookingFlash(searchParams: {
+  booking?: string;
+  detail?: string;
+  notification?: string;
+  notificationDetail?: string;
+  confirmation?: string;
+  confirmationDetail?: string;
+}) {
+  const booking = searchParams.booking;
+  if (!booking) {
+    return null;
+  }
+
+  const detail = searchParams.detail;
+  const notification = searchParams.notification;
+  const notificationDetail = searchParams.notificationDetail;
+  const confirmation = searchParams.confirmation;
+  const confirmationDetail = searchParams.confirmationDetail;
+
+  if (booking === 'error') {
+    return {
+      tone: 'error',
+      title: 'Booking was not saved',
+      body:
+        detail === 'startTime_required'
+          ? 'Pick an appointment date and time before booking.'
+          : detail === 'startTime_in_past'
+            ? 'Pick a future appointment time so the booking can be saved.'
+            : 'The booking attempt failed before anything new was confirmed.'
+    };
+  }
+
+  const scheduledText = detail ? formatCompactDateTime(detail) : 'the selected time';
+  const notificationText =
+    notification === 'sent'
+      ? 'client email sent'
+      : notification === 'failed'
+        ? `client email failed (${notificationDetail || 'unknown error'})`
+        : notification === 'skipped'
+          ? `client email skipped (${notificationDetail || 'not configured'})`
+          : 'client email not attempted';
+  const confirmationText =
+    confirmation === 'sent'
+      ? 'confirmation text sent'
+      : confirmation === 'failed'
+        ? `confirmation text failed (${confirmationDetail || 'unknown error'})`
+        : confirmation === 'skipped'
+          ? 'confirmation text skipped'
+          : 'confirmation text not attempted';
+
+  if (booking === 'existing') {
+    return {
+      tone: 'warn',
+      title: 'Existing booking kept',
+      body: `This contact already had an appointment at ${scheduledText}. No duplicate booking was created. ${confirmationText}; ${notificationText}.`
+    };
+  }
+
+  return {
+    tone: notification === 'failed' || confirmation === 'failed' ? 'warn' : 'ok',
+    title: 'Appointment booked',
+    body: `Booked for ${scheduledText}. ${confirmationText}; ${notificationText}.`
+  };
+}
+
+function buildSendFlash(searchParams: { send?: string; detail?: string }) {
+  const send = searchParams.send;
+
+  if (!send) {
+    return null;
+  }
+
+  const detail = searchParams.detail;
+
+  if (send === 'error') {
+    return {
+      tone: 'error',
+      title: 'Text was not sent',
+      body:
+        detail === 'lead_suppressed'
+          ? 'This lead is suppressed, so outbound messaging is blocked.'
+          : detail === 'companyId_contactId_conversationId_text_required'
+            ? 'The send action was missing required data.'
+            : 'The send attempt failed before Telnyx accepted the message.'
+    };
+  }
+
+  return {
+    tone: 'ok',
+    title: 'Text sent',
+    body:
+      detail === 'accepted_by_telnyx'
+        ? 'Telnyx accepted the message. Delivery updates will appear in the thread below.'
+        : 'The message was logged successfully.'
+  };
 }
 
 function sequenceState(status: string) {
@@ -152,6 +266,13 @@ export default async function ClientWorkspacePage({
     conversationId?: string;
     leadId?: string;
     notice?: string;
+    send?: string;
+    detail?: string;
+    booking?: string;
+    notification?: string;
+    notificationDetail?: string;
+    confirmation?: string;
+    confirmationDetail?: string;
   }>;
 }) {
   const { id } = await params;
@@ -168,6 +289,8 @@ export default async function ClientWorkspacePage({
   const selectedConversationId = query.conversationId || '';
   const selectedLeadId = query.leadId || '';
   const notice = query.notice || '';
+  const sendFlash = buildSendFlash(query);
+  const bookingFlash = buildBookingFlash(query);
   const windowStart = startOfTrailingDays(windowDays);
 
   const company = await safeLoad(
@@ -405,6 +528,16 @@ export default async function ClientWorkspacePage({
       enabled: false
     }
   ];
+  const selectedThreadHref = selectedConversation
+    ? buildClientHref(
+        company.id,
+        { window: windowDays, status, source, sort, dir, page: currentPage },
+        {
+          conversationId: selectedConversation.id,
+          leadId: selectedLead?.id || selectedLeadId || undefined
+        }
+      )
+    : '';
 
   return (
     <LayoutShell
@@ -422,6 +555,26 @@ export default async function ClientWorkspacePage({
             <strong>Client setup updated.</strong>
           </div>
           <div className="text-muted">The latest routing and notification changes are live in this workspace.</div>
+        </section>
+      )}
+
+      {sendFlash && (
+        <section className="panel panel-stack">
+          <div className="inline-row">
+            <span className={`status-dot ${sendFlash.tone}`} />
+            <strong>{sendFlash.title}</strong>
+          </div>
+          <div className="text-muted">{sendFlash.body}</div>
+        </section>
+      )}
+
+      {bookingFlash && (
+        <section className="panel panel-stack">
+          <div className="inline-row">
+            <span className={`status-dot ${bookingFlash.tone}`} />
+            <strong>{bookingFlash.title}</strong>
+          </div>
+          <div className="text-muted">{bookingFlash.body}</div>
         </section>
       )}
 
@@ -726,6 +879,52 @@ export default async function ClientWorkspacePage({
                         <span className="tiny-muted">{selectedConversation.id}</span>
                       </div>
                     </div>
+
+                    <div className="client-panel-actions-grid">
+                      <form action={sendConversationMessageAction} className="panel panel-stack">
+                        <div className="metric-label">Quick reply</div>
+                        <input type="hidden" name="companyId" value={selectedConversation.companyId} />
+                        <input type="hidden" name="contactId" value={selectedConversation.contactId} />
+                        <input type="hidden" name="conversationId" value={selectedConversation.id} />
+                        <input type="hidden" name="returnTo" value={selectedThreadHref} />
+                        <textarea
+                          name="text"
+                          placeholder="Write the next outbound text"
+                          className="text-area"
+                          rows={3}
+                        />
+                        <button type="submit" className="button">
+                          Send text
+                        </button>
+                      </form>
+
+                      <form action={bookConversationAction} className="panel panel-stack">
+                        <div className="metric-label">Quick book</div>
+                        <input type="hidden" name="companyId" value={selectedConversation.companyId} />
+                        <input type="hidden" name="contactId" value={selectedConversation.contactId} />
+                        <input type="hidden" name="conversationId" value={selectedConversation.id} />
+                        <input type="hidden" name="returnTo" value={selectedThreadHref} />
+                        <div className="field-stack">
+                          <label className="key-value-label" htmlFor="client-workspace-start-time">
+                            Appointment date and time
+                          </label>
+                          <input
+                            id="client-workspace-start-time"
+                            type="datetime-local"
+                            name="startTime"
+                            className="text-input"
+                            defaultValue={defaultBookingInputValue()}
+                            min={formatDateTimeLocalInput(new Date())}
+                            step={900}
+                            required
+                          />
+                        </div>
+                        <button type="submit" className="button-secondary">
+                          Book and notify
+                        </button>
+                      </form>
+                    </div>
+
                   </>
                 );
               })()}

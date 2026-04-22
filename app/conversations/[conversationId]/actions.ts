@@ -5,24 +5,37 @@ import { redirect } from 'next/navigation';
 import { createAppointmentFlow, resolveAppointmentStartTime } from '@/services/booking';
 import { sendOutboundMessage } from '@/services/messaging';
 
+function sanitizeReturnTo(value: string | null | undefined, fallback: string) {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) {
+    return fallback;
+  }
+
+  if (value.startsWith('/conversations/') || value.startsWith('/clients/')) {
+    return value;
+  }
+
+  return fallback;
+}
+
 function revalidateConversationPaths(companyId: string, conversationId: string) {
   revalidatePath(`/conversations/${conversationId}`);
   revalidatePath(`/conversations?companyId=${companyId}`);
   revalidatePath(`/events?companyId=${companyId}`);
   revalidatePath(`/leads?companyId=${companyId}`);
+  revalidatePath(`/clients/${companyId}`);
 }
 
-function conversationRedirectPath(conversationId: string, values: Record<string, string | null | undefined>) {
-  const params = new URLSearchParams();
+function redirectPathWithValues(path: string, values: Record<string, string | null | undefined>) {
+  const url = new URL(path, 'http://localhost');
 
   Object.entries(values).forEach(([key, value]) => {
     if (value) {
-      params.set(key, value);
+      url.searchParams.set(key, value);
     }
   });
 
-  const search = params.toString();
-  return search ? `/conversations/${conversationId}?${search}` : `/conversations/${conversationId}`;
+  const search = url.searchParams.toString();
+  return search ? `${url.pathname}?${search}` : url.pathname;
 }
 
 export async function sendConversationMessageAction(formData: FormData) {
@@ -30,6 +43,10 @@ export async function sendConversationMessageAction(formData: FormData) {
   const contactId = String(formData.get('contactId') || '').trim();
   const conversationId = String(formData.get('conversationId') || '').trim();
   const text = String(formData.get('text') || '').trim();
+  const returnTo = sanitizeReturnTo(
+    String(formData.get('returnTo') || '').trim(),
+    `/conversations/${conversationId}`
+  );
 
   if (!companyId || !contactId || !conversationId || !text) {
     throw new Error('companyId_contactId_conversationId_text_required');
@@ -39,14 +56,14 @@ export async function sendConversationMessageAction(formData: FormData) {
     const result = await sendOutboundMessage(companyId, contactId, text);
     revalidateConversationPaths(companyId, conversationId);
     redirect(
-      conversationRedirectPath(conversationId, {
+      redirectPathWithValues(returnTo, {
         send: 'sent',
         detail: result.message.externalId ? 'accepted_by_telnyx' : 'logged_without_external_id'
       })
     );
   } catch (error) {
     redirect(
-      conversationRedirectPath(conversationId, {
+      redirectPathWithValues(returnTo, {
         send: 'error',
         detail: error instanceof Error ? error.message : 'send_failed'
       })
@@ -59,13 +76,17 @@ export async function bookConversationAction(formData: FormData) {
   const contactId = String(formData.get('contactId') || '').trim();
   const conversationId = String(formData.get('conversationId') || '').trim();
   const startTimeValue = String(formData.get('startTime') || '').trim();
+  const returnTo = sanitizeReturnTo(
+    String(formData.get('returnTo') || '').trim(),
+    `/conversations/${conversationId}`
+  );
 
   if (!companyId || !contactId || !conversationId) {
     throw new Error('companyId_contactId_conversationId_required');
   }
 
   if (!startTimeValue) {
-    redirect(conversationRedirectPath(conversationId, {
+    redirect(redirectPathWithValues(returnTo, {
       booking: 'error',
       detail: 'startTime_required'
     }));
@@ -97,5 +118,5 @@ export async function bookConversationAction(formData: FormData) {
     };
   }
 
-  redirect(conversationRedirectPath(conversationId, redirectValues));
+  redirect(redirectPathWithValues(returnTo, redirectValues));
 }
