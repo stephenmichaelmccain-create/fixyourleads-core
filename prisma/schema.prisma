@@ -20,6 +20,16 @@ enum MessageDirection {
   OUTBOUND
 }
 
+enum ProspectStatus {
+  NEW
+  NO_ANSWER
+  VM_LEFT
+  GATEKEEPER
+  BOOKED_DEMO
+  CLOSED
+  DEAD
+}
+
 model Company {
   id                String         @id @default(cuid())
   name              String
@@ -127,4 +137,38 @@ model IdempotencyKey {
   company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, key])
+}
+
+model Prospect {
+  id              String         @id @default(cuid())
+  companyId       String         @default("fixyourleads")
+  name            String
+  phone           String?
+  city            String?
+  website         String?
+  ownerName       String?
+  status          ProspectStatus @default(NEW)
+  lastCallAt      DateTime?
+  lastCallOutcome String?
+  nextActionAt    DateTime?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  callLogs        CallLog[]
+
+  @@index([status])
+  @@index([nextActionAt])
+  @@index([companyId])
+}
+
+model CallLog {
+  id              String   @id @default(cuid())
+  prospectId      String
+  outcome         String
+  durationSeconds Int?
+  notes           String?
+  createdAt       DateTime @default(now())
+  prospect        Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId, createdAt])
 }
