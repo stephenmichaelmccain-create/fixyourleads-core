@@ -289,6 +289,45 @@ select {
   line-height: 1.7;
 }
 
+.home-summary-bar {
+  display: grid;
+  gap: 16px;
+  align-items: center;
+}
+
+.home-summary-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+}
+
+.home-summary-metrics {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.home-summary-metric {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(176, 137, 244, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.home-summary-metric strong {
+  font-size: 1.8rem;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.home-summary-recap {
+  color: var(--fyl-muted);
+  line-height: 1.5;
+}
+
 .page-copy-inverse {
   color: rgba(255, 255, 255, 0.78);
 }
@@ -1349,6 +1388,10 @@ select {
 }
 
 @media (max-width: 900px) {
+  .home-summary-metrics {
+    grid-template-columns: 1fr;
+  }
+
   .setup-sprint-item {
     align-items: flex-start;
     flex-direction: column;

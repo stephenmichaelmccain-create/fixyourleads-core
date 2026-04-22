@@ -140,51 +140,31 @@ export default async function HomePage() {
       description="Five-minute morning check."
       section="home"
     >
-      {!allClear ? (
-        <section className="panel panel-stack">
-          <div className="inline-row">
-            <span className="status-dot warn" />
-            <strong>Something needs attention.</strong>
+      <section className={`panel home-summary-bar${allClear ? ' is-clear' : ' is-attention'}`}>
+        <div className="home-summary-status">
+          <span className={`status-dot ${allClear ? 'ok' : 'warn'}`} />
+          <strong>{allClear ? 'Everything is running.' : 'Something needs attention.'}</strong>
+        </div>
+
+        <div className="home-summary-metrics">
+          <div className="home-summary-metric">
+            <span className="metric-label">Unread client messages</span>
+            <strong>{unreadClientMessages}</strong>
           </div>
-          <div className="text-muted">Start with unread client messages, then today’s appointments, then any setup issues.</div>
-        </section>
-      ) : (
-        <section className="panel panel-stack">
-          <div className="inline-row">
-            <span className="status-dot ok" />
-            <strong>Everything is running.</strong>
+          <div className="home-summary-metric">
+            <span className="metric-label">Appointments today</span>
+            <strong>{appointmentsToday}</strong>
           </div>
-          <div className="text-muted">Nothing needs your attention right now.</div>
-        </section>
-      )}
+          <div className="home-summary-metric">
+            <span className="metric-label">Clients needing attention</span>
+            <strong>{clientsNeedingAttention}</strong>
+          </div>
+        </div>
 
-      <div className="panel-grid">
-        <section className="metric-card">
-          <div className="metric-label">Unread client messages</div>
-          <div className="metric-value">{unreadClientMessages}</div>
-          <div className="metric-copy">Messages where the latest reply came from the clinic.</div>
-        </section>
-
-        <section className="metric-card">
-          <div className="metric-label">Appointments today</div>
-          <div className="metric-value">{appointmentsToday}</div>
-          <div className="metric-copy">Booked appointments across active client workspaces.</div>
-        </section>
-
-        <section className="metric-card">
-          <div className="metric-label">Clients needing attention</div>
-          <div className="metric-value">{clientsNeedingAttention}</div>
-          <div className="metric-copy">Missing setup or waiting on a human reply.</div>
-        </section>
-      </div>
-
-      <section className="panel panel-stack">
-        <div className="metric-label">Yesterday</div>
-        <h2 className="section-title">Quick recap</h2>
-        <p className="page-copy">
-          Yesterday you captured {formatPlural(newLeadsYesterday, 'new lead')}, booked{' '}
-          {formatPlural(appointmentsYesterday, 'appointment')}, and handled {formatPlural(messagesYesterday, 'message')}.
-        </p>
+        <div className="home-summary-recap">
+          Yesterday: {formatPlural(newLeadsYesterday, 'new lead')}, {formatPlural(appointmentsYesterday, 'appointment')},{' '}
+          {formatPlural(messagesYesterday, 'message')}.
+        </div>
       </section>
     </LayoutShell>
   );
