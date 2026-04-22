@@ -35,6 +35,7 @@ type SearchParamShape = Promise<{
   added?: string;
   updated?: string;
   error?: string;
+  duplicateReason?: string;
 }>;
 
 function startOfDay(date: Date) {
@@ -237,6 +238,7 @@ export default async function OurLeadsPage({
   const added = params.added === '1';
   const updated = String(params.updated || '').trim();
   const error = String(params.error || '').trim();
+  const duplicateReason = String(params.duplicateReason || '').trim();
   const now = new Date();
 
   const allProspects = await safeLoad(
@@ -336,6 +338,12 @@ export default async function OurLeadsPage({
       ? 'Name is required to add a prospect.'
       : error === 'invalid_next_action'
         ? 'Next action must be a valid date and time.'
+        : error === 'duplicate'
+          ? duplicateReason === 'website'
+            ? 'This clinic is already in the queue with the same website.'
+            : duplicateReason === 'phone'
+              ? 'This clinic is already in the queue with the same phone number.'
+              : 'This clinic already looks like an existing prospect in the queue.'
         : error
           ? 'The prospect could not be saved. Try again.'
           : '';
@@ -382,6 +390,11 @@ export default async function OurLeadsPage({
         <section className="panel panel-attention panel-stack">
           <div className="metric-label">Could not save prospect</div>
           <div className="text-muted">{errorMessage}</div>
+          {error === 'duplicate' && selectedProspect ? (
+            <div className="tiny-muted">
+              Existing match opened in the detail rail: <strong>{selectedProspect.name}</strong>
+            </div>
+          ) : null}
         </section>
       )}
 

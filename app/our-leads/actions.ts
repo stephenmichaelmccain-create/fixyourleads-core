@@ -8,6 +8,26 @@ import { normalizePhone } from '@/lib/phone';
 
 const INTERNAL_COMPANY_ID = 'fixyourleads';
 
+function normalizeWebsiteHost(website: string) {
+  const trimmed = String(website || '').trim();
+
+  if (!trimmed) {
+    return '';
+  }
+
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  try {
+    return new URL(candidate).hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return trimmed
+      .replace(/^https?:\/\//i, '')
+      .replace(/^www\./i, '')
+      .split('/')[0]
+      .toLowerCase();
+  }
+}
+
 function readText(formData: FormData, key: string) {
   return String(formData.get(key) || '').trim();
 }
@@ -82,10 +102,59 @@ export async function createProspectAction(formData: FormData) {
     ? (requestedStatus as ProspectStatus)
     : ProspectStatus.NEW;
   const normalizedPhone = rawPhone ? normalizePhone(rawPhone) || rawPhone : null;
+  const normalizedHost = normalizeWebsiteHost(website || '');
+  const normalizedName = name.trim().toLowerCase();
+  const normalizedCity = (city || '').trim().toLowerCase();
   const nextActionAt = nextActionRaw ? new Date(nextActionRaw) : null;
 
   if (nextActionAt && Number.isNaN(nextActionAt.getTime())) {
     redirect('/our-leads?error=invalid_next_action#add-prospect');
+  }
+
+  const existingProspects = await db.prospect.findMany({
+    where: {
+      companyId: INTERNAL_COMPANY_ID
+    },
+    select: {
+      id: true,
+      name: true,
+      city: true,
+      website: true,
+      phone: true
+    }
+  });
+
+  const duplicate =
+    (normalizedHost
+      ? existingProspects.find((prospect) => normalizeWebsiteHost(prospect.website || '') === normalizedHost)
+      : null) ||
+    (normalizedPhone
+      ? existingProspects.find((prospect) => normalizePhone(prospect.phone || '') === normalizedPhone)
+      : null) ||
+    existingProspects.find(
+      (prospect) =>
+        prospect.name.trim().toLowerCase() === normalizedName &&
+        String(prospect.city || '')
+          .trim()
+          .toLowerCase() === normalizedCity
+    );
+
+  if (duplicate) {
+    let duplicateReason = 'clinic';
+
+    if (normalizedHost && normalizeWebsiteHost(duplicate.website || '') === normalizedHost) {
+      duplicateReason = 'website';
+    } else if (normalizedPhone && normalizePhone(duplicate.phone || '') === normalizedPhone) {
+      duplicateReason = 'phone';
+    } else {
+      duplicateReason = 'name_city';
+    }
+
+    redirect(
+      `/our-leads?error=duplicate&prospectId=${encodeURIComponent(duplicate.id)}&duplicateReason=${encodeURIComponent(
+        duplicateReason
+      )}#add-prospect`
+    );
   }
 
   const prospect = await db.prospect.create({
