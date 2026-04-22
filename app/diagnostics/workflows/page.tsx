@@ -184,6 +184,7 @@ const workflows = [
 const operatorSurfaces = [
   { href: '/clients', title: 'Clients', body: 'Paying client workspaces with setup health, lead tables, transcript rail, sequences, and bookings.' },
   { href: '/our-leads', title: 'Our Leads', body: 'The Fix Your Leads sales pipeline for med spas we are selling to.' },
+  { href: '/events', title: 'Master Event Log', body: 'A durable operator feed for workflow history, worker outcomes, and live system actions.' },
   { href: '/diagnostics', title: 'Diagnostics', body: 'Runtime truth, env readiness, connectivity, queue health, and deployment checks.' }
 ];
 
