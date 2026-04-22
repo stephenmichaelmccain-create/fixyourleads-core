@@ -80,10 +80,6 @@ These are still expected to be filled separately for local runtime:
   - `APP_BASE_URL`
   - `INTERNAL_API_KEY`
 - The live Prisma schema has been pushed to the production database.
-- A demo company exists in production:
-  - `cmo90bu4q0000oicgg06ml53d`
-  - `Fix Your Leads Demo`
-- A sample lead, conversation, and event exist in production for smoke testing.
 - The app now includes a `Companies` page to manage client records and
   notification emails in-app.
 - Company workspaces now track inbound routing readiness in-app through each

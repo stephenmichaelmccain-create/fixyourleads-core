@@ -43,7 +43,7 @@ export default async function DiagnosticsPage() {
   return (
     <LayoutShell
       title="Diagnostics"
-      description="Use this page to verify the operational truth: env wiring, dependency health, and whether the booking notification path is actually configured."
+      description="Use this page to verify the operational truth: env wiring, dependency health, and whether the live booking and notification paths are actually configured."
       section="diagnostics"
     >
       <div className="panel-grid">
@@ -52,7 +52,7 @@ export default async function DiagnosticsPage() {
           <h2 className="section-title section-title-large">{health.ok ? 'Ready to operate' : 'Needs attention'}</h2>
           <p className="page-copy">
             The product should stay lean, but it still needs honest runtime checks. This view is the fastest way to know whether the
-            system can safely run outreach and booking flows.
+            system can safely run live outreach and booking flows.
           </p>
         </section>
 
@@ -248,7 +248,7 @@ export default async function DiagnosticsPage() {
       </section>
 
       <section className="panel panel-stack">
-        <div className="metric-label">Telnyx pilot readiness</div>
+        <div className="metric-label">Telnyx routing readiness</div>
           <div className="key-value-grid">
             <div className="key-value-card"><span className="key-value-label">Companies</span>{health.telnyx.companiesTotal}</div>
           <div className="key-value-card"><span className="key-value-label">Routing ready</span>{health.telnyx.companiesWithRouting}</div>
@@ -257,7 +257,7 @@ export default async function DiagnosticsPage() {
           <div className="key-value-card"><span className="key-value-label">Multi-number clinics</span>{health.telnyx.multiNumberCompanies.length}</div>
           <div className="key-value-card"><span className="key-value-label">Routing conflicts</span>{health.telnyx.routingConflicts.length}</div>
           <div className="key-value-card"><span className="key-value-label">Webhook URL</span>{health.telnyx.webhookUrl || 'needs APP_BASE_URL'}</div>
-          <div className="key-value-card"><span className="key-value-label">Signature mode</span>{health.telnyx.signatureVerificationEnabled ? 'strict' : 'pilot'}</div>
+          <div className="key-value-card"><span className="key-value-label">Signature mode</span>{health.telnyx.signatureVerificationEnabled ? 'strict' : 'not enforced'}</div>
           <div className="key-value-card"><span className="key-value-label">Replay window</span>{`${health.telnyx.signatureMaxAgeSeconds}s`}</div>
           </div>
         </section>
@@ -328,7 +328,7 @@ export default async function DiagnosticsPage() {
           <li>
             {health.telnyx.signatureVerificationEnabled
               ? 'Strict signature verification is on. Telnyx requests older than the replay window will be rejected.'
-              : 'Pilot mode is still on. Enable TELNYX_VERIFY_SIGNATURES before relying on live inbound traffic.'}
+              : 'Signature verification is still off. Enable TELNYX_VERIFY_SIGNATURES before relying on full live inbound traffic.'}
           </li>
           <li>
             {health.telnyx.publicKeySet

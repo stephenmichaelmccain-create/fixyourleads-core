@@ -93,7 +93,7 @@ export default async function CompaniesPage({
   return (
     <LayoutShell
       title="Companies"
-      description="Keep every clinic account, notification email, and workflow entry point inside the product instead of scattered shell commands."
+      description="Keep every clinic account, notification email, and routing path inside the product instead of scattered tabs and shell commands."
       section="companies"
     >
       {notice && (
@@ -112,7 +112,7 @@ export default async function CompaniesPage({
             {notice === 'duplicate_routing'
               ? 'Each client needs a unique Telnyx inbound number so replies route back to the right workspace.'
               : notice === 'created'
-                ? 'Finish any missing setup fields, then move into conversations, leads, or bookings.'
+                ? 'Finish any missing setup fields, then move into live conversations, leads, or bookings.'
                 : 'The latest workspace changes are live across leads, conversations, bookings, and events.'}
           </div>
         </section>
@@ -123,8 +123,7 @@ export default async function CompaniesPage({
           <div className="metric-label">Operator workspaces</div>
           <h2 className="section-title section-title-large">Each company should feel ready to work, not buried in setup fields.</h2>
           <p className="metric-copy">
-            Keep the operator path obvious: one workspace, one inbound number, one notification target, and clean links into leads,
-            conversations, and events.
+            Keep the path obvious: clinic routing, notification target, and clean links into leads, conversations, and bookings.
           </p>
           <div className="company-summary-strip">
             <div className="company-summary-item">
@@ -207,10 +206,10 @@ export default async function CompaniesPage({
           </div>
           <div className="inline-actions">
             <button type="submit" className="button" name="nextSurface" value="conversations">
-              Create and open conversations
+              Save and open conversations
             </button>
             <button type="submit" className="button-secondary">
-              Create workspace
+              Save clinic
             </button>
           </div>
         </form>
@@ -218,16 +217,16 @@ export default async function CompaniesPage({
 
       {missingRouting > 0 && (
         <section className="panel panel-stack">
-          <div className="metric-label">Telnyx pilot mode</div>
+          <div className="metric-label">Shared sender coverage</div>
           <h2 className="section-title">
             {sharedSenderAvailable
-              ? 'Outbound SMS can run tonight, but replies are still on a shared sender.'
-              : 'Companies are missing dedicated routing, and there is no shared sender fallback configured.'}
+              ? 'Outbound SMS can run now, but some replies still share one sender lane.'
+              : 'Some clinics are missing dedicated routing, and there is no shared sender fallback configured.'}
           </h2>
           <p className="text-muted">
             {sharedSenderAvailable
-              ? `Right now ${missingRouting} workspace${missingRouting === 1 ? '' : 's'} will fall back to the shared TELNYX_FROM_NUMBER. That is good enough for a first pilot if you keep traffic narrow, but replies are not truly isolated per company until each workspace has its own inbound number.`
-              : 'Before trusting live SMS work, either assign a Telnyx inbound number to each workspace or make sure the shared TELNYX_FROM_NUMBER is configured and understood as the pilot sender.'}
+              ? `Right now ${missingRouting} workspace${missingRouting === 1 ? '' : 's'} will fall back to the shared TELNYX_FROM_NUMBER. Outbound can still work, but replies are not fully isolated until each clinic has its own inbound number.`
+              : 'Before trusting live SMS work, either assign a Telnyx inbound number to each workspace or configure a shared TELNYX_FROM_NUMBER as the temporary sender lane.'}
           </p>
           <div className="workspace-readiness">
             <span className={`readiness-pill${sharedSenderAvailable ? ' is-ready' : ''}`}>
@@ -354,7 +353,7 @@ export default async function CompaniesPage({
       )}
 
       <div className="record-grid">
-        {companies.length === 0 && <div className="empty-state">No companies yet.</div>}
+        {companies.length === 0 && <div className="empty-state">No clinics yet. Add the first client workspace to start routing live conversations and bookings.</div>}
 
         {rankedCompanies.map((company) => {
           const hasRouting = hasInboundRouting(company);

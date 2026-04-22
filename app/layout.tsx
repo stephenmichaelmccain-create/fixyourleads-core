@@ -1,21 +1,31 @@
 import type { Metadata } from 'next';
-import { Roboto } from 'next/font/google';
+import { Manrope, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 
-const roboto = Roboto({
+const manrope = Manrope({
   subsets: ['latin'],
-  weight: ['400', '500', '700']
+  variable: '--font-body',
+  weight: ['400', '500', '700', '800']
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-display',
+  weight: ['500', '700']
 });
 
 export const metadata: Metadata = {
-  title: 'Fix Your Leads Control',
-  description: 'Internal CRM, outreach, and booking control center for Fix Your Leads'
+  title: {
+    default: 'Fix Your Leads',
+    template: '%s | Fix Your Leads'
+  },
+  description: 'Lead response, conversations, booking, and clinic routing for Fix Your Leads'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={roboto.className}>{children}</body>
+      <body className={`${manrope.variable} ${spaceGrotesk.variable}`}>{children}</body>
     </html>
   );
 }

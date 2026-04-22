@@ -444,7 +444,7 @@ export async function getRuntimeHealth() {
     !telnyxWebhookSecurity.verificationEnabled
       ? ({
           status: 'missing_config',
-          detail: `TELNYX_VERIFY_SIGNATURES is disabled; pilot traffic can run, but webhook authenticity is not enforced. Current timestamp tolerance is ${telnyxWebhookSecurity.timestampToleranceSeconds}s once enabled.`
+          detail: `TELNYX_VERIFY_SIGNATURES is disabled; webhook authenticity is not enforced yet. Current timestamp tolerance is ${telnyxWebhookSecurity.timestampToleranceSeconds}s once enabled.`
         } satisfies DependencyCheck)
       : telnyxWebhookSecurity.publicKeySet
         ? ({

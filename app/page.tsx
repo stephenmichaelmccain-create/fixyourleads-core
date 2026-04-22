@@ -42,9 +42,12 @@ export default async function HomePage() {
             : `${missingWorkspaceSetupCount} workspace${missingWorkspaceSetupCount === 1 ? '' : 's'} still missing routing or notification setup.`
     },
     {
-      label: 'Booking emails',
+      label: 'Client email notifications',
       ready: notifications.smtpUserSet && notifications.smtpPasswordSet,
-      detail: notifications.smtpUserSet && notifications.smtpPasswordSet ? 'SMTP is configured.' : 'SMTP_USER and SMTP_PASSWORD are still missing.'
+      detail:
+        notifications.smtpUserSet && notifications.smtpPasswordSet
+          ? 'SMTP is configured.'
+          : 'SMTP is not connected yet, so clinic email notifications will stay manual.'
     },
     {
       label: 'Lead sourcing',
@@ -55,43 +58,42 @@ export default async function HomePage() {
   const surfaces = [
     {
       href: '/companies',
-      eyebrow: 'Workspace setup',
-      title: 'Keep each clinic ready to work.',
-      body: 'Set inbound numbers, notification emails, and jump straight into the right company workspace.'
+      eyebrow: 'Clinic setup',
+      title: 'Keep every clinic launch-ready.',
+      body: 'Set inbound numbers, notification emails, and move straight into the right client workspace.'
     },
     {
       href: '/conversations',
       eyebrow: 'Primary queue',
-      title: 'Reply where revenue is already waiting.',
-      body: 'Treat conversations like the real work queue: reply fast, book clean, and keep context attached.'
+      title: 'Reply where booked revenue starts.',
+      body: 'Use conversations as the live queue for texting, routing, and booking without losing clinic context.'
     },
     {
       href: '/leads',
-      eyebrow: 'Top of funnel',
-      title: 'Import and sort leads without duplicate mess.',
-      body: 'Source clinics, normalize phone numbers, and move only the right people into live threads.'
+      eyebrow: 'Lead capture',
+      title: 'Import and qualify leads without duplicate noise.',
+      body: 'Source clinics, normalize phone numbers, and push only real prospects into live threads.'
     },
     {
       href: '/bookings',
       eyebrow: 'Booked revenue',
-      title: 'Keep appointments visible once the work pays off.',
-      body: 'See upcoming bookings, confirm they stay attached to the right clinic, and catch notification gaps fast.'
+      title: 'Keep appointments visible once follow-up converts.',
+      body: 'Track upcoming bookings, keep them tied to the right clinic, and catch notification gaps fast.'
     }
   ];
 
   return (
     <LayoutShell
       title="Your ads are working. Your follow-up isn’t."
-      description="This is the internal control room for the systems behind Fix Your Leads: speed-to-lead, conversation management, booking, and clinic notifications."
+      description="Run the operating layer behind Fix Your Leads: lead response, conversation routing, booking, and clinic notifications."
       section="home"
     >
       <div className="panel-grid">
         <section className="panel panel-dark panel-stack">
-          <div className="metric-label">Control room</div>
-          <h2 className="section-title section-title-large">Run the entire front desk replacement from one place.</h2>
+          <div className="metric-label">Command center</div>
+          <h2 className="section-title section-title-large">Run lead response, booking, and clinic routing from one place.</h2>
           <p className="metric-copy">
-            Keep the product narrow: track clinics, avoid duplicate outreach, work conversations, and move people into booked
-            appointments without turning this into a bloated CRM.
+            Keep the product narrow: real clinics, real outreach, real bookings. No generic CRM clutter, no fake workflows, and no loose follow-up.
           </p>
           <div className="inline-actions">
             <a className="button" href="/companies">
@@ -104,8 +106,8 @@ export default async function HomePage() {
         </section>
 
         <section className="panel panel-stack">
-          <div className="metric-label">Minimum workflow</div>
-          <h2 className="section-title">Lead in. Text fast. Book clean. Notify the clinic.</h2>
+          <div className="metric-label">Live workflow</div>
+          <h2 className="section-title">Lead in. Reply fast. Book clean. Keep the clinic informed.</h2>
           <ol className="list-clean text-muted">
             <li>Source clinics and ingest leads without duplicating contacts.</li>
             <li>Reply instantly by text or voice and keep the conversation attached to the right company.</li>
@@ -121,8 +123,8 @@ export default async function HomePage() {
 
       <div className="panel-grid">
         <section className="panel panel-stack">
-          <div className="metric-label">Tonight&apos;s pilot launch</div>
-          <h2 className="section-title">Use the app to see what still blocks a same-night client rollout.</h2>
+          <div className="metric-label">Launch readiness</div>
+          <h2 className="section-title">Use the app to see what still blocks a real client rollout.</h2>
           <div className="status-list">
             {launchChecklist.map((item) => (
               <div key={item.label} className="status-item">
@@ -237,7 +239,7 @@ export default async function HomePage() {
       {!summary.ok && (
         <section className="panel panel-stack">
           <div className="metric-label">Readiness</div>
-          <h2 className="section-title">The app is up, but the data layer still needs attention.</h2>
+          <h2 className="section-title">The app is live, but the stack still needs attention before full production traffic.</h2>
           <p className="page-copy">
             Open <a href="/diagnostics">Diagnostics</a> to verify env state, then check <a href="/api/health">API Health</a> before
             you trust live workflow counts.

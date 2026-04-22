@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { PersistCompanyContext } from './PersistCompanyContext';
 import { Nav } from './Nav';
 import { getPersistedCompanyContext } from './company-context.server';
+import { BrandLogo } from './BrandLogo';
 
 export async function LayoutShell({
   title,
@@ -27,15 +28,16 @@ export async function LayoutShell({
     <main className="app-shell">
       <section className="shell-hero">
         {companyId && <PersistCompanyContext companyId={companyId} companyName={companyName} />}
-        <div className="hero-eyebrow">Fix Your Leads Control</div>
+        <BrandLogo priority className="hero-brand" />
+        <div className="hero-eyebrow">Client Follow-Up Platform</div>
         <h1 className="hero-title">{title}</h1>
         <p className="hero-copy">
           {description ||
-            'Internal ops for instant follow-up, bookings, and clean client communication without adding front-desk busywork.'}
+            'Lead response, conversations, booking, and clinic notifications in one operating layer.'}
         </p>
         <div className="hero-meta">
           <span className="hero-chip">
-            <strong>Mode</strong> Internal CRM
+            <strong>Mode</strong> Live operations
           </span>
           <span className="hero-chip">
             <strong>Focus</strong> Text, voice, booking

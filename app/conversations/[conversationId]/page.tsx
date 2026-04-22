@@ -336,7 +336,7 @@ export default async function ConversationDetailPage({
             />
             <div className="text-muted">
               This send will use {activeSenderNumber || 'no configured sender'}.
-              {telnyxMode === 'shared' ? ' Replies may arrive on the shared pilot lane until this company gets its own inbound number.' : ''}
+              {telnyxMode === 'shared' ? ' Replies may still arrive on the shared sender lane until this company gets its own inbound number.' : ''}
             </div>
             <button type="submit" className="button">
               Send text

@@ -54,8 +54,6 @@ Already established:
   - worker
   - Postgres
   - Redis
-- Production also has a demo company and sample lead/conversation/event for
-  smoke testing.
 - The app now has:
   - a Companies page
   - manual conversation send/book controls
