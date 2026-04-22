@@ -32,9 +32,6 @@ export function BrandLogo({
           <circle cx="32" cy="28" r="19" fill="none" stroke="url(#fyl-brand-gradient)" strokeWidth="2.5" opacity="0.8" />
         </svg>
       </span>
-      <span className="brand-wordmark">
-        <span className="brand-wordmark-accent">Fix</span> Your Leads
-      </span>
     </div>
   );
 }
