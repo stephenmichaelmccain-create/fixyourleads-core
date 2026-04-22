@@ -104,6 +104,67 @@ function websiteHref(website?: string | null) {
   return /^https?:\/\//i.test(website) ? website : `https://${website}`;
 }
 
+const PROSPECT_META_PREFIX = 'fyl:';
+
+type ProspectProfile = {
+  clinicType?: string;
+  zipCode?: string;
+  predictedRevenue?: string;
+  source?: string;
+  importBatch?: string;
+  sourceRecord?: string;
+  logoUrl?: string;
+};
+
+function parseProspectNotes(notes?: string | null) {
+  const profile: ProspectProfile = {};
+  const plainLines: string[] = [];
+
+  for (const line of String(notes || '').split('\n')) {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      plainLines.push('');
+      continue;
+    }
+
+    if (!trimmed.startsWith(PROSPECT_META_PREFIX)) {
+      plainLines.push(line);
+      continue;
+    }
+
+    const metadata = trimmed.slice(PROSPECT_META_PREFIX.length);
+    const [rawKey, ...valueParts] = metadata.split('=');
+    const key = rawKey?.trim();
+    const value = valueParts.join('=').trim();
+
+    if (!key || !value) {
+      continue;
+    }
+
+    if (key === 'clinic_type') {
+      profile.clinicType = value;
+    } else if (key === 'zip_code') {
+      profile.zipCode = value;
+    } else if (key === 'predicted_revenue') {
+      profile.predictedRevenue = value;
+    } else if (key === 'source') {
+      profile.source = value;
+    } else if (key === 'import_batch') {
+      profile.importBatch = value;
+    } else if (key === 'source_record') {
+      profile.sourceRecord = value;
+    } else if (key === 'logo_url') {
+      profile.logoUrl = value;
+    }
+  }
+
+  return {
+    profile,
+    plainNotes: plainLines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+  };
+}
+
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase();
 }
@@ -274,15 +335,25 @@ export default async function OurLeadsPage({
     []
   );
 
+  const prospectRows = allProspects.map((prospect) => {
+    const parsed = parseProspectNotes(prospect.notes);
+
+    return {
+      ...prospect,
+      plainNotes: parsed.plainNotes,
+      profile: parsed.profile
+    };
+  });
+
   const cityOptions = Array.from(
     new Set(
-      allProspects
+      prospectRows
         .map((prospect) => prospect.city?.trim())
         .filter((value): value is string => Boolean(value))
     )
   ).sort((left, right) => left.localeCompare(right));
 
-  const visibleProspects = [...allProspects]
+  const visibleProspects = [...prospectRows]
     .filter((prospect) => {
       if (!normalizedSearchQuery) {
         return true;
@@ -294,8 +365,14 @@ export default async function OurLeadsPage({
         prospect.phone,
         prospect.website,
         prospect.ownerName,
+        prospect.profile.clinicType,
+        prospect.profile.zipCode,
+        prospect.profile.predictedRevenue,
+        prospect.profile.source,
+        prospect.profile.importBatch,
+        prospect.profile.sourceRecord,
         prospect.lastCallOutcome,
-        prospect.notes
+        prospect.plainNotes
       ];
 
       return searchFields.some((value) => normalizeSearch(value || '').includes(normalizedSearchQuery));
@@ -325,17 +402,25 @@ export default async function OurLeadsPage({
       )
     : null;
 
-  const totalProspects = allProspects.length;
-  const overdueCount = allProspects.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'overdue', now)).length;
-  const dueTodayCount = allProspects.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'today', now)).length;
-  const bookedDemoCount = allProspects.filter((prospect) => prospect.status === ProspectStatus.BOOKED_DEMO).length;
-  const soldCount = allProspects.filter((prospect) => prospect.status === ProspectStatus.CLOSED).length;
-  const waitingForSignup = [...allProspects]
+  const selectedProspectView = selectedProspect
+    ? {
+        ...selectedProspect,
+        ...parseProspectNotes(selectedProspect.notes)
+      }
+    : null;
+
+  const totalProspects = prospectRows.length;
+  const overdueCount = prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'overdue', now)).length;
+  const dueTodayCount = prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'today', now)).length;
+  const bookedDemoCount = prospectRows.filter((prospect) => prospect.status === ProspectStatus.BOOKED_DEMO).length;
+  const soldCount = prospectRows.filter((prospect) => prospect.status === ProspectStatus.CLOSED).length;
+  const sourcedCount = prospectRows.filter((prospect) => prospect.profile.source || prospect.profile.importBatch).length;
+  const waitingForSignup = [...prospectRows]
     .filter((prospect) => prospect.status === ProspectStatus.CLOSED)
     .sort(compareProspects)
     .slice(0, 6);
-  const activeSelection = selectedProspect
-    ? `${selectedProspect.name}${selectedProspect.city ? ` • ${selectedProspect.city}` : ''}`
+  const activeSelection = selectedProspectView
+    ? `${selectedProspectView.name}${selectedProspectView.city ? ` • ${selectedProspectView.city}` : ''}`
     : 'No prospect selected';
 
   const errorMessage =
@@ -431,6 +516,11 @@ export default async function OurLeadsPage({
           <div className="metric-value">{soldCount}</div>
           <div className="metric-copy">Sold clinics waiting to complete website signup or onboarding.</div>
         </section>
+        <section className="metric-card panel-stack">
+          <div className="metric-label">Sourced imports</div>
+          <div className="metric-value">{sourcedCount}</div>
+          <div className="metric-copy">Prospects already carrying source or import-batch metadata.</div>
+        </section>
       </div>
 
       {waitingForSignup.length > 0 && (
@@ -485,7 +575,7 @@ export default async function OurLeadsPage({
                 <div className="metric-label">Add prospect</div>
                 <h2 className="form-title">Drop a clinic into the queue without leaving the board.</h2>
                 <p className="page-copy">
-                  Capture the name, best phone number, city, and next action once. The table below stays dense so operators can move quickly after the prospect lands.
+                  Capture the name, best phone number, sourcing context, and next action once. The table below stays dense so operators can move quickly after the prospect lands.
                 </p>
               </div>
             </div>
@@ -533,8 +623,55 @@ export default async function OurLeadsPage({
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
-                      ))}
+                    ))}
                   </select>
+                </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="prospect-clinic-type">
+                    Clinic type
+                  </label>
+                  <input
+                    id="prospect-clinic-type"
+                    name="clinicType"
+                    className="text-input"
+                    placeholder="Dental, med spa, urgent care"
+                  />
+                </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="prospect-zip-code">
+                    ZIP focus
+                  </label>
+                  <input id="prospect-zip-code" name="zipCode" className="text-input" placeholder="78704" />
+                </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="prospect-predicted-revenue">
+                    Predicted revenue
+                  </label>
+                  <input id="prospect-predicted-revenue" name="predictedRevenue" className="text-input" placeholder="$1.8M" />
+                </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="prospect-source">
+                    Lead source
+                  </label>
+                  <input id="prospect-source" name="sourceLabel" className="text-input" placeholder="Google Maps import" />
+                </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="prospect-import-batch">
+                    Import batch
+                  </label>
+                  <input id="prospect-import-batch" name="importBatch" className="text-input" placeholder="Austin dental 78704" />
+                </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="prospect-source-record">
+                    Source record id
+                  </label>
+                  <input id="prospect-source-record" name="sourceRecord" className="text-input" placeholder="place_123 or csv_row_87" />
+                </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="prospect-logo-url">
+                    Logo URL
+                  </label>
+                  <input id="prospect-logo-url" name="logoUrl" className="text-input" placeholder="https://..." />
                 </div>
                 <div className="field-stack">
                   <label className="key-value-label" htmlFor="prospect-next-action">
@@ -658,7 +795,7 @@ export default async function OurLeadsPage({
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '2fr 1.1fr 1.2fr 0.9fr 1.1fr 1.1fr',
+                      gridTemplateColumns: '1.8fr 1.25fr 1.1fr 1.15fr 1fr 1fr',
                       gap: 12,
                       padding: '0 12px 8px',
                       color: 'var(--fyl-muted)',
@@ -669,9 +806,9 @@ export default async function OurLeadsPage({
                     }}
                   >
                     <span>Prospect</span>
-                    <span>Owner / website</span>
-                    <span>Phone</span>
-                    <span>Status</span>
+                    <span>Profile</span>
+                    <span>Contact</span>
+                    <span>Status / source</span>
                     <span>Last call</span>
                     <span>Next action</span>
                   </div>
@@ -693,7 +830,7 @@ export default async function OurLeadsPage({
                         href={rowHref}
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: '2fr 1.1fr 1.2fr 0.9fr 1.1fr 1.1fr',
+                          gridTemplateColumns: '1.8fr 1.25fr 1.1fr 1.15fr 1fr 1fr',
                           gap: 12,
                           alignItems: 'center',
                           padding: '14px 16px',
@@ -715,28 +852,34 @@ export default async function OurLeadsPage({
                             {isDemoLabel(prospect.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
                           </span>
                           <span className="tiny-muted">
-                            {prospect.city || 'City not set'}
-                            {prospect.notes ? ' • Notes on file' : ''}
+                            {prospect.profile.clinicType || 'Clinic type not set'} • {prospect.city || 'City not set'}
                           </span>
                         </div>
                         <div className="record-stack">
-                          <span>{prospect.ownerName || 'Owner not set'}</span>
-                          <span className="tiny-muted">{prospect.website || 'No website'}</span>
+                          <span>{prospect.website || prospect.profile.logoUrl || 'No website or logo'}</span>
+                          <span className="tiny-muted">
+                            {prospect.profile.predictedRevenue || 'Revenue unknown'}
+                            {prospect.profile.zipCode ? ` • ZIP ${prospect.profile.zipCode}` : ''}
+                          </span>
                         </div>
                         <div className="record-stack">
                           <span>{prospect.phone || 'No phone'}</span>
-                          <span className="tiny-muted">
-                            {prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || 'No call outcome yet'}
-                          </span>
+                          <span className="tiny-muted">{prospect.ownerName || 'Owner not set'}</span>
                         </div>
-                        <div>
+                        <div className="record-stack">
                           <span className={statusChipClass(prospect.status)}>
                             <strong>Status</strong> {humanizeStatus(prospect.status)}
+                          </span>
+                          <span className="tiny-muted">
+                            {prospect.profile.source || 'Manual add'}
+                            {prospect.profile.importBatch ? ` • ${prospect.profile.importBatch}` : ''}
                           </span>
                         </div>
                         <div className="record-stack">
                           <span>{formatDateTime(lastTouch)}</span>
-                          <span className="tiny-muted">{prospect.lastCallAt ? 'Logged call' : 'Recent activity'}</span>
+                          <span className="tiny-muted">
+                            {prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || (prospect.lastCallAt ? 'Logged call' : 'Recent activity')}
+                          </span>
                         </div>
                         <div className="record-stack">
                           <span>{formatDateTime(prospect.nextActionAt)}</span>
@@ -765,14 +908,14 @@ export default async function OurLeadsPage({
             <div className="inline-row justify-between">
               <div className="inline-row">
                 <h2 className="form-title">{activeSelection}</h2>
-                {selectedProspect && isDemoLabel(selectedProspect.name) ? (
+                {selectedProspectView && isDemoLabel(selectedProspectView.name) ? (
                   <span className="status-chip status-chip-muted">Demo</span>
                 ) : null}
-                {!selectedProspectId && selectedProspect ? (
+                {!selectedProspectId && selectedProspectView ? (
                   <span className="status-chip status-chip-muted">Auto-opened</span>
                 ) : null}
               </div>
-              {selectedProspectId && selectedProspect ? (
+              {selectedProspectId && selectedProspectView ? (
                 <a
                   className="button-ghost"
                   href={buildPageHref({
@@ -787,28 +930,33 @@ export default async function OurLeadsPage({
               ) : null}
             </div>
 
-            {!selectedProspect ? (
+            {!selectedProspectView ? (
               <div className="empty-state">
                 Click any row in the prospect board to open notes, call history, and the next-action summary here.
               </div>
             ) : (
               <>
                 <div className="inline-actions">
-                  {selectedProspect.phone ? (
-                    <a className="button" href={`tel:${selectedProspect.phone}`}>
+                  {selectedProspectView.phone ? (
+                    <a className="button" href={`tel:${selectedProspectView.phone}`}>
                       Call now
                     </a>
                   ) : null}
-                  {selectedProspect.website ? (
-                    <a className="button-secondary" href={websiteHref(selectedProspect.website)} target="_blank" rel="noreferrer">
+                  {selectedProspectView.website ? (
+                    <a className="button-secondary" href={websiteHref(selectedProspectView.website)} target="_blank" rel="noreferrer">
                       Open website
+                    </a>
+                  ) : null}
+                  {selectedProspectView.profile.logoUrl ? (
+                    <a className="button-ghost" href={selectedProspectView.profile.logoUrl} target="_blank" rel="noreferrer">
+                      View logo
                     </a>
                   ) : null}
                 </div>
 
                 <form action={updateProspectOutcomeAction} className="panel panel-stack">
                   <div className="metric-label">Quick call outcome</div>
-                  <input type="hidden" name="prospectId" value={selectedProspect.id} />
+                  <input type="hidden" name="prospectId" value={selectedProspectView.id} />
                   <input type="hidden" name="q" value={searchQuery} />
                   <input type="hidden" name="status" value={selectedStatus} />
                   <input type="hidden" name="city" value={selectedCity} />
@@ -840,7 +988,7 @@ export default async function OurLeadsPage({
 
                 <form action={scheduleProspectCallbackAction} className="panel panel-stack">
                   <div className="metric-label">Schedule callback</div>
-                  <input type="hidden" name="prospectId" value={selectedProspect.id} />
+                  <input type="hidden" name="prospectId" value={selectedProspectView.id} />
                   <input type="hidden" name="q" value={searchQuery} />
                   <input type="hidden" name="status" value={selectedStatus} />
                   <input type="hidden" name="city" value={selectedCity} />
@@ -867,34 +1015,58 @@ export default async function OurLeadsPage({
                 <div className="key-value-grid">
                   <div className="key-value-card">
                     <span className="key-value-label">Phone</span>
-                    {selectedProspect.phone || 'Not set'}
+                    {selectedProspectView.phone || 'Not set'}
                   </div>
                   <div className="key-value-card">
                     <span className="key-value-label">City</span>
-                    {selectedProspect.city || 'Not set'}
+                    {selectedProspectView.city || 'Not set'}
                   </div>
                   <div className="key-value-card">
                     <span className="key-value-label">Owner / lead contact</span>
-                    {selectedProspect.ownerName || 'Not set'}
+                    {selectedProspectView.ownerName || 'Not set'}
                   </div>
                   <div className="key-value-card">
                     <span className="key-value-label">Website</span>
-                    {selectedProspect.website || 'Not set'}
+                    {selectedProspectView.website || 'Not set'}
                   </div>
                   <div className="key-value-card">
                     <span className="key-value-label">Next action</span>
-                    {formatDateOnly(selectedProspect.nextActionAt)}
+                    {formatDateOnly(selectedProspectView.nextActionAt)}
                   </div>
                   <div className="key-value-card">
                     <span className="key-value-label">Last call outcome</span>
-                    {selectedProspect.lastCallOutcome || 'No outcome logged'}
+                    {selectedProspectView.lastCallOutcome || 'No outcome logged'}
+                  </div>
+                  <div className="key-value-card">
+                    <span className="key-value-label">Clinic type</span>
+                    {selectedProspectView.profile.clinicType || 'Not set'}
+                  </div>
+                  <div className="key-value-card">
+                    <span className="key-value-label">ZIP focus</span>
+                    {selectedProspectView.profile.zipCode || 'Not set'}
+                  </div>
+                  <div className="key-value-card">
+                    <span className="key-value-label">Predicted revenue</span>
+                    {selectedProspectView.profile.predictedRevenue || 'Not set'}
+                  </div>
+                  <div className="key-value-card">
+                    <span className="key-value-label">Lead source</span>
+                    {selectedProspectView.profile.source || 'Manual add'}
+                  </div>
+                  <div className="key-value-card">
+                    <span className="key-value-label">Import batch</span>
+                    {selectedProspectView.profile.importBatch || 'Not set'}
+                  </div>
+                  <div className="key-value-card">
+                    <span className="key-value-label">Source record</span>
+                    {selectedProspectView.profile.sourceRecord || 'Not set'}
                   </div>
                 </div>
 
                 <section className="panel-stack">
                   <div className="metric-label">Notes</div>
-                  {selectedProspect.notes ? (
-                    <div className="key-value-card pre-wrap">{selectedProspect.notes}</div>
+                  {selectedProspectView.plainNotes ? (
+                    <div className="key-value-card pre-wrap">{selectedProspectView.plainNotes}</div>
                   ) : (
                     <div className="empty-state">No notes yet. Use the Add Prospect form to capture context on the next clinic.</div>
                   )}
@@ -902,11 +1074,11 @@ export default async function OurLeadsPage({
 
                 <section className="panel-stack">
                   <div className="metric-label">Call history</div>
-                  {selectedProspect.callLogs.length === 0 ? (
+                  {selectedProspectView.callLogs.length === 0 ? (
                     <div className="empty-state">No call history has been logged for this prospect yet.</div>
                   ) : (
                     <div className="status-list">
-                      {selectedProspect.callLogs.map((call) => (
+                      {selectedProspectView.callLogs.map((call) => (
                         <div key={call.id} className="status-item" style={{ alignItems: 'flex-start' }}>
                           <div className="panel-stack" style={{ gap: 6 }}>
                             <span className="status-label">

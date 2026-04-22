@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { normalizePhone } from '@/lib/phone';
 
 const INTERNAL_COMPANY_ID = 'fixyourleads';
+const PROSPECT_META_PREFIX = 'fyl:';
 
 function normalizeWebsiteHost(website: string) {
   const trimmed = String(website || '').trim();
@@ -30,6 +31,41 @@ function normalizeWebsiteHost(website: string) {
 
 function readText(formData: FormData, key: string) {
   return String(formData.get(key) || '').trim();
+}
+
+function buildProspectNotes({
+  plainNotes,
+  clinicType,
+  zipCode,
+  predictedRevenue,
+  sourceLabel,
+  importBatch,
+  sourceRecord,
+  logoUrl
+}: {
+  plainNotes?: string | null;
+  clinicType?: string | null;
+  zipCode?: string | null;
+  predictedRevenue?: string | null;
+  sourceLabel?: string | null;
+  importBatch?: string | null;
+  sourceRecord?: string | null;
+  logoUrl?: string | null;
+}) {
+  const metadataEntries = [
+    ['clinic_type', clinicType],
+    ['zip_code', zipCode],
+    ['predicted_revenue', predictedRevenue],
+    ['source', sourceLabel],
+    ['import_batch', importBatch],
+    ['source_record', sourceRecord],
+    ['logo_url', logoUrl]
+  ].filter((entry): entry is [string, string] => Boolean(entry[1] && String(entry[1]).trim()));
+
+  const metadataLines = metadataEntries.map(([key, value]) => `${PROSPECT_META_PREFIX}${key}=${String(value).trim()}`);
+  const cleanNotes = String(plainNotes || '').trim();
+
+  return [...metadataLines, cleanNotes].filter(Boolean).join('\n');
 }
 
 function addDaysFromNow(days: number, hour: number) {
@@ -106,6 +142,13 @@ export async function createProspectAction(formData: FormData) {
   const website = readText(formData, 'website') || null;
   const ownerName = readText(formData, 'ownerName') || null;
   const notes = readText(formData, 'notes') || null;
+  const clinicType = readText(formData, 'clinicType') || null;
+  const zipCode = readText(formData, 'zipCode') || null;
+  const predictedRevenue = readText(formData, 'predictedRevenue') || null;
+  const sourceLabel = readText(formData, 'sourceLabel') || null;
+  const importBatch = readText(formData, 'importBatch') || null;
+  const sourceRecord = readText(formData, 'sourceRecord') || null;
+  const logoUrl = readText(formData, 'logoUrl') || null;
   const requestedStatus = readText(formData, 'status');
   const nextActionRaw = readText(formData, 'nextActionAt');
 
@@ -182,7 +225,16 @@ export async function createProspectAction(formData: FormData) {
       ownerName,
       status,
       nextActionAt,
-      notes
+      notes: buildProspectNotes({
+        plainNotes: notes,
+        clinicType,
+        zipCode,
+        predictedRevenue,
+        sourceLabel,
+        importBatch,
+        sourceRecord,
+        logoUrl
+      })
     }
   });
 
