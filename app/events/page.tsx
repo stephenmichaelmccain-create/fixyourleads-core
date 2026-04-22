@@ -75,7 +75,7 @@ function buildEventsHref({
   }
 
   const query = params.toString();
-  return query ? `/events?${query}` : '/events';
+  return query ? `/admin/activity?${query}` : '/admin/activity';
 }
 
 function humanizeEventType(eventType: string) {
@@ -329,8 +329,8 @@ export default async function EventsPage({
 
   return (
     <LayoutShell
-      title="Master Event Log"
-      description="A durable operator feed for what the system actually did: lead intake, outreach, inbound replies, booking activity, and worker outcomes."
+      title="Activity Log"
+      description="See what the system actually did across signups, messages, bookings, and follow-up work."
       section="activity"
     >
       <LiveFeedControls
@@ -354,7 +354,7 @@ export default async function EventsPage({
           <div className="metric-copy">Distinct workflow events in this feed window.</div>
         </section>
         <section className="metric-card panel-stack">
-          <div className="metric-label">Companies in view</div>
+          <div className="metric-label">Clients in view</div>
           <div className="metric-value">{visibleCompanies.size}</div>
           <div className="metric-copy">Client workspaces represented in this filtered log.</div>
         </section>
@@ -369,21 +369,21 @@ export default async function EventsPage({
         <div className="record-header">
           <div className="panel-stack">
             <div className="metric-label">Filters</div>
-            <h2 className="section-title">Narrow the operator log without leaving the page.</h2>
+            <h2 className="section-title">Filter the activity without leaving the page.</h2>
           </div>
-          <a className="button-ghost" href="/events">
+          <a className="button-ghost" href="/admin/activity">
             Reset
           </a>
         </div>
 
-        <form action="/events" className="workspace-filter-form">
+        <form action="/admin/activity" className="workspace-filter-form">
           <div className="workspace-filter-row">
             <div className="field-stack">
               <label className="key-value-label" htmlFor="events-company">
-                Company
+                Client
               </label>
               <select id="events-company" name="companyId" className="select-input" defaultValue={selectedCompanyId}>
-                <option value="">All companies</option>
+                <option value="">All clients</option>
                 {companies.map((company) => (
                   <option key={company.id} value={company.id}>
                     {company.name}
@@ -456,14 +456,14 @@ export default async function EventsPage({
       </section>
 
       <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">Event feed</div>
-            <h2 className="section-title">Durable workflow history for operators.</h2>
-          </div>
+          <div className="record-header">
+            <div className="panel-stack">
+              <div className="metric-label">Event feed</div>
+              <h2 className="section-title">Recent activity across the live app.</h2>
+            </div>
           <div className="action-cluster">
-            <a className="button-ghost" href="/diagnostics">
-              Back to diagnostics
+            <a className="button-ghost" href="/admin/system">
+              System Status
             </a>
             <a className="button-ghost" href="/diagnostics/workflows">
               Workflow map

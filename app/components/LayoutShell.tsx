@@ -2,7 +2,6 @@ import { ReactNode } from 'react';
 import { PersistCompanyContext } from './PersistCompanyContext';
 import { Nav } from './Nav';
 import { getPersistedCompanyContext } from './company-context.server';
-import { BrandLogo } from './BrandLogo';
 
 export async function LayoutShell({
   title,
@@ -33,31 +32,8 @@ export async function LayoutShell({
         {companyId && <PersistCompanyContext companyId={companyId} companyName={companyName} />}
         {!compactVariant && (
           <>
-            <BrandLogo priority className="hero-brand" />
-            <div className="hero-eyebrow">Fix Your Leads Operating System</div>
             <h1 className="hero-title">{title}</h1>
-            <p className="hero-copy">
-              {description ||
-                'See what needs attention, work the next conversation, and keep clients moving without extra clutter.'}
-            </p>
-            <div className="hero-meta">
-              <span className="hero-chip">
-                <strong>Mode</strong> Live
-              </span>
-              <span className="hero-chip">
-                <strong>Focus</strong> Daily workflow
-              </span>
-              {activeCompanyName && (
-                <span className="hero-chip">
-                  <strong>{usingRememberedCompany ? 'Last workspace' : 'Company'}</strong> {activeCompanyName}
-                </span>
-              )}
-              {activeCompanyId && !activeCompanyName && (
-                <span className="hero-chip">
-                  <strong>{usingRememberedCompany ? 'Last workspace' : 'Company'}</strong> {activeCompanyId}
-                </span>
-              )}
-            </div>
+            {description ? <p className="hero-copy">{description}</p> : null}
           </>
         )}
         {compactVariant && (

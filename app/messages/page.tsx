@@ -109,21 +109,21 @@ export default async function MessagesPage({
   return (
     <LayoutShell
       title="Messages"
-      description="One inbox across all clients. Open the rows that need a human and leave the healthy AI threads alone."
+      description="One inbox across all clients."
       section="messages"
     >
       <section className="panel panel-stack">
         <div className="record-header">
           <div className="panel-stack">
             <div className="metric-label">Unified inbox</div>
-            <h2 className="section-title">Check the latest client conversations in one place.</h2>
+            <h2 className="section-title">Open the threads that need a reply.</h2>
           </div>
           <div className="inline-actions">
             <a className={selectedFilter === 'all' ? 'button' : 'button-secondary'} href={buildMessagesHref('all')}>
               All
             </a>
             <a className={selectedFilter === 'needs_human' ? 'button' : 'button-secondary'} href={buildMessagesHref('needs_human')}>
-              Needs Human
+              Needs reply
             </a>
             <a className={selectedFilter === 'today' ? 'button' : 'button-secondary'} href={buildMessagesHref('today')}>
               Today
@@ -139,7 +139,7 @@ export default async function MessagesPage({
                 <th>Lead Name</th>
                 <th>Last Message Preview</th>
                 <th>When</th>
-                <th>AI / Needs Human</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -167,7 +167,7 @@ export default async function MessagesPage({
                     <td>
                       <span className={`status-chip ${row.needsHuman ? 'status-chip-attention' : 'status-chip-muted'}`}>
                         <span className={`status-dot ${row.needsHuman ? 'error' : 'ok'}`} />
-                        {row.needsHuman ? 'Needs Human' : 'AI'}
+                        {row.needsHuman ? 'Needs reply' : 'Handled'}
                       </span>
                     </td>
                   </tr>

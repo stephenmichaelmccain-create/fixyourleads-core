@@ -68,7 +68,7 @@ export function bookingNotificationReadiness(notificationEmail?: string | null) 
     return {
       status: 'blocked' as const,
       label: 'Email + SMTP missing',
-      detail: 'Add the clinic email in Companies and SMTP credentials in Diagnostics before trusting booking emails.'
+      detail: 'Add the clinic email in Clients and SMTP credentials in System Status before trusting booking emails.'
     };
   }
 
@@ -76,7 +76,7 @@ export function bookingNotificationReadiness(notificationEmail?: string | null) 
     return {
       status: 'blocked' as const,
       label: 'Clinic email missing',
-      detail: 'Add the clinic notification email in Companies before relying on booking emails.'
+      detail: 'Add the clinic notification email in Clients before relying on booking emails.'
     };
   }
 

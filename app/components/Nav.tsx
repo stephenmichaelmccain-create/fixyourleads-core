@@ -26,11 +26,6 @@ export function Nav({ companyId, companyName, usingRememberedCompany, current }:
         </a>
       </nav>
       <div className="hero-nav-utility">
-        {usingRememberedCompany && companyName && (
-          <span className="nav-context-label">
-            Using {companyName}
-          </span>
-        )}
         <a
           className={`nav-utility-link${current === 'system' || current === 'diagnostics' ? ' is-active' : ''}`}
           href="/admin/system"

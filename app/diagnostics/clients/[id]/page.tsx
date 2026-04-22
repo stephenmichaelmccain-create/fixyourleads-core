@@ -182,11 +182,11 @@ export default async function ClientDiagnosticsPage({
             <a className="button-secondary" href={`/clients/${company.id}`}>
               Open workspace
             </a>
-            <a className="button-secondary" href={`/events?companyId=${company.id}`}>
-              Open master log
+            <a className="button-secondary" href={`/admin/activity?companyId=${company.id}`}>
+              Open activity log
             </a>
             <a className="button" href={`/clients/${company.id}#setup`}>
-              Edit setup
+              Edit profile
             </a>
           </div>
         </div>
@@ -209,9 +209,9 @@ export default async function ClientDiagnosticsPage({
           <div className="metric-copy">Recent lead volume for this client workspace.</div>
         </section>
         <section className="metric-card panel-stack">
-          <div className="metric-label">Conversations (30d)</div>
+          <div className="metric-label">Threads (30d)</div>
           <div className="metric-value">{counts[1]}</div>
-          <div className="metric-copy">Conversation threads created in the last 30 days.</div>
+          <div className="metric-copy">Message threads created in the last 30 days.</div>
         </section>
         <section className="metric-card panel-stack">
           <div className="metric-label">Messages (24h)</div>
@@ -219,14 +219,14 @@ export default async function ClientDiagnosticsPage({
           <div className="metric-copy">Text activity in the last 24 hours.</div>
         </section>
         <section className="metric-card panel-stack">
-          <div className="metric-label">Bookings (14d)</div>
+          <div className="metric-label">Appointments (14d)</div>
           <div className="metric-value">{counts[3]}</div>
-          <div className="metric-copy">Upcoming bookings on the board now.</div>
+          <div className="metric-copy">Upcoming appointments on the board now.</div>
         </section>
         <section className="metric-card panel-stack">
-          <div className="metric-label">Events (24h)</div>
+          <div className="metric-label">Activity Log (24h)</div>
           <div className="metric-value">{counts[4]}</div>
-          <div className="metric-copy">Master log events recorded in the last 24 hours.</div>
+          <div className="metric-copy">Activity log entries recorded in the last 24 hours.</div>
         </section>
       </div>
 

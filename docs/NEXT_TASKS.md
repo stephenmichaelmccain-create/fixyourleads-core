@@ -1,5 +1,5 @@
 ## Now
-- Keep `Our Leads` moving toward a real outbound calling surface: stronger follow-up queues, safer duplicate handling, and clearer sold-to-signup flow.
+- Keep `Leads` moving toward a real outbound calling surface: stronger follow-up queues, safer duplicate handling, and clearer sold-to-signup flow.
 - Keep `/clients/[id]` and `/conversations/[conversationId]` as the primary operator surfaces for active client work: fewer clicks, faster replies, clearer booking state, and stronger thread-level controls.
 - Keep all changes deploy-safe on `main`. No destructive schema or config changes without review.
 

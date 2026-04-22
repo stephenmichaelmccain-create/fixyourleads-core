@@ -6,12 +6,12 @@ Production application for clinic lead intake, outreach, messaging, and booking.
 
 This app runs two connected pipelines:
 
-- `Our Leads`: outbound prospecting for clinics we want to sell. These records are imported in bulk, called first, and moved through outcomes like no answer, booked, sold, or do not contact.
+- `Leads`: outbound prospecting for clinics we want to sell. These records are imported in bulk, called first, and moved through outcomes like no answer, booked, sold, or do not contact.
 - `Clients`: sold or onboarded clinics we actively serve. These workspaces hold conversations, bookings, routing numbers, and setup state.
 
 The bridge between them is `/clients/intake`:
 
-- sold prospects from `Our Leads` land there
+- sold prospects from `Leads` land there
 - direct website signups also land there
 - onboarding submissions enrich or match an existing client workspace
 
@@ -21,7 +21,7 @@ Core runtime flow:
 2. Prisma writes the source-of-truth records in Postgres
 3. BullMQ workers pick up slow or async work like lead processing and message handling
 4. operators work mostly from `/leads`, `/clients`, `/clients/[id]`, and `/messages`
-5. Telnyx powers SMS and routing, while diagnostics and `/events` show the live operational truth
+5. Telnyx powers SMS and routing, while `System Status` and `Activity Log` show the live operational truth
 
 ## Start here
 - `docs/PROJECT_STATUS.md` for the current handoff and deploy state

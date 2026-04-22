@@ -161,7 +161,10 @@ const workflows = [
       '/api/internal/health',
       '/clients',
       '/clients/[id]',
-      '/our-leads'
+      '/leads',
+      '/messages',
+      '/admin/system',
+      '/admin/activity'
     ],
     services: [
       'lib/health.ts',
@@ -182,10 +185,11 @@ const workflows = [
 ];
 
 const operatorSurfaces = [
-  { href: '/clients', title: 'Clients', body: 'Paying client workspaces with setup health, lead tables, transcript rail, sequences, and bookings.' },
-  { href: '/our-leads', title: 'Our Leads', body: 'The Fix Your Leads sales pipeline for med spas we are selling to.' },
-  { href: '/events', title: 'Master Event Log', body: 'A durable operator feed for workflow history, worker outcomes, and live system actions.' },
-  { href: '/diagnostics', title: 'Diagnostics', body: 'Runtime truth, env readiness, connectivity, queue health, and deployment checks.' }
+  { href: '/clients', title: 'Clients', body: 'Paying client workspaces with health, lead tables, messages, appointments, and profile updates.' },
+  { href: '/leads', title: 'Leads', body: 'The outbound prospecting pipeline for clinics we are trying to sell.' },
+  { href: '/messages', title: 'Messages', body: 'Unified inbox across clients for the conversations that need a human.' },
+  { href: '/admin/system', title: 'System Status', body: 'Runtime truth, env readiness, queue health, and deployment checks.' },
+  { href: '/admin/activity', title: 'Activity Log', body: 'A durable operator feed for workflow history, worker outcomes, and live system actions.' }
 ];
 
 export default function WorkflowDiagnosticsPage() {
@@ -199,7 +203,7 @@ export default function WorkflowDiagnosticsPage() {
         <div className="metric-label">System view</div>
         <h2 className="section-title section-title-large">What is actually running</h2>
         <p className="page-copy page-copy-inverse">
-          This page is the operator map for the live product. It shows the real paths already in the repo so you can visualize how a lead moves
+          This page is the technical map for the live product. It shows the real paths already in the repo so Stephen can trace how a lead moves
           from import to outreach to booking.
         </p>
         <div className="workflow-chip-grid">
@@ -213,7 +217,7 @@ export default function WorkflowDiagnosticsPage() {
       </section>
 
       <section className="panel panel-stack">
-        <div className="metric-label">Operator surfaces</div>
+        <div className="metric-label">Main surfaces</div>
         <div className="surface-link-grid">
           {operatorSurfaces.map((surface) => (
             <a key={surface.href} className="surface-link-card" href={surface.href}>

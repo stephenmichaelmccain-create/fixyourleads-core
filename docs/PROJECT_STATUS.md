@@ -1,8 +1,8 @@
 # FixYourLeads Project Status
 
-2026-04-22: Shipped a protected cleanup route for test workspaces, deleted the fake prod client workspaces (`fixyourleads`, `stephen`, website test signups), added real Vitest coverage for website/Telnyx payloads, and wired lightweight Sentry support so the app is code-ready for a DSN.
+2026-04-22: Simplified the live app around one vocabulary (`Clients`, `Leads`, `Messages`, `System Status`, `Activity Log`), tightened the home screen and client workspace UI, and cleaned up stale route/docs wording that was still leaking old labels like `Companies`, `Our Leads`, and `Diagnostics`.
 
-Last updated: 2026-04-21
+Last updated: 2026-04-22
 
 ## Purpose
 
@@ -69,24 +69,31 @@ These are still expected to be filled separately for local runtime:
 - Primary navigation is now:
   - `Home`
   - `Clients`
-  - `Our Leads`
-- `Diagnostics` is a tucked-away utility surface, not part of the primary day-to-day operator flow.
+  - `Leads`
+  - `Messages`
+- Utility/admin links are now:
+  - `System Status`
+  - `Activity Log`
 - New primary routes:
+  - `/`
   - `/clients`
   - `/clients/[id]`
-  - `/our-leads`
+  - `/leads`
+  - `/messages`
 - Legacy routes are compatibility redirects:
   - `/companies` -> `/clients`
-  - `/leads` -> `/our-leads` or `/clients/[id]#leads` when scoped
-  - `/conversations` -> `/clients` or `/clients/[id]#transcript-panel`
+  - `/our-leads` -> live prospecting surface reused by `/leads`
+  - `/conversations` -> `/messages`
   - `/bookings` -> `/clients` or `/clients/[id]#bookings`
-  - `/events` -> `/diagnostics` or `/clients/[id]#sequences`
+  - `/events` -> `/admin/activity`
+  - `/diagnostics` -> `/admin/system`
 - Railway `app`, `worker`, `Postgres`, and `Redis` are online in the
   `adorable-commitment` production environment.
 - The live app URL is reachable:
   `https://app-production-9ba1.up.railway.app`
 - The diagnostics and health surfaces are up:
-  - `/diagnostics`
+  - `/admin/system`
+  - `/admin/activity`
   - `/diagnostics/workflows`
   - `/api/health`
 - The Railway runtime env contract is now present in production:
@@ -97,12 +104,12 @@ These are still expected to be filled separately for local runtime:
   - `APP_BASE_URL`
   - `INTERNAL_API_KEY`
 - The live Prisma schema has been pushed to the production database.
-- The app now includes a real `Clients` surface and a dense client workspace page.
+- The app now includes a real `Clients` surface and a simplified client workspace page.
 - Company workspaces now track inbound routing readiness in-app through each
   company's Telnyx inbound number.
-- The client workspace now centers the main leads table, right-side transcript
-  panel, sequence table, booking table, and collapsed setup section.
-- The app now includes a separate `Our Leads` route for the FixYourLeads sales
+- The client workspace now centers the lead table, message rail, appointments,
+  and profile editing without the earlier control-room clutter.
+- The app now includes a `Leads` prospecting surface for the FixYourLeads sales
   pipeline, backed by `prospects` and `call_logs`.
 - Conversation detail pages now support manual outbound texts and booking from
   the UI.
@@ -115,16 +122,13 @@ These are still expected to be filled separately for local runtime:
 - The health surface is now suitable for Railway healthchecks:
   - `/api/health` returns `503` when required runtime checks fail
   - deployment metadata and observability readiness are exposed on
-    `/diagnostics`
-- Diagnostics no longer treat OpenClaw or MCP wiring as part of app readiness.
+    `/admin/system`
+- System Status no longer treats OpenClaw or MCP wiring as part of app readiness.
 - Structured runtime error logs are now emitted from the app server on boot,
   unhandled promise rejections, and uncaught exceptions.
-- Sentry is still optional. The app can run without it, but diagnostics now
+- Sentry is still optional. The app can run without it, but System Status now
   shows clearly whether a DSN is configured.
-- The list pages were updated to force dynamic rendering so live data appears:
-  - `/leads`
-  - `/conversations`
-  - `/events`
+- The list pages were updated to force dynamic rendering so live data appears.
 - Internal-only debug routes that were not part of operator work were removed.
 - GitHub should be treated as the stable backup and history source for repo-safe
   changes.

@@ -409,16 +409,6 @@ export default async function OurLeadsPage({
       }
     : null;
 
-  const totalProspects = prospectRows.length;
-  const overdueCount = prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'overdue', now)).length;
-  const dueTodayCount = prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'today', now)).length;
-  const bookedDemoCount = prospectRows.filter((prospect) => prospect.status === ProspectStatus.BOOKED_DEMO).length;
-  const soldCount = prospectRows.filter((prospect) => prospect.status === ProspectStatus.CLOSED).length;
-  const sourcedCount = prospectRows.filter((prospect) => prospect.profile.source || prospect.profile.importBatch).length;
-  const waitingForSignup = [...prospectRows]
-    .filter((prospect) => prospect.status === ProspectStatus.CLOSED)
-    .sort(compareProspects)
-    .slice(0, 6);
   const activeSelection = selectedProspectView
     ? `${selectedProspectView.name}${selectedProspectView.city ? ` • ${selectedProspectView.city}` : ''}`
     : 'No prospect selected';
@@ -441,7 +431,7 @@ export default async function OurLeadsPage({
   return (
     <LayoutShell
       title="Leads"
-      description="Work the clinic prospect queue in one screen: call, log the outcome, and let the next-action list tell you who comes back next."
+      description="Work the clinic call queue in one screen."
       section="leads"
       variant="workspace"
     >
@@ -490,223 +480,91 @@ export default async function OurLeadsPage({
         </section>
       )}
 
-      <div className="metric-grid">
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Prospects</div>
-          <div className="metric-value">{totalProspects}</div>
-          <div className="metric-copy">All clinics currently in the outbound queue.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Overdue follow-up</div>
-          <div className="metric-value">{overdueCount}</div>
-          <div className="metric-copy">Prospects whose next action date already slipped.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Due today</div>
-          <div className="metric-value">{dueTodayCount}</div>
-          <div className="metric-copy">Follow-up work that should get touched before the day ends.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Booked meetings</div>
-          <div className="metric-value">{bookedDemoCount}</div>
-          <div className="metric-copy">Prospects already moved into a booked outcome.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Waiting for signup</div>
-          <div className="metric-value">{soldCount}</div>
-          <div className="metric-copy">Sold clinics waiting to complete website signup or onboarding.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Sourced imports</div>
-          <div className="metric-value">{sourcedCount}</div>
-          <div className="metric-copy">Prospects already carrying source or import-batch metadata.</div>
-        </section>
-      </div>
-
-      {waitingForSignup.length > 0 && (
-        <section className="panel panel-stack">
-          <div className="inline-row justify-between">
-            <div className="panel-stack">
-              <div className="metric-label">Waiting for signup</div>
-              <h2 className="section-title">Sold clinics still waiting to come in through the website.</h2>
-            </div>
-            <span className="status-chip status-chip-attention">
-              <strong>Queue</strong> {waitingForSignup.length}
-            </span>
-          </div>
-          <div className="workspace-list">
-            {waitingForSignup.map((prospect) => (
-              <a
-                key={prospect.id}
-                className="workspace-list-item"
-                href={buildPageHref({
-                  prospectId: prospect.id,
-                  q: searchQuery,
-                  status: selectedStatus,
-                  city: selectedCity,
-                  nextActionDue: selectedDue
-                })}
-              >
-                <div className="workspace-list-header">
-                  <div className="inline-row">
-                    <strong>{prospect.name}</strong>
-                    {isDemoLabel(prospect.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
-                  </div>
-                  <span className="status-chip status-chip-muted">Sold</span>
-                </div>
-                <div className="tiny-muted">
-                  {prospect.city || 'City not set'} • {prospect.website || 'No website'}
-                </div>
-                <div className="inline-row text-muted">
-                  <span>Next action: {formatDateOnly(prospect.nextActionAt)}</span>
-                  <span>{prospect.lastCallOutcome || 'Sold - waiting for signup'}</span>
-                </div>
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
-
       <div className="conversation-layout">
         <div className="page-stack">
           <section className="panel panel-stack" id="add-prospect">
-            <div className="inline-row justify-between">
-              <div className="panel-stack">
-                <div className="metric-label">Add prospect</div>
-                <h2 className="form-title">Drop a clinic into the queue without leaving the board.</h2>
-                <p className="page-copy">
-                  Capture the name, best phone number, sourcing context, and next action once. The table below stays dense so operators can move quickly after the prospect lands.
-                </p>
-              </div>
-            </div>
+            <details>
+              <summary className="form-title">Add lead</summary>
+              <form action={createProspectAction} className="workspace-filter-form" style={{ marginTop: 16 }}>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="prospect-name">
+                      Name
+                    </label>
+                    <input id="prospect-name" name="name" className="text-input" placeholder="Glow Med Spa" required />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="prospect-phone">
+                      Phone
+                    </label>
+                    <input id="prospect-phone" name="phone" className="text-input" placeholder="(555) 555-5555" />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="prospect-city">
+                      City
+                    </label>
+                    <input id="prospect-city" name="city" className="text-input" placeholder="Austin" />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="prospect-owner-name">
+                      Contact
+                    </label>
+                    <input id="prospect-owner-name" name="ownerName" className="text-input" placeholder="Jamie Reed" />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="prospect-website">
+                      Website
+                    </label>
+                    <input id="prospect-website" name="website" className="text-input" placeholder="glowmedspa.com" />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="prospect-status">
+                      Status
+                    </label>
+                    <select id="prospect-status" name="status" className="select-input" defaultValue={ProspectStatus.NEW}>
+                      {statusOptions
+                        .filter((option) => option.value)
+                        .map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="prospect-next-action">
+                      Next action
+                    </label>
+                    <input id="prospect-next-action" name="nextActionAt" type="datetime-local" className="text-input" />
+                  </div>
+                </div>
 
-            <form action={createProspectAction} className="workspace-filter-form">
-              <div className="workspace-filter-row">
                 <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-name">
-                    Name
+                  <label className="key-value-label" htmlFor="prospect-notes">
+                    Notes
                   </label>
-                  <input id="prospect-name" name="name" className="text-input" placeholder="Glow Med Spa" required />
-                </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-phone">
-                    Phone
-                  </label>
-                  <input id="prospect-phone" name="phone" className="text-input" placeholder="(555) 555-5555" />
-                </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-city">
-                    City
-                  </label>
-                  <input id="prospect-city" name="city" className="text-input" placeholder="Austin" />
-                </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-owner-name">
-                    Owner / lead contact
-                  </label>
-                  <input id="prospect-owner-name" name="ownerName" className="text-input" placeholder="Jamie Reed" />
-                </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-website">
-                    Website
-                  </label>
-                  <input id="prospect-website" name="website" className="text-input" placeholder="glowmedspa.com" />
-                </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-status">
-                    Status
-                  </label>
-                  <select id="prospect-status" name="status" className="select-input" defaultValue={ProspectStatus.NEW}>
-                    {statusOptions
-                      .filter((option) => option.value)
-                      .map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-clinic-type">
-                    Clinic type
-                  </label>
-                  <input
-                    id="prospect-clinic-type"
-                    name="clinicType"
-                    className="text-input"
-                    placeholder="Dental, med spa, urgent care"
+                  <textarea
+                    id="prospect-notes"
+                    name="notes"
+                    className="text-area"
+                    placeholder="Front desk notes, objections, or anything the next caller should know."
                   />
                 </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-zip-code">
-                    ZIP focus
-                  </label>
-                  <input id="prospect-zip-code" name="zipCode" className="text-input" placeholder="78704" />
-                </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-predicted-revenue">
-                    Predicted revenue
-                  </label>
-                  <input id="prospect-predicted-revenue" name="predictedRevenue" className="text-input" placeholder="$1.8M" />
-                </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-source">
-                    Lead source
-                  </label>
-                  <input id="prospect-source" name="sourceLabel" className="text-input" placeholder="Google Maps import" />
-                </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-import-batch">
-                    Import batch
-                  </label>
-                  <input id="prospect-import-batch" name="importBatch" className="text-input" placeholder="Austin dental 78704" />
-                </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-source-record">
-                    Source record id
-                  </label>
-                  <input id="prospect-source-record" name="sourceRecord" className="text-input" placeholder="place_123 or csv_row_87" />
-                </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-logo-url">
-                    Logo URL
-                  </label>
-                  <input id="prospect-logo-url" name="logoUrl" className="text-input" placeholder="https://..." />
-                </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-next-action">
-                    Next action due
-                  </label>
-                  <input id="prospect-next-action" name="nextActionAt" type="datetime-local" className="text-input" />
-                </div>
-              </div>
 
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="prospect-notes">
-                  Notes
-                </label>
-                <textarea
-                  id="prospect-notes"
-                  name="notes"
-                  className="text-area"
-                  placeholder="Front desk notes, objections, offer angle, or anything the next caller should know."
-                />
-              </div>
-
-              <div className="workspace-filter-actions">
-                <button type="submit" className="button">
-                  Add prospect
-                </button>
-                <span className="tiny-muted">New prospects open in the detail rail immediately after save.</span>
-              </div>
-            </form>
+                <div className="workspace-filter-actions">
+                  <button type="submit" className="button">
+                    Add lead
+                  </button>
+                </div>
+              </form>
+            </details>
           </section>
 
           <section className="panel panel-stack">
             <div className="inline-row justify-between">
               <div className="panel-stack">
-                <div className="metric-label">Prospect board</div>
-                <h2 className="section-title">Filter once, then click straight into the next clinic to work.</h2>
+                <div className="metric-label">Lead board</div>
+                <h2 className="section-title">Filter once, then click the next clinic to work.</h2>
               </div>
               <div className="status-chip">
                 <strong>Visible</strong> {visibleProspects.length}

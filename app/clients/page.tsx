@@ -1,8 +1,6 @@
-import { ProspectStatus } from '@prisma/client';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
-import { intakeStageDetails, normalizeClinicKey, parseProspectMetadata } from '@/lib/client-intake';
 import { isLikelyTestWorkspaceName } from '@/lib/test-workspaces';
 import { safeLoad } from '@/lib/ui-data';
 import { redirect } from 'next/navigation';
@@ -107,42 +105,27 @@ export default async function ClientsPage({
   const liveClients = clients.filter((client) => !isLikelyTestWorkspaceName(client.name));
   const companyIds = liveClients.map((client) => client.id);
 
-  const [conversationRows, soldProspects] = await Promise.all([
-    companyIds.length > 0
-      ? safeLoad(
-          () =>
-            db.conversation.findMany({
-              where: {
-                companyId: { in: companyIds }
-              },
-              include: {
-                messages: {
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
-                  select: {
-                    direction: true,
-                    createdAt: true
-                  }
+  const conversationRows = await (companyIds.length > 0
+    ? safeLoad(
+        () =>
+          db.conversation.findMany({
+            where: {
+              companyId: { in: companyIds }
+            },
+            include: {
+              messages: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  direction: true,
+                  createdAt: true
                 }
               }
-            }),
-          []
-        )
-      : Promise.resolve([]),
-    safeLoad(
-      () =>
-        db.prospect.findMany({
-          where: { status: ProspectStatus.CLOSED },
-          select: {
-            id: true,
-            name: true,
-            notes: true
-          },
-          orderBy: { updatedAt: 'desc' }
-        }),
-      []
-    )
-  ]);
+            }
+          }),
+        []
+      )
+    : Promise.resolve([]));
 
   const unreadByCompanyId = new Map<string, number>();
   for (const conversation of conversationRows) {
@@ -152,35 +135,6 @@ export default async function ClientsPage({
 
     unreadByCompanyId.set(conversation.companyId, (unreadByCompanyId.get(conversation.companyId) || 0) + 1);
   }
-
-  const companyByKey = new Map(liveClients.map((client) => [normalizeClinicKey(client.name), client]));
-  const intakeRows = soldProspects
-    .map((prospect) => {
-      const matchedCompany = companyByKey.get(normalizeClinicKey(prospect.name)) || null;
-      const profile = parseProspectMetadata(prospect.notes);
-
-      return intakeStageDetails({
-        hasWorkspace: Boolean(matchedCompany),
-        hasRouting: matchedCompany ? hasInboundRouting(matchedCompany) : false,
-        hasNotificationEmail: Boolean(matchedCompany?.notificationEmail),
-        hasSignupReceived: Boolean(profile.signup_received_at),
-        hasOnboardingReceived: Boolean(profile.onboarding_received_at)
-      }).stage;
-    })
-    .reduce(
-      (acc, stage) => {
-        acc.total += 1;
-        if (stage === 'waiting_signup') {
-          acc.waiting += 1;
-        } else if (stage === 'setup_pending' || stage === 'workspace_created') {
-          acc.setup += 1;
-        } else if (stage === 'ready') {
-          acc.ready += 1;
-        }
-        return acc;
-      },
-      { total: 0, waiting: 0, setup: 0, ready: 0 }
-    );
 
   const rows = liveClients
     .map((client) => {
@@ -243,9 +197,6 @@ export default async function ClientsPage({
           <div className="panel-stack">
             <div className="metric-label">Clients</div>
             <h2 className="section-title">Open the red or yellow rows first.</h2>
-            <p className="page-copy">
-              Red means setup is broken. Yellow means a client is waiting on a human. Green means things are healthy.
-            </p>
           </div>
           <div className="inline-actions">
             <a className="button-secondary" href="/clients/intake">
@@ -256,18 +207,6 @@ export default async function ClientsPage({
             </a>
           </div>
         </div>
-
-        <section className="context-alert is-compact">
-          <div className="panel-stack">
-            <div className="metric-label">Sold to signup bridge</div>
-            <div>
-              {intakeRows.total} sold clinic{intakeRows.total === 1 ? '' : 's'} in the handoff from sales to client setup
-            </div>
-            <div className="tiny-muted">
-              {intakeRows.waiting} waiting for signup • {intakeRows.setup} setup pending • {intakeRows.ready} ready
-            </div>
-          </div>
-        </section>
 
         <div className="table-wrap">
           <table className="data-table">

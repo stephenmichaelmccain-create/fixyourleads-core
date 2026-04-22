@@ -7,15 +7,15 @@ function checkSummary(health: Awaited<ReturnType<typeof getRuntimeHealth>>) {
   if (health.ok) {
     return {
       tone: 'ok' as const,
-      title: 'All Systems Operational',
-      body: 'All client phones and core services look healthy right now.'
+      title: 'All systems look healthy.',
+      body: 'You should not need to think about the plumbing right now.'
     };
   }
 
   return {
     tone: 'warn' as const,
-    title: 'Attention Needed',
-    body: 'One or more runtime checks need a technical look before you trust the system fully.'
+    title: 'Something needs a technical look.',
+    body: 'One or more runtime checks need attention before you trust the system fully.'
   };
 }
 
@@ -83,7 +83,7 @@ export default async function AdminSystemPage() {
 
             <div className="inline-actions">
               <a className="button-secondary" href="/diagnostics/queues">
-                Queue detail
+                Queue health
               </a>
               <a className="button-secondary" href="/diagnostics/workflows">
                 Workflow map

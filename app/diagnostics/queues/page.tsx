@@ -155,7 +155,7 @@ export default async function QueueDiagnosticsPage() {
                     <div className="text-muted">{prospect.city || 'City not set'}</div>
                   </div>
                   <div className="action-cluster">
-                    <a className="button-ghost" href={`/our-leads?prospectId=${prospect.id}`}>
+                    <a className="button-ghost" href={`/leads?prospectId=${prospect.id}`}>
                       Open prospect
                     </a>
                   </div>

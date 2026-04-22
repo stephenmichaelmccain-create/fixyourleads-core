@@ -48,19 +48,19 @@ export function WorkspaceReadinessBanner({
           </div>
           <div className="text-muted">
             {missingRouting && missingNotifications
-              ? 'Add the Telnyx inbound number and clinic notification email in Companies before using this workspace for live replies and booking notifications.'
+              ? 'Add the client number and clinic notification email in Clients before using this workspace for live replies and booking notifications.'
               : missingRouting
-                ? 'Add the Telnyx inbound number in Companies so inbound replies route back to this client.'
-                : 'Add the clinic notification email in Companies before relying on booking emails.'}
+                ? 'Add the client number in Clients so inbound replies route back to this client.'
+                : 'Add the clinic notification email in Clients before relying on booking emails.'}
             {includeNotificationHint && ' SMTP also needs to be configured globally before booking emails will actually send.'}
           </div>
         </div>
         <div className="action-cluster">
-          <a className="button" href={`/companies#company-${companyId}`}>
-            Fix in Companies
+          <a className="button" href={`/clients/${companyId}#setup`}>
+            Fix in Client Profile
           </a>
           {missingNotifications && includeNotificationHint && (
-            <a className="button-ghost" href="/diagnostics">
+            <a className="button-ghost" href="/admin/system">
               Check SMTP
             </a>
           )}
