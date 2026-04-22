@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
@@ -8,21 +7,15 @@ import {
   normalizeWebsiteKey,
   upsertProspectMetadata
 } from '@/lib/client-intake';
+import {
+  readWebsitePayload,
+  websiteIntakeSchema,
+  type WebsitePayloadRecord,
+  normalizeWebsiteIntakePayload
+} from '@/lib/website-webhook-payload';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const intakeSchema = z.object({
-  clinicName: z.string().trim().min(1),
-  contactName: z.string().trim().min(1).optional(),
-  notificationEmail: z.string().trim().email().optional(),
-  phone: z.string().trim().min(7).optional(),
-  website: z.string().trim().min(1).optional(),
-  source: z.string().trim().min(1).optional(),
-  sourceExternalId: z.string().trim().min(1).optional()
-});
-
-type IntakePayloadRecord = Record<string, string>;
 
 function logWebsiteWebhook(
   level: 'info' | 'warn' | 'error',
@@ -83,116 +76,6 @@ function corsHeaders(request: NextRequest) {
   return headers;
 }
 
-function pickFirstValue(payload: IntakePayloadRecord, keys: string[]) {
-  for (const key of keys) {
-    const value = String(payload[key] || '').trim();
-
-    if (value) {
-      return value;
-    }
-  }
-
-  return undefined;
-}
-
-async function readPayload(request: NextRequest): Promise<IntakePayloadRecord | null> {
-  const contentType = String(request.headers.get('content-type') || '').toLowerCase();
-
-  if (contentType.includes('application/json')) {
-    const parsed = await request.json();
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return Object.fromEntries(
-        Object.entries(parsed).map(([key, value]) => [key, value == null ? '' : String(value)])
-      );
-    }
-
-    return null;
-  }
-
-  if (
-    contentType.includes('application/x-www-form-urlencoded') ||
-    contentType.includes('multipart/form-data')
-  ) {
-    const formData = await request.formData();
-
-    return Object.fromEntries(
-      Array.from(formData.entries()).map(([key, value]) => [
-        key,
-        typeof value === 'string' ? value : value.name
-      ])
-    );
-  }
-
-  try {
-    const parsed = await request.json();
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return Object.fromEntries(
-        Object.entries(parsed).map(([key, value]) => [key, value == null ? '' : String(value)])
-      );
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-function normalizeIntakePayload(payload: IntakePayloadRecord) {
-  return {
-    clinicName: pickFirstValue(payload, [
-      'clinicName',
-      'clinic_name',
-      'business',
-      'businessName',
-      'business_name',
-      'companyName',
-      'company_name',
-      'clinic',
-      'name'
-    ]),
-    contactName: pickFirstValue(payload, [
-      'contactName',
-      'contact_name',
-      'name',
-      'ownerName',
-      'owner_name',
-      'fullName',
-      'full_name'
-    ]),
-    notificationEmail: pickFirstValue(payload, [
-      'notificationEmail',
-      'notification_email',
-      'email',
-      'contactEmail',
-      'contact_email'
-    ]),
-    phone: pickFirstValue(payload, [
-      'phone',
-      'phoneNumber',
-      'phone_number',
-      'contactPhone',
-      'contact_phone'
-    ]),
-    website: pickFirstValue(payload, [
-      'website',
-      'websiteUrl',
-      'website_url',
-      'page_url',
-      'site',
-      'domain'
-    ]),
-    source: pickFirstValue(payload, ['source', 'form_type', 'formSource', 'form_source', 'channel']),
-    sourceExternalId: pickFirstValue(payload, [
-      'sourceExternalId',
-      'source_external_id',
-      'submissionId',
-      'submission_id',
-      'recordId',
-      'record_id'
-    ])
-  };
-}
-
 export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {
     status: 204,
@@ -201,11 +84,11 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  let payload: IntakePayloadRecord | null = null;
+  let payload: WebsitePayloadRecord | null = null;
   const contentType = String(request.headers.get('content-type') || '').toLowerCase();
 
   try {
-    payload = await readPayload(request);
+    payload = await readWebsitePayload(request);
   } catch {
     logWebsiteWebhook('warn', 'invalid_payload_read', {
       contentType,
@@ -214,9 +97,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_payload' }, { status: 400, headers: corsHeaders(request) });
   }
 
-  const normalizedPayload = normalizeIntakePayload(payload || {});
+  const normalizedPayload = normalizeWebsiteIntakePayload(payload || {});
   const payloadKeys = Object.keys(payload || {}).sort();
-  const parsed = intakeSchema.safeParse(normalizedPayload);
+  const parsed = websiteIntakeSchema.safeParse(normalizedPayload);
 
   if (!parsed.success) {
     logWebsiteWebhook('warn', 'invalid_payload_schema', {
