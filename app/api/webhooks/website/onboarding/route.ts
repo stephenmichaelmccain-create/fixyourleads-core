@@ -24,12 +24,6 @@ const onboardingSchema = z.object({
 
 type OnboardingPayloadRecord = Record<string, string>;
 
-const allowedOrigins = new Set(
-  [process.env.APP_BASE_URL, process.env.PUBLIC_SITE_URL]
-    .map((value) => String(value || '').trim())
-    .filter(Boolean)
-);
-
 function logWebsiteWebhook(
   level: 'info' | 'warn' | 'error',
   event: string,
@@ -56,16 +50,11 @@ function logWebsiteWebhook(
 }
 
 function corsHeaders(request: NextRequest) {
-  const origin = request.headers.get('origin');
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key'
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key',
+    'Access-Control-Allow-Origin': '*'
   };
-
-  if (origin && allowedOrigins.has(origin)) {
-    headers['Access-Control-Allow-Origin'] = origin;
-    headers.Vary = 'Origin';
-  }
 
   return headers;
 }
