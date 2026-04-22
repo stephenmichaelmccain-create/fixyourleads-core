@@ -45,18 +45,19 @@ export async function sendConversationMessageAction(formData: FormData) {
   const text = String(formData.get('text') || '').trim();
   const returnTo = sanitizeReturnTo(
     String(formData.get('returnTo') || '').trim(),
-    `/conversations/${conversationId}`
+    conversationId ? `/conversations/${conversationId}` : `/clients/${companyId}`
   );
 
-  if (!companyId || !contactId || !conversationId || !text) {
-    throw new Error('companyId_contactId_conversationId_text_required');
+  if (!companyId || !contactId || !text) {
+    throw new Error('companyId_contactId_text_required');
   }
 
   try {
     const result = await sendOutboundMessage(companyId, contactId, text);
-    revalidateConversationPaths(companyId, conversationId);
+    revalidateConversationPaths(companyId, conversationId || result.conversation.id);
     redirect(
       redirectPathWithValues(returnTo, {
+        conversationId: returnTo.startsWith('/clients/') ? result.conversation.id : undefined,
         send: 'sent',
         detail: result.message.externalId ? 'accepted_by_telnyx' : 'logged_without_external_id'
       })

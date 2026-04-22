@@ -1,6 +1,6 @@
 ## Now
 - Fix any live blocker first. Current live app is up, so next priority is core operator workflow improvements on `/clients/[id]`.
-- Keep the client workspace as the primary operator surface now that inline reply, quick booking, and delivery truth are available without leaving `/clients/[id]`.
+- Keep the client workspace as the primary operator surface now that operators can send, book, and even start a first thread without leaving `/clients/[id]`.
 - Tighten the remaining message workflow gaps inside the client workspace so operators can act without opening the full conversation route unless they want deeper detail.
 - Keep all changes deploy-safe if they might be merged later. No destructive schema or config changes.
 

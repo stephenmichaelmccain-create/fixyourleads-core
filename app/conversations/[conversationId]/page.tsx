@@ -108,7 +108,7 @@ function buildSendFlash(searchParams: Record<string, string | string[] | undefin
       body:
         detail === 'lead_suppressed'
           ? 'This lead is suppressed, so outbound messaging is blocked.'
-          : detail === 'companyId_contactId_conversationId_text_required'
+          : detail === 'companyId_contactId_conversationId_text_required' || detail === 'companyId_contactId_text_required'
             ? 'The send action was missing required data.'
             : 'The send attempt failed before Telnyx accepted the message.'
     };

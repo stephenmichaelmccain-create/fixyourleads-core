@@ -178,7 +178,7 @@ function buildSendFlash(searchParams: { send?: string; detail?: string }) {
       body:
         detail === 'lead_suppressed'
           ? 'This lead is suppressed, so outbound messaging is blocked.'
-          : detail === 'companyId_contactId_conversationId_text_required'
+          : detail === 'companyId_contactId_conversationId_text_required' || detail === 'companyId_contactId_text_required'
             ? 'The send action was missing required data.'
             : 'The send attempt failed before Telnyx accepted the message.'
     };
@@ -536,6 +536,15 @@ export default async function ClientWorkspacePage({
         {
           conversationId: selectedConversation.id,
           leadId: selectedLead?.id || selectedLeadId || undefined
+        }
+      )
+    : '';
+  const selectedLeadHref = selectedLead
+    ? buildClientHref(
+        company.id,
+        { window: windowDays, status, source, sort, dir, page: currentPage },
+        {
+          leadId: selectedLead.id
         }
       )
     : '';
@@ -1076,6 +1085,21 @@ export default async function ClientWorkspacePage({
                   Open lead
                 </a>
               </div>
+              <form action={sendConversationMessageAction} className="panel panel-stack">
+                <div className="metric-label">Start first text</div>
+                <input type="hidden" name="companyId" value={company.id} />
+                <input type="hidden" name="contactId" value={selectedLead.contactId} />
+                <input type="hidden" name="returnTo" value={selectedLeadHref} />
+                <textarea
+                  name="text"
+                  placeholder="Send the first outbound text and open the thread here"
+                  className="text-area"
+                  rows={3}
+                />
+                <button type="submit" className="button">
+                  Create thread and send
+                </button>
+              </form>
               <div className="empty-state">
                 No conversation thread exists for this lead yet. When Telnyx creates one, it will open here.
               </div>
