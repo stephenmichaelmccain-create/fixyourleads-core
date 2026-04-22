@@ -292,6 +292,11 @@ export default async function OurLeadsPage({
   const overdueCount = allProspects.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'overdue', now)).length;
   const dueTodayCount = allProspects.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'today', now)).length;
   const bookedDemoCount = allProspects.filter((prospect) => prospect.status === ProspectStatus.BOOKED_DEMO).length;
+  const soldCount = allProspects.filter((prospect) => prospect.status === ProspectStatus.CLOSED).length;
+  const waitingForSignup = [...allProspects]
+    .filter((prospect) => prospect.status === ProspectStatus.CLOSED)
+    .sort(compareProspects)
+    .slice(0, 6);
   const activeSelection = selectedProspect
     ? `${selectedProspect.name}${selectedProspect.city ? ` • ${selectedProspect.city}` : ''}`
     : 'No prospect selected';
@@ -367,11 +372,59 @@ export default async function OurLeadsPage({
           <div className="metric-copy">Follow-up work that should get touched before the day ends.</div>
         </section>
         <section className="metric-card panel-stack">
-          <div className="metric-label">Booked demos</div>
+          <div className="metric-label">Booked meetings</div>
           <div className="metric-value">{bookedDemoCount}</div>
           <div className="metric-copy">Prospects already moved into a booked outcome.</div>
         </section>
+        <section className="metric-card panel-stack">
+          <div className="metric-label">Waiting for signup</div>
+          <div className="metric-value">{soldCount}</div>
+          <div className="metric-copy">Sold clinics waiting to complete website signup or onboarding.</div>
+        </section>
       </div>
+
+      {waitingForSignup.length > 0 && (
+        <section className="panel panel-stack">
+          <div className="inline-row justify-between">
+            <div className="panel-stack">
+              <div className="metric-label">Waiting for signup</div>
+              <h2 className="section-title">Sold clinics still waiting to come in through the website.</h2>
+            </div>
+            <span className="status-chip status-chip-attention">
+              <strong>Queue</strong> {waitingForSignup.length}
+            </span>
+          </div>
+          <div className="workspace-list">
+            {waitingForSignup.map((prospect) => (
+              <a
+                key={prospect.id}
+                className="workspace-list-item"
+                href={buildPageHref({
+                  prospectId: prospect.id,
+                  status: selectedStatus,
+                  city: selectedCity,
+                  nextActionDue: selectedDue
+                })}
+              >
+                <div className="workspace-list-header">
+                  <div className="inline-row">
+                    <strong>{prospect.name}</strong>
+                    {isDemoLabel(prospect.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
+                  </div>
+                  <span className="status-chip status-chip-muted">Sold</span>
+                </div>
+                <div className="tiny-muted">
+                  {prospect.city || 'City not set'} • {prospect.website || 'No website'}
+                </div>
+                <div className="inline-row text-muted">
+                  <span>Next action: {formatDateOnly(prospect.nextActionAt)}</span>
+                  <span>{prospect.lastCallOutcome || 'Sold - waiting for signup'}</span>
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="conversation-layout">
         <div className="page-stack">
@@ -465,7 +518,7 @@ export default async function OurLeadsPage({
             <div className="inline-row justify-between">
               <div className="panel-stack">
                 <div className="metric-label">Prospect board</div>
-                <h2 className="section-title">Filter once, then click straight into the next med spa to work.</h2>
+                <h2 className="section-title">Filter once, then click straight into the next clinic to work.</h2>
               </div>
               <div className="status-chip">
                 <strong>Visible</strong> {visibleProspects.length}
