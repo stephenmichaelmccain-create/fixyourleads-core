@@ -534,6 +534,13 @@ select {
   gap: 12px;
 }
 
+.record-card-live-head {
+  border-radius: 24px;
+  border: 1px solid rgba(176, 137, 244, 0.26);
+  background: linear-gradient(180deg, rgba(250, 244, 255, 0.98), rgba(244, 236, 255, 0.96));
+  box-shadow: 0 18px 40px rgba(45, 13, 79, 0.08);
+}
+
 .context-form {
   display: grid;
   gap: 14px;
@@ -674,6 +681,84 @@ select {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+}
+
+.live-feed-bar {
+  border-color: rgba(176, 137, 244, 0.24);
+  background: linear-gradient(180deg, rgba(250, 244, 255, 0.98), rgba(246, 239, 255, 0.96));
+}
+
+.live-feed-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.live-feed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(176, 137, 244, 0.2);
+  background: rgba(255, 255, 255, 0.78);
+  color: #6b27c8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.live-indicator.is-paused {
+  color: var(--fyl-muted);
+}
+
+.live-indicator-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #19a45f;
+}
+
+.live-indicator.is-live .live-indicator-dot {
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+.live-indicator.is-paused .live-indicator-dot {
+  background: var(--fyl-muted);
+  animation: none;
+}
+
+.live-feed-meta {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.live-feed-stat {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(176, 137, 244, 0.14);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.live-feed-interval {
+  align-content: start;
+}
+
+.live-feed-interval .select-input {
+  min-height: 42px;
 }
 
 .filter-bar {
@@ -959,6 +1044,19 @@ select {
   background: var(--fyl-danger);
 }
 
+@keyframes live-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.35);
+    opacity: 0.6;
+  }
+}
+
 .list-clean {
   margin: 0;
   padding-left: 18px;
@@ -971,6 +1069,10 @@ select {
   }
 
   .setup-sprint-actions {
+    justify-content: flex-start;
+  }
+
+  .live-feed-actions {
     justify-content: flex-start;
   }
 }

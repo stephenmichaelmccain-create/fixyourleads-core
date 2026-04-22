@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { CompanySelectorBar } from '@/app/components/CompanySelectorBar';
 import { safeLoad } from '@/lib/ui-data';
+import { LiveFeedControls } from './LiveFeedControls';
 
 export const dynamic = 'force-dynamic';
 
@@ -308,6 +309,9 @@ export default async function EventsPage({
     category === 'all'
       ? `/events?companyId=${encodeURIComponent(companyId)}`
       : `/events?companyId=${encodeURIComponent(companyId)}&eventCategory=${encodeURIComponent(category)}`;
+  const snapshotAt = new Date().toISOString();
+  const latestVisibleEvent = filteredEvents[0] || null;
+  const selectedCategoryLabel = categories.find((category) => category.key === selectedCategory)?.label || 'All events';
 
   return (
     <LayoutShell
@@ -320,6 +324,17 @@ export default async function EventsPage({
       <CompanySelectorBar action="/events" initialCompanyId={companyId} />
 
       {!companyId && <div className="empty-state">Choose a company by name to load the audit trail.</div>}
+
+      {companyId && (
+        <LiveFeedControls
+          snapshotAt={snapshotAt}
+          categoryLabel={selectedCategoryLabel}
+          visibleCount={filteredEvents.length}
+          latestEventLabel={latestVisibleEvent ? getEventLabel(latestVisibleEvent.eventType) : null}
+          latestEventAt={latestVisibleEvent ? new Date(latestVisibleEvent.createdAt).toISOString() : null}
+          companyName={selectedCompany?.name || null}
+        />
+      )}
 
       {companyId && events.length > 0 && (
         <section className="panel panel-stack">
@@ -369,17 +384,17 @@ export default async function EventsPage({
       )}
 
       <div className="record-grid">
-        {filteredEvents.map((event) => {
+        {filteredEvents.map((event, index) => {
           const payload = typeof event.payload === 'object' && event.payload && !Array.isArray(event.payload) ? event.payload as Record<string, unknown> : {};
           const category = getEventCategory(event.eventType);
           const actions = buildEventActionLinks(companyId, event.eventType, category, payload);
           const contextFacts = buildEventContextFacts(payload);
 
           return (
-          <section key={event.id} className="record-card">
+          <section key={event.id} className={`record-card${index === 0 ? ' record-card-live-head' : ''}`}>
             <div className="record-header">
               <div>
-                <div className="metric-label">Event</div>
+                <div className="metric-label">{index === 0 ? 'Latest event' : 'Event'}</div>
                 <strong>{getEventLabel(event.eventType)}</strong>
                 <div className="record-subtitle">{getEventSummary(event.eventType, payload)}</div>
               </div>
