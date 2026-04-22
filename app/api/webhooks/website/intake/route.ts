@@ -142,6 +142,7 @@ function normalizeIntakePayload(payload: IntakePayloadRecord) {
     clinicName: pickFirstValue(payload, [
       'clinicName',
       'clinic_name',
+      'business',
       'businessName',
       'business_name',
       'companyName',
@@ -152,6 +153,7 @@ function normalizeIntakePayload(payload: IntakePayloadRecord) {
     contactName: pickFirstValue(payload, [
       'contactName',
       'contact_name',
+      'name',
       'ownerName',
       'owner_name',
       'fullName',
@@ -175,10 +177,11 @@ function normalizeIntakePayload(payload: IntakePayloadRecord) {
       'website',
       'websiteUrl',
       'website_url',
+      'page_url',
       'site',
       'domain'
     ]),
-    source: pickFirstValue(payload, ['source', 'formSource', 'form_source', 'channel']),
+    source: pickFirstValue(payload, ['source', 'form_type', 'formSource', 'form_source', 'channel']),
     sourceExternalId: pickFirstValue(payload, [
       'sourceExternalId',
       'source_external_id',
