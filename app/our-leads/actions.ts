@@ -12,6 +12,52 @@ function readText(formData: FormData, key: string) {
   return String(formData.get(key) || '').trim();
 }
 
+function addDaysFromNow(days: number, hour: number) {
+  const value = new Date();
+  value.setDate(value.getDate() + days);
+  value.setHours(hour, 0, 0, 0);
+  return value;
+}
+
+function buildOurLeadsHref({
+  prospectId,
+  status,
+  city,
+  nextActionDue,
+  updated
+}: {
+  prospectId?: string;
+  status?: string;
+  city?: string;
+  nextActionDue?: string;
+  updated?: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (prospectId) {
+    params.set('prospectId', prospectId);
+  }
+
+  if (status) {
+    params.set('status', status);
+  }
+
+  if (city) {
+    params.set('city', city);
+  }
+
+  if (nextActionDue) {
+    params.set('nextActionDue', nextActionDue);
+  }
+
+  if (updated) {
+    params.set('updated', updated);
+  }
+
+  const query = params.toString();
+  return query ? `/our-leads?${query}` : '/our-leads';
+}
+
 export async function createProspectAction(formData: FormData) {
   const name = readText(formData, 'name');
   const rawPhone = readText(formData, 'phone');
@@ -52,4 +98,112 @@ export async function createProspectAction(formData: FormData) {
 
   revalidatePath('/our-leads');
   redirect(`/our-leads?prospectId=${encodeURIComponent(prospect.id)}&added=1`);
+}
+
+export async function updateProspectOutcomeAction(formData: FormData) {
+  const prospectId = readText(formData, 'prospectId');
+  const outcome = readText(formData, 'outcome');
+  const status = readText(formData, 'status');
+  const city = readText(formData, 'city');
+  const nextActionDue = readText(formData, 'nextActionDue');
+
+  if (!prospectId) {
+    redirect(buildOurLeadsHref({ status, city, nextActionDue }));
+  }
+
+  const outcomeMap: Record<
+    string,
+    {
+      status: ProspectStatus;
+      lastCallOutcome: string;
+      nextActionAt: Date | null;
+      notesSuffix?: string;
+    }
+  > = {
+    no_answer: {
+      status: ProspectStatus.NO_ANSWER,
+      lastCallOutcome: 'No answer',
+      nextActionAt: addDaysFromNow(1, 9)
+    },
+    voicemail: {
+      status: ProspectStatus.VM_LEFT,
+      lastCallOutcome: 'Left voicemail',
+      nextActionAt: addDaysFromNow(1, 11)
+    },
+    not_interested: {
+      status: ProspectStatus.GATEKEEPER,
+      lastCallOutcome: 'Not interested - retry later',
+      nextActionAt: addDaysFromNow(45, 10)
+    },
+    do_not_contact: {
+      status: ProspectStatus.DEAD,
+      lastCallOutcome: 'Do not contact',
+      nextActionAt: null,
+      notesSuffix: 'Marked as do not contact.'
+    },
+    booked: {
+      status: ProspectStatus.BOOKED_DEMO,
+      lastCallOutcome: 'Booked demo',
+      nextActionAt: addDaysFromNow(1, 9),
+      notesSuffix: 'Booked and needs meeting follow-up.'
+    },
+    sold: {
+      status: ProspectStatus.CLOSED,
+      lastCallOutcome: 'Sold - waiting for signup',
+      nextActionAt: addDaysFromNow(2, 9),
+      notesSuffix: 'Sold and should move into waiting-for-signup.'
+    }
+  };
+
+  const selection = outcomeMap[outcome];
+
+  if (!selection) {
+    redirect(buildOurLeadsHref({ prospectId, status, city, nextActionDue }));
+  }
+
+  const existing = await db.prospect.findUnique({
+    where: { id: prospectId },
+    select: {
+      id: true,
+      notes: true
+    }
+  });
+
+  if (!existing) {
+    redirect(buildOurLeadsHref({ status, city, nextActionDue }));
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.prospect.update({
+      where: { id: prospectId },
+      data: {
+        status: selection.status,
+        lastCallAt: new Date(),
+        lastCallOutcome: selection.lastCallOutcome,
+        nextActionAt: selection.nextActionAt,
+        notes: selection.notesSuffix
+          ? [existing.notes, selection.notesSuffix].filter(Boolean).join('\n')
+          : existing.notes
+      }
+    });
+
+    await tx.callLog.create({
+      data: {
+        prospectId,
+        outcome: selection.lastCallOutcome,
+        notes: selection.notesSuffix || undefined
+      }
+    });
+  });
+
+  revalidatePath('/our-leads');
+  redirect(
+    buildOurLeadsHref({
+      prospectId,
+      status,
+      city,
+      nextActionDue,
+      updated: outcome
+    })
+  );
 }

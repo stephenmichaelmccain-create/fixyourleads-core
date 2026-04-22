@@ -3,7 +3,7 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { isDemoLabel } from '@/lib/demo';
 import { safeLoad } from '@/lib/ui-data';
-import { createProspectAction } from './actions';
+import { createProspectAction, updateProspectOutcomeAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,10 +12,10 @@ const statusOptions = [
   { label: 'New', value: ProspectStatus.NEW },
   { label: 'No answer', value: ProspectStatus.NO_ANSWER },
   { label: 'Voicemail left', value: ProspectStatus.VM_LEFT },
-  { label: 'Gatekeeper', value: ProspectStatus.GATEKEEPER },
-  { label: 'Booked demo', value: ProspectStatus.BOOKED_DEMO },
-  { label: 'Closed', value: ProspectStatus.CLOSED },
-  { label: 'Dead', value: ProspectStatus.DEAD }
+  { label: 'Call back later', value: ProspectStatus.GATEKEEPER },
+  { label: 'Booked', value: ProspectStatus.BOOKED_DEMO },
+  { label: 'Sold', value: ProspectStatus.CLOSED },
+  { label: 'Do not contact', value: ProspectStatus.DEAD }
 ] as const;
 
 const dueOptions = [
@@ -32,6 +32,7 @@ type SearchParamShape = Promise<{
   city?: string;
   nextActionDue?: string;
   added?: string;
+  updated?: string;
   error?: string;
 }>;
 
@@ -48,11 +49,24 @@ function endOfDay(date: Date) {
 }
 
 function humanizeStatus(status: ProspectStatus) {
-  return status
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
+  switch (status) {
+    case ProspectStatus.VM_LEFT:
+      return 'Voicemail left';
+    case ProspectStatus.GATEKEEPER:
+      return 'Call back later';
+    case ProspectStatus.BOOKED_DEMO:
+      return 'Booked';
+    case ProspectStatus.CLOSED:
+      return 'Sold';
+    case ProspectStatus.DEAD:
+      return 'Do not contact';
+    default:
+      return status
+        .toLowerCase()
+        .split('_')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+  }
 }
 
 function formatDateTime(date?: Date | null) {
@@ -208,6 +222,7 @@ export default async function OurLeadsPage({
   const selectedDue = String(params.nextActionDue || '').trim();
   const selectedProspectId = String(params.prospectId || '').trim();
   const added = params.added === '1';
+  const updated = String(params.updated || '').trim();
   const error = String(params.error || '').trim();
   const now = new Date();
 
@@ -293,10 +308,34 @@ export default async function OurLeadsPage({
   return (
     <LayoutShell
       title="Our Leads"
-      description="Work the med spa prospect queue in one screen: add new targets, filter the board fast, and open notes and call history without losing the list."
+      description="Work the clinic prospect queue in one screen: add new targets, filter the board fast, and open notes and call history without losing the list."
       section="our-leads"
       variant="workspace"
     >
+      {updated && (
+        <section className="panel panel-stack">
+          <div className="inline-row">
+            <span className="status-dot ok" />
+            <strong>Call outcome saved.</strong>
+          </div>
+          <div className="text-muted">
+            {updated === 'no_answer'
+              ? 'Marked no answer and moved the next call to tomorrow morning.'
+              : updated === 'voicemail'
+                ? 'Logged voicemail and queued the next touch for tomorrow.'
+                : updated === 'not_interested'
+                  ? 'Marked not interested and scheduled a later retry.'
+                  : updated === 'do_not_contact'
+                    ? 'Suppressed this clinic from future outreach.'
+                    : updated === 'booked'
+                      ? 'Marked booked and moved it into meeting follow-up.'
+                      : updated === 'sold'
+                        ? 'Marked sold and scheduled waiting-for-signup follow-up.'
+                        : 'The prospect was updated.'}
+          </div>
+        </section>
+      )}
+
       {added && (
         <section className="panel panel-success panel-stack">
           <div className="metric-label">Prospect added</div>
@@ -315,7 +354,7 @@ export default async function OurLeadsPage({
         <section className="metric-card panel-stack">
           <div className="metric-label">Prospects</div>
           <div className="metric-value">{totalProspects}</div>
-          <div className="metric-copy">All med spas currently in the outbound queue.</div>
+          <div className="metric-copy">All clinics currently in the outbound queue.</div>
         </section>
         <section className="metric-card panel-stack">
           <div className="metric-label">Overdue follow-up</div>
@@ -340,7 +379,7 @@ export default async function OurLeadsPage({
             <div className="inline-row justify-between">
               <div className="panel-stack">
                 <div className="metric-label">Add prospect</div>
-                <h2 className="form-title">Drop a med spa into the queue without leaving the board.</h2>
+                <h2 className="form-title">Drop a clinic into the queue without leaving the board.</h2>
                 <p className="page-copy">
                   Capture the name, best phone number, city, and next action once. The table below stays dense so operators can move quickly after the prospect lands.
                 </p>
@@ -645,6 +684,37 @@ export default async function OurLeadsPage({
                   ) : null}
                 </div>
 
+                <form action={updateProspectOutcomeAction} className="panel panel-stack">
+                  <div className="metric-label">Quick call outcome</div>
+                  <input type="hidden" name="prospectId" value={selectedProspect.id} />
+                  <input type="hidden" name="status" value={selectedStatus} />
+                  <input type="hidden" name="city" value={selectedCity} />
+                  <input type="hidden" name="nextActionDue" value={selectedDue} />
+                  <div className="inline-actions inline-actions-wrap">
+                    <button type="submit" className="button-secondary" name="outcome" value="no_answer">
+                      No answer
+                    </button>
+                    <button type="submit" className="button-secondary" name="outcome" value="voicemail">
+                      Left voicemail
+                    </button>
+                    <button type="submit" className="button-secondary" name="outcome" value="not_interested">
+                      Not interested
+                    </button>
+                    <button type="submit" className="button-secondary" name="outcome" value="booked">
+                      Booked
+                    </button>
+                    <button type="submit" className="button-secondary" name="outcome" value="sold">
+                      Sold
+                    </button>
+                    <button type="submit" className="button-ghost" name="outcome" value="do_not_contact">
+                      Do not contact
+                    </button>
+                  </div>
+                  <div className="tiny-muted">
+                    Each outcome updates the status, logs the call, and sets the next action automatically.
+                  </div>
+                </form>
+
                 <div className="key-value-grid">
                   <div className="key-value-card">
                     <span className="key-value-label">Phone</span>
@@ -677,7 +747,7 @@ export default async function OurLeadsPage({
                   {selectedProspect.notes ? (
                     <div className="key-value-card pre-wrap">{selectedProspect.notes}</div>
                   ) : (
-                    <div className="empty-state">No notes yet. Use the Add Prospect form to capture context on the next med spa.</div>
+                    <div className="empty-state">No notes yet. Use the Add Prospect form to capture context on the next clinic.</div>
                   )}
                 </section>
 
