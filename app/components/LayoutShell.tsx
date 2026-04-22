@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { BrandLogo } from './BrandLogo';
 import { PersistCompanyContext } from './PersistCompanyContext';
 import { Nav } from './Nav';
 import { getPersistedCompanyContext } from './company-context.server';
@@ -24,34 +25,35 @@ export async function LayoutShell({
   const activeCompanyId = companyId || persistedCompany?.companyId;
   const activeCompanyName = companyName || persistedCompany?.companyName;
   const usingRememberedCompany = !companyId && Boolean(persistedCompany?.companyId);
-  const compactVariant = variant === 'workspace';
+  const showPageHeader = section !== 'home';
 
   return (
     <main className="app-shell">
-      <section className={`shell-hero${compactVariant ? ' shell-hero-compact' : ''}`}>
+      <header className="app-header">
         {companyId && <PersistCompanyContext companyId={companyId} companyName={companyName} />}
-        {!compactVariant && (
-          <>
-            <h1 className="hero-title">{title}</h1>
-            {description ? <p className="hero-copy">{description}</p> : null}
-          </>
-        )}
-        {compactVariant && (
-          <div className="hero-compact-copy">
-            <h1 className="hero-title hero-title-compact">{title}</h1>
-            {description ? <p className="hero-copy hero-copy-compact">{description}</p> : null}
-          </div>
-        )}
+        <a className="app-header-brand" href="/" aria-label="Fix Your Leads">
+          <BrandLogo />
+        </a>
         <Nav
           companyId={activeCompanyId}
           companyName={activeCompanyName}
           usingRememberedCompany={usingRememberedCompany}
           current={section}
         />
-      </section>
+      </header>
 
       <section className="shell-body">
-        <div className="page-stack">{children}</div>
+        <div className="page-stack">
+          {showPageHeader ? (
+            <section className={`page-heading${variant === 'workspace' ? ' page-heading-compact' : ''}`}>
+              <div className="page-heading-copy">
+                <h1 className="page-title">{title}</h1>
+                {description ? <p className="page-copy">{description}</p> : null}
+              </div>
+            </section>
+          ) : null}
+          {children}
+        </div>
       </section>
     </main>
   );

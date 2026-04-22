@@ -22,6 +22,66 @@ function formatPlural(value: number, singular: string, plural = `${singular}s`) 
   return `${value} ${value === 1 ? singular : plural}`;
 }
 
+type HomeAction = {
+  label: string;
+  href: string;
+  detail: string;
+};
+
+function buildPrimaryAction(input: {
+  clients: number;
+  unreadClientMessages: number;
+  clientsNeedingAttention: number;
+  appointmentsToday: number;
+  newLeadsYesterday: number;
+}): HomeAction {
+  if (input.clients === 0) {
+    return {
+      label: 'Add a Client',
+      href: '/clients/intake',
+      detail: 'No live clients are set up yet.'
+    };
+  }
+
+  if (input.unreadClientMessages > 0) {
+    return {
+      label: 'Open Messages',
+      href: '/messages',
+      detail: `${input.unreadClientMessages} client conversation${input.unreadClientMessages === 1 ? '' : 's'} need a reply.`
+    };
+  }
+
+  if (input.clientsNeedingAttention > 0) {
+    return {
+      label: 'Open Clients',
+      href: '/clients',
+      detail: `${input.clientsNeedingAttention} client${input.clientsNeedingAttention === 1 ? '' : 's'} need setup or inbox attention.`
+    };
+  }
+
+  if (input.appointmentsToday > 0) {
+    return {
+      label: 'Open Clients',
+      href: '/clients',
+      detail: `${input.appointmentsToday} appointment${input.appointmentsToday === 1 ? '' : 's'} are on the board today.`
+    };
+  }
+
+  if (input.newLeadsYesterday > 0) {
+    return {
+      label: 'Open Leads',
+      href: '/leads',
+      detail: `${input.newLeadsYesterday} new lead${input.newLeadsYesterday === 1 ? '' : 's'} arrived yesterday.`
+    };
+  }
+
+  return {
+    label: 'Check System Status',
+    href: '/admin/system',
+    detail: 'No urgent client work is waiting right now.'
+  };
+}
+
 export default async function HomePage() {
   const todayStart = startOfDay();
   const tomorrowStart = addDays(todayStart, 1);
@@ -133,11 +193,17 @@ export default async function HomePage() {
 
   const [newLeadsYesterday, appointmentsYesterday, messagesYesterday] = yesterdayCounts;
   const allClear = unreadClientMessages === 0 && appointmentsToday === 0 && clientsNeedingAttention === 0;
+  const primaryAction = buildPrimaryAction({
+    clients: companies.length,
+    unreadClientMessages,
+    clientsNeedingAttention,
+    appointmentsToday,
+    newLeadsYesterday
+  });
 
   return (
     <LayoutShell
-      title="Good morning, Levi."
-      description="Five-minute morning check."
+      title="Home"
       section="home"
     >
       <section className="home-inline-bar">
@@ -159,6 +225,13 @@ export default async function HomePage() {
             <span className="metric-label">Clients needing attention</span>
             <strong>{clientsNeedingAttention}</strong>
           </span>
+        </div>
+
+        <div className="inline-actions">
+          <a className="button" href={primaryAction.href}>
+            {primaryAction.label}
+          </a>
+          <span className="tiny-muted">{primaryAction.detail}</span>
         </div>
 
         <div className="home-inline-recap">
