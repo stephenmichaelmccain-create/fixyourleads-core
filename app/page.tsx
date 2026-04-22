@@ -93,7 +93,7 @@ export default async function HomePage() {
           <div className="metric-label">Command center</div>
           <h2 className="section-title section-title-large">Run lead response, booking, and clinic routing from one place.</h2>
           <p className="metric-copy">
-            Keep the product narrow: real clinics, real outreach, real bookings. No generic CRM clutter, no fake workflows, and no loose follow-up.
+            Keep the product narrow: real clinics, real outreach, real bookings, and clear operator handoff with no CRM clutter.
           </p>
           <div className="inline-actions">
             <a className="button" href="/companies">

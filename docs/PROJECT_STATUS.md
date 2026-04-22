@@ -47,7 +47,7 @@ The app expects these env vars at runtime:
 Run this from the repo root:
 
 ```bash
-npm run env:openclaw
+npm run env:bootstrap
 ```
 
 That generates `.env.local` from existing OpenClaw secret files and currently
@@ -124,7 +124,7 @@ system should not depend on Codex or agents.
 
 ## Current likely bottlenecks
 
-- inbound and outbound Telnyx flows still need a full real-world smoke test
+- inbound and outbound Telnyx flows still need full live end-to-end validation
 - booking notification email still needs SMTP credentials configured
 - worker behavior is online but not fully exercised with real jobs
 - Sentry is prepared as an optional next step, but no DSN is configured yet

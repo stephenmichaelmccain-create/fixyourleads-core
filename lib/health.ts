@@ -146,130 +146,11 @@ function readEnvValue(keys: string[]) {
   return undefined;
 }
 
-async function checkMcpGatewayConnectivity(
-  serverUrlSet: boolean,
-  serverUrl: string | undefined,
-  accessToken: string | undefined
-): Promise<DependencyCheck> {
-  if (!serverUrlSet || !serverUrl) {
-    return {
-      status: 'missing_config',
-      detail: 'MCP server URL is not configured. Set MCP_SERVER_URL or OPENCLAW_MCP_URL.'
-    };
-  }
-
-  if (!accessToken) {
-    return {
-      status: 'missing_config',
-      detail: 'MCP URL is set, but MCP_ACCESS_TOKEN or OPENCLAW_MCP_TOKEN is missing.'
-    };
-  }
-
-  const normalizeTrailingSlash = (value: string) => value.replace(/\/$/, '');
-  const normalizedServerUrl = normalizeTrailingSlash(serverUrl);
-  const candidateUrls = Array.from(new Set([normalizedServerUrl, `${normalizedServerUrl}/sse`]));
-  const headers = {
-    Authorization: `Bearer ${accessToken}`
-  };
-  const controller = new AbortController();
-  const timer = setTimeout(() => {
-    controller.abort();
-  }, 2_000);
-  let lastErrorDetail: string | undefined;
-
-  const evaluateStatus = (statusCode: number) => {
-    const statusText = `${statusCode}`;
-    if (statusCode === 401 || statusCode === 403) {
-      return {
-        status: 'error' as const,
-        detail: `MCP gateway responded with ${statusText}; token is likely invalid.`
-      };
-    }
-
-    if (statusCode === 404) {
-      return {
-        status: 'error' as const,
-        detail: `MCP gateway returned ${statusText}; check endpoint path and protocol`
-      };
-    }
-
-    if (statusCode >= 500) {
-      return {
-        status: 'error' as const,
-        detail: `MCP gateway returned ${statusText}; server-side error`
-      };
-    }
-
-    if (statusCode >= 400) {
-      return {
-        status: 'error' as const,
-        detail: `MCP gateway returned ${statusText}; endpoint may require a different protocol method`
-      };
-    }
-
-    return {
-      status: 'ok' as const,
-      detail: `MCP endpoint reachable (${statusCode})`
-    };
-  };
-
-  try {
-    for (const candidate of candidateUrls) {
-      try {
-        const response = await fetch(candidate, {
-          method: 'GET',
-          headers,
-          signal: controller.signal
-        });
-        const statusCode = response.status;
-        const result = evaluateStatus(statusCode);
-
-        if (result.status === 'ok' || statusCode === 405) {
-          return {
-            status: statusCode === 405 ? 'ok' : result.status,
-            detail: `${result.detail} (tested ${candidate})`,
-            statusCode
-          };
-        }
-
-        lastErrorDetail = `${result.detail} (tested ${candidate})`;
-
-        // Keep trying alternate endpoints if the first path is not found.
-        if (statusCode !== 404) {
-          return {
-            ...result,
-            statusCode
-          } as DependencyCheck;
-        }
-      } catch {
-        // Save generic transport error and keep trying alternate endpoints.
-      }
-    }
-
-    return {
-      status: 'error',
-      detail: lastErrorDetail || 'MCP gateway not reachable from configured URLs'
-    };
-  } catch (error) {
-    return {
-      status: 'error',
-      detail:
-        error instanceof Error && error.name === 'AbortError'
-          ? 'MCP gateway check timed out'
-          : `MCP gateway check failed: ${error instanceof Error ? error.message : 'unknown error'}`
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 export async function getRuntimeHealth() {
   const env = envPresence();
   const notifications = notificationReadiness();
   const telnyxWebhookSecurity = getTelnyxWebhookSecurityConfig();
   const appBaseUrl = process.env.APP_BASE_URL?.trim() || null;
-  const mcpServerUrl = readEnvValue(['MCP_SERVER_URL', 'OPENCLAW_MCP_URL']);
-  const mcpAccessToken = readEnvValue(['MCP_ACCESS_TOKEN', 'OPENCLAW_MCP_TOKEN']);
   const sentryDsnSet = hasConfiguredEnv('SENTRY_DSN') || hasConfiguredEnv('NEXT_PUBLIC_SENTRY_DSN');
   const now = new Date();
   const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -287,8 +168,7 @@ export async function getRuntimeHealth() {
     latestEvents,
     latestLeads,
     latestMessages,
-    queueHealth,
-    mcpGateway
+    queueHealth
   ] = await Promise.all([
     checkDatabase(env.databaseUrlSet),
     checkRedis(env.redisUrlSet),
@@ -365,8 +245,7 @@ export async function getRuntimeHealth() {
         companyId: true
       }
     }),
-    getQueueHealth(env.redisUrlSet),
-    checkMcpGatewayConnectivity(env.openclawMcpUrlSet, mcpServerUrl, mcpAccessToken)
+    getQueueHealth(env.redisUrlSet)
   ]);
 
   const deployment = {
@@ -493,8 +372,7 @@ export async function getRuntimeHealth() {
     database.status === 'ok' &&
     redis.status === 'ok' &&
     telnyxConnection.status === 'ok' &&
-    queueOk &&
-    (mcpGateway.status !== 'error');
+    queueOk;
 
   return {
     ok,
@@ -523,13 +401,6 @@ export async function getRuntimeHealth() {
       signatureVerificationEnabled: telnyxWebhookSecurity.verificationEnabled,
       publicKeySet: telnyxWebhookSecurity.publicKeySet,
       signatureMaxAgeSeconds: telnyxWebhookSecurity.timestampToleranceSeconds
-    },
-    mcp: {
-      serverUrl: mcpServerUrl || null,
-      tokenConfigured: env.openclawMcpTokenSet,
-      connectivityStatus: mcpGateway.status,
-      connectivityStatusCode: mcpGateway.statusCode || null,
-      connectivityDetail: mcpGateway.detail || null
     },
     volume: {
       companies: volumeStats[0],
@@ -589,19 +460,6 @@ export async function getRuntimeHealth() {
       telnyxConnection,
       telnyxWebhookVerification: telnyxWebhookVerificationStatus,
       telnyxCompanyRouting: telnyxRoutingStatus,
-      openClawMcpServer: env.openclawMcpUrlSet
-        ? ({ status: 'ok' } satisfies DependencyCheck)
-        : ({
-            status: 'missing_config',
-            detail: 'OPENCLAW_MCP_URL or MCP_SERVER_URL is missing'
-          } satisfies DependencyCheck),
-      openClawMcpToken: env.openclawMcpTokenSet
-        ? ({ status: 'ok' } satisfies DependencyCheck)
-        : ({
-            status: 'missing_config',
-            detail: 'OPENCLAW_MCP_TOKEN or MCP_ACCESS_TOKEN is missing'
-          } satisfies DependencyCheck),
-      mcpGateway,
       internalApiKey: env.internalApiKeySet
         ? ({ status: 'ok' } satisfies DependencyCheck)
         : ({

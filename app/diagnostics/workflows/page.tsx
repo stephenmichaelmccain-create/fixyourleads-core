@@ -201,8 +201,8 @@ export default function WorkflowDiagnosticsPage() {
         <div className="metric-label">System view</div>
         <h2 className="section-title section-title-large">What is actually running</h2>
         <p className="page-copy page-copy-inverse">
-          This page is the operator map for the current product, not a future-state diagram. It shows the real paths already in the repo so you
-          can visualize how a lead moves from import to outreach to booking.
+          This page is the operator map for the live product. It shows the real paths already in the repo so you can visualize how a lead moves
+          from import to outreach to booking.
         </p>
         <div className="workflow-chip-grid">
           {systemLayers.map((layer) => (

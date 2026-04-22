@@ -1,6 +1,6 @@
 # FixYourLeads Core
 
-Code-first core system scaffold for multi-tenant lead intake, messaging, and booking.
+Production application for clinic lead intake, outreach, messaging, and booking.
 
 ## Start here
 - `docs/PROJECT_STATUS.md` for the current handoff and deploy state
@@ -42,7 +42,7 @@ These are recommended for observability, but the app still runs without them:
 - NEXT_PUBLIC_SENTRY_ENVIRONMENT
 
 ## Local bootstrap
-Run `npm run env:openclaw` from the repo root to generate `.env.local` from the
+Run `npm run env:bootstrap` from the repo root to generate `.env.local` from the
 existing OpenClaw secret files. It currently auto-loads:
 - `TELNYX_API_KEY`
 - `APP_BASE_URL` from `FYL_BASE_URL` when present

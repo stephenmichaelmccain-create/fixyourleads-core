@@ -18,7 +18,7 @@ for building and debugging the product.
 
 ## Current production shape
 
-The current Railway production shape is enough for now:
+The current Railway production shape is the current production topology:
 
 - `app`
 - `worker`

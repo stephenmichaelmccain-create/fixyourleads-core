@@ -54,7 +54,7 @@ Rules:
 - low-token mode
 - no infra deep dive unless the UI is blocked by it
 - keep brand aligned with fixyourleads.com
-- remove demo-looking copy and fake states when possible
+- remove non-production copy and placeholder states when possible
 - keep updates short and focused on visible progress
 
 What to do:
