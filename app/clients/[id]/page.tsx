@@ -462,6 +462,68 @@ export default async function ClientWorkspacePage({
   const totalPages = Math.max(1, Math.ceil(sortedLeads.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pagedLeads = sortedLeads.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const pagedConversationIds = Array.from(
+    new Set(
+      pagedLeads
+        .map((lead) => conversationByContactId.get(lead.contactId))
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+  const pagedMessages = pagedConversationIds.length
+    ? await safeLoad(
+        () =>
+          db.message.findMany({
+            where: {
+              companyId: id,
+              conversationId: { in: pagedConversationIds }
+            },
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true,
+              conversationId: true,
+              direction: true,
+              externalId: true,
+              createdAt: true
+            }
+          }),
+        []
+      )
+    : [];
+  const latestMessageByConversationId = new Map<string, (typeof pagedMessages)[number]>();
+
+  for (const message of pagedMessages) {
+    if (!latestMessageByConversationId.has(message.conversationId)) {
+      latestMessageByConversationId.set(message.conversationId, message);
+    }
+  }
+
+  const pagedLifecycleEvents = pagedConversationIds.length
+    ? await safeLoad(
+        () =>
+          db.eventLog.findMany({
+            where: {
+              companyId: id,
+              eventType: {
+                in: [
+                  'telnyx_message_sent',
+                  'telnyx_message_finalized',
+                  'telnyx_message_delivery_failed',
+                  'telnyx_message_delivery_unconfirmed'
+                ]
+              }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 300,
+            select: {
+              eventType: true,
+              createdAt: true,
+              payload: true
+            }
+          }),
+        []
+      )
+    : [];
+  const pagedLifecycleByMessageId = buildLifecycleByMessageId(pagedLifecycleEvents);
   const selectedConversation = selectedConversationId
     ? await safeLoad(
         () =>
@@ -775,6 +837,7 @@ export default async function ClientWorkspacePage({
                   <th>Lead</th>
                   <th>Phone</th>
                   <th>Source</th>
+                  <th>Thread</th>
                   <th>Speed-to-lead</th>
                   <th>Follow-up sequence</th>
                   <th>Status</th>
@@ -784,7 +847,7 @@ export default async function ClientWorkspacePage({
               <tbody>
                 {pagedLeads.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div className="empty-state">No leads yet in this window.</div>
                     </td>
                   </tr>
@@ -792,6 +855,24 @@ export default async function ClientWorkspacePage({
                   pagedLeads.map((lead) => {
                     const conversationId = conversationByContactId.get(lead.contactId) || '';
                     const speedLabel = lead.lastRepliedAt ? 'Replied' : lead.lastContactedAt ? 'Sent' : 'None';
+                    const latestThreadMessage = conversationId ? latestMessageByConversationId.get(conversationId) || null : null;
+                    const latestThreadLifecycle = latestThreadMessage
+                      ? lifecycleForMessage(
+                          latestThreadMessage,
+                          pagedLifecycleByMessageId.get(latestThreadMessage.id) || []
+                        )
+                      : null;
+                    const threadLabel = !conversationId
+                      ? 'No thread'
+                      : !latestThreadMessage
+                        ? 'New thread'
+                        : latestThreadMessage.direction === 'INBOUND'
+                          ? 'Needs reply'
+                          : latestThreadLifecycle?.tone === 'error'
+                            ? 'Delivery issue'
+                            : latestThreadLifecycle?.tone === 'warn'
+                              ? 'Awaiting delivery'
+                              : 'Waiting on contact';
                     const href = buildClientHref(
                       company.id,
                       { window: windowDays, status, source, sort, dir, page: currentPage },
@@ -810,6 +891,20 @@ export default async function ClientWorkspacePage({
                         </td>
                         <td>{truncatePhone(lead.contact.phone)}</td>
                         <td>{lead.source || '—'}</td>
+                        <td>
+                          <span
+                            className={`status-chip ${
+                              threadLabel === 'Needs reply' || threadLabel === 'Delivery issue'
+                                ? 'status-chip-attention'
+                                : threadLabel === 'Waiting on contact' || threadLabel === 'Awaiting delivery' || threadLabel === 'No thread'
+                                  ? 'status-chip-muted'
+                                  : ''
+                            }`}
+                            title={latestThreadLifecycle?.detail || 'No conversation activity yet'}
+                          >
+                            {threadLabel}
+                          </span>
+                        </td>
                         <td>
                           <span
                             className={`status-chip ${speedLabel === 'None' ? 'status-chip-muted' : ''}`}
