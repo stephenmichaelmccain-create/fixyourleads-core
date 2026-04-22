@@ -4,7 +4,12 @@ import { db } from '@/lib/db';
 import { createClientFromProspectAction } from '@/app/clients/intake/actions';
 import { isDemoLabel } from '@/lib/demo';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
-import { intakeStageDetails, normalizeClinicKey, parseProspectMetadata } from '@/lib/client-intake';
+import {
+  humanizeIntakeSource,
+  intakeStageDetails,
+  normalizeClinicKey,
+  parseProspectMetadata
+} from '@/lib/client-intake';
 import { safeLoad } from '@/lib/ui-data';
 
 export const dynamic = 'force-dynamic';
@@ -261,7 +266,7 @@ export default async function ClientIntakePage() {
                     </td>
                     <td>
                       <div className="panel-stack" style={{ gap: 6 }}>
-                        <span>{row.profile.source || 'Manual add'}</span>
+                        <span>{humanizeIntakeSource(row.profile.source)}</span>
                         <span className="tiny-muted">
                           {row.signupReceivedAt
                             ? `Signup received ${formatDateTime(row.signupReceivedAt)}`

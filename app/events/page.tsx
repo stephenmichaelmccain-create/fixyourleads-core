@@ -1,5 +1,6 @@
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { LiveFeedControls } from '@/app/events/LiveFeedControls';
+import { humanizeIntakeSource } from '@/lib/client-intake';
 import { db } from '@/lib/db';
 import { safeLoad } from '@/lib/ui-data';
 
@@ -120,6 +121,31 @@ function shortPayload(payload: unknown) {
   }
 
   const record = payload as Record<string, unknown>;
+  const source = humanizeIntakeSource(typeof record.source === 'string' ? record.source : '');
+
+  if (record.onboardingReceivedAt) {
+    const parts = [
+      source === 'Onboarding' ? 'Onboarding received' : source,
+      record.contactName ? `contact ${String(record.contactName)}` : null,
+      record.notificationEmail ? `email ${String(record.notificationEmail)}` : null,
+      record.telnyxBrandName ? `brand ${String(record.telnyxBrandName)}` : null,
+      record.businessType ? `type ${String(record.businessType)}` : null
+    ].filter(Boolean) as string[];
+
+    return parts.join(' · ');
+  }
+
+  if (record.signupReceivedAt) {
+    const parts = [
+      source,
+      record.contactName ? `contact ${String(record.contactName)}` : null,
+      record.notificationEmail ? `email ${String(record.notificationEmail)}` : null,
+      record.phone ? `phone ${String(record.phone)}` : null
+    ].filter(Boolean) as string[];
+
+    return parts.join(' · ');
+  }
+
   const summaryParts = [
     record.contactId ? `contact ${String(record.contactId).slice(-6)}` : null,
     record.leadId ? `lead ${String(record.leadId).slice(-6)}` : null,

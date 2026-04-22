@@ -75,6 +75,37 @@ export function upsertProspectMetadata(
   return [...bodyLines, ...metaLines].join('\n');
 }
 
+export function humanizeIntakeSource(value: string | null | undefined) {
+  const source = String(value || '').trim().toLowerCase();
+
+  if (!source) {
+    return 'Manual add';
+  }
+
+  if (source === 'book_call_modal') {
+    return 'Book a Call';
+  }
+
+  if (source === 'lightbox') {
+    return 'Lightbox signup';
+  }
+
+  if (source === 'signup' || source === 'signup_form') {
+    return 'Full signup';
+  }
+
+  if (source === 'onboarding') {
+    return 'Onboarding';
+  }
+
+  return source
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 export function intakeStageDetails(options: {
   hasWorkspace: boolean;
   hasRouting: boolean;
