@@ -305,11 +305,16 @@ export default async function OurLeadsPage({
     .filter((prospect) => dueBucketMatches(prospect.nextActionAt, selectedDue, now))
     .sort(compareProspects);
 
-  const selectedProspect = selectedProspectId
+  const effectiveSelectedProspectId =
+    (selectedProspectId && visibleProspects.some((prospect) => prospect.id === selectedProspectId)
+      ? selectedProspectId
+      : visibleProspects[0]?.id) || '';
+
+  const selectedProspect = effectiveSelectedProspectId
     ? await safeLoad(
         () =>
           db.prospect.findUnique({
-            where: { id: selectedProspectId },
+            where: { id: effectiveSelectedProspectId },
             include: {
               callLogs: {
                 orderBy: { createdAt: 'desc' }
@@ -680,7 +685,7 @@ export default async function OurLeadsPage({
                       nextActionDue: selectedDue
                     });
                     const lastTouch = prospect.callLogs[0]?.createdAt || prospect.lastCallAt || prospect.updatedAt;
-                    const selected = prospect.id === selectedProspectId;
+                    const selected = prospect.id === effectiveSelectedProspectId;
 
                     return (
                       <a
@@ -763,8 +768,11 @@ export default async function OurLeadsPage({
                 {selectedProspect && isDemoLabel(selectedProspect.name) ? (
                   <span className="status-chip status-chip-muted">Demo</span>
                 ) : null}
+                {!selectedProspectId && selectedProspect ? (
+                  <span className="status-chip status-chip-muted">Auto-opened</span>
+                ) : null}
               </div>
-              {selectedProspect ? (
+              {selectedProspectId && selectedProspect ? (
                 <a
                   className="button-ghost"
                   href={buildPageHref({
