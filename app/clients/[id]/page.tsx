@@ -6,6 +6,7 @@ import { bookConversationAction, sendConversationMessageAction } from '@/app/con
 import { LeadStatusButton } from '@/app/leads/LeadStatusButton';
 import { db } from '@/lib/db';
 import { isDemoLabel } from '@/lib/demo';
+import { humanizeIntakeSource } from '@/lib/client-intake';
 import {
   buildConversationRoutingObservation,
   buildLifecycleByMessageId,
@@ -467,7 +468,7 @@ export default async function ClientWorkspacePage({
     [{ id: company.id, name: company.name }]
   );
 
-  const [allWindowLeads, allSources, upcomingBookings, sequenceLeadCounts] = await Promise.all([
+  const [allWindowLeads, allSources, upcomingBookings, sequenceLeadCounts, intakeEvents] = await Promise.all([
     safeLoad(
       () =>
         db.lead.findMany({
@@ -537,6 +538,25 @@ export default async function ClientWorkspacePage({
             }
           },
           _count: { _all: true }
+        }),
+      []
+    ),
+    safeLoad(
+      () =>
+        db.eventLog.findMany({
+          where: {
+            companyId: id,
+            eventType: {
+              in: ['client_signup_received', 'client_onboarding_received']
+            }
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 4,
+          select: {
+            eventType: true,
+            createdAt: true,
+            payload: true
+          }
         }),
       []
     )
@@ -777,6 +797,31 @@ export default async function ClientWorkspacePage({
     ? Math.round(firstTouchSamples.reduce((sum, value) => sum + value, 0) / firstTouchSamples.length)
     : null;
   const latestBooking = upcomingBookings[0] || null;
+  const latestSignupEvent = intakeEvents.find((event) => event.eventType === 'client_signup_received') || null;
+  const latestOnboardingEvent = intakeEvents.find((event) => event.eventType === 'client_onboarding_received') || null;
+  const latestSignupPayload =
+    latestSignupEvent?.payload && typeof latestSignupEvent.payload === 'object' && !Array.isArray(latestSignupEvent.payload)
+      ? (latestSignupEvent.payload as Record<string, unknown>)
+      : {};
+  const latestOnboardingPayload =
+    latestOnboardingEvent?.payload &&
+    typeof latestOnboardingEvent.payload === 'object' &&
+    !Array.isArray(latestOnboardingEvent.payload)
+      ? (latestOnboardingEvent.payload as Record<string, unknown>)
+      : {};
+  const importedSourceLabel = humanizeIntakeSource(typeof latestSignupPayload.source === 'string' ? latestSignupPayload.source : '');
+  const importedContactName =
+    typeof latestSignupPayload.contactName === 'string'
+      ? latestSignupPayload.contactName
+      : typeof latestOnboardingPayload.contactName === 'string'
+        ? latestOnboardingPayload.contactName
+        : '';
+  const importedNotificationEmail =
+    typeof latestSignupPayload.notificationEmail === 'string'
+      ? latestSignupPayload.notificationEmail
+      : typeof latestOnboardingPayload.notificationEmail === 'string'
+        ? latestOnboardingPayload.notificationEmail
+        : '';
 
   const snapshotCards = [
     { label: 'Leads received', value: String(allWindowLeads.length), detail: `${windowDays}-day window` },
@@ -1046,7 +1091,7 @@ export default async function ClientWorkspacePage({
                 View Bookings
               </a>
               <a className="button" href="#setup">
-                Edit Setup
+                Edit Profile
               </a>
             </div>
             <form className="context-form is-compact" action="/clients">
@@ -1831,9 +1876,25 @@ export default async function ClientWorkspacePage({
 
       <details id="setup" className="panel panel-stack" open={notice === 'updated'}>
         <summary className="details-summary">
-          Client setup {setupGaps.length > 0 ? `(${setupGaps.join(', ')})` : '(ready)'}
+          Client profile {setupGaps.length > 0 ? `(${setupGaps.join(', ')})` : '(source of truth)'}
         </summary>
         <div className="panel-stack">
+          <div className="panel-stack" style={{ gap: 8 }}>
+            <div className="metric-label">Source of truth</div>
+            <div className="page-copy">
+              Website signup gets this client into the system. From this point forward, edit the profile here and the CRM becomes the live source of truth for notifications, routing, and how the team works this clinic.
+            </div>
+            {(latestSignupEvent || latestOnboardingEvent) && (
+              <div className="tiny-muted">
+                {latestSignupEvent
+                  ? `Imported from ${importedSourceLabel || 'website signup'} on ${formatCompactDateTime(latestSignupEvent.createdAt)}`
+                  : 'No signup event recorded yet.'}
+                {importedContactName ? ` • Contact: ${importedContactName}` : ''}
+                {importedNotificationEmail ? ` • Email: ${importedNotificationEmail}` : ''}
+                {latestOnboardingEvent ? ` • Onboarding received ${formatCompactDateTime(latestOnboardingEvent.createdAt)}` : ''}
+              </div>
+            )}
+          </div>
           {setupGaps.length > 0 && (
             <div className="readiness-pills">
               {setupGaps.map((gap) => (
@@ -1867,7 +1928,7 @@ export default async function ClientWorkspacePage({
             </div>
             <div className="field-stack">
               <label className="key-value-label" htmlFor="client-inbound">
-                Telnyx inbound number(s)
+                Assigned client number(s)
               </label>
               <textarea
                 id="client-inbound"
@@ -1882,7 +1943,7 @@ export default async function ClientWorkspacePage({
             </div>
             <div className="inline-actions">
               <button type="submit" className="button">
-                Save setup
+                Save profile
               </button>
             </div>
           </form>
