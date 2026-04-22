@@ -1404,12 +1404,8 @@ export default async function ClientWorkspacePage({
                         {selectedConversation.contact?.phone || 'No phone'}
                       </div>
                       <div className="key-value-card">
-                        <span className="key-value-label">Last message</span>
+                        <span className="key-value-label">Last activity</span>
                         {lastMessage ? formatCompactDateTime(lastMessage.createdAt) : 'No messages yet'}
-                      </div>
-                      <div className="key-value-card">
-                        <span className="key-value-label">Conversation ID</span>
-                        <span className="tiny-muted">{selectedConversation.id}</span>
                       </div>
                     </div>
 
