@@ -293,6 +293,8 @@ export default async function OurLeadsPage({
     <LayoutShell
       title="Our Leads"
       description="Work the med spa prospect queue in one screen: add new targets, filter the board fast, and open notes and call history without losing the list."
+      section="our-leads"
+      variant="workspace"
     >
       {added && (
         <section className="panel panel-success panel-stack">
