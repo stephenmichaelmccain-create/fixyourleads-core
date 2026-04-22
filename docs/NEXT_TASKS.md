@@ -1,13 +1,13 @@
 ## Now
 - Fix any live blocker first. Current live app is up, so next priority is core operator workflow improvements on `/clients/[id]`.
-- Strengthen the client workspace so it becomes the primary operator surface: keep the leads table clear and make the conversation side panel more actionable.
+- Strengthen the client workspace so it becomes the primary operator surface: keep the leads table clear and the full conversation view honest about delivery state.
 - Keep switching between companies fast now that the workspace switcher and client health page are in place.
 - Keep all changes deploy-safe if they might be merged later. No destructive schema or config changes.
 
 ## Next
 - Extend the safer follow-up heartbeat runner beyond observe-only reporting without auto-sending anything yet.
 - Add the next diagnostics subpage for client-specific queue and recent activity drill-down if the shared queue view stops being enough.
-- Improve text conversation visibility with clearer message direction, timestamps, and delivery state.
+- Improve conversation workflows further with better reply handling and fewer operator clicks.
 
 ## Blocked
 - None yet.

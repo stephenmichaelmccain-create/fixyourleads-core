@@ -35,8 +35,23 @@ export async function sendConversationMessageAction(formData: FormData) {
     throw new Error('companyId_contactId_conversationId_text_required');
   }
 
-  await sendOutboundMessage(companyId, contactId, text);
-  revalidateConversationPaths(companyId, conversationId);
+  try {
+    const result = await sendOutboundMessage(companyId, contactId, text);
+    revalidateConversationPaths(companyId, conversationId);
+    redirect(
+      conversationRedirectPath(conversationId, {
+        send: 'sent',
+        detail: result.message.externalId ? 'accepted_by_telnyx' : 'logged_without_external_id'
+      })
+    );
+  } catch (error) {
+    redirect(
+      conversationRedirectPath(conversationId, {
+        send: 'error',
+        detail: error instanceof Error ? error.message : 'send_failed'
+      })
+    );
+  }
 }
 
 export async function bookConversationAction(formData: FormData) {

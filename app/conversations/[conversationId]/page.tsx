@@ -91,6 +91,141 @@ function buildBookingFlash(searchParams: Record<string, string | string[] | unde
   };
 }
 
+function buildSendFlash(searchParams: Record<string, string | string[] | undefined>) {
+  const send = Array.isArray(searchParams.send) ? searchParams.send[0] : searchParams.send;
+
+  if (!send) {
+    return null;
+  }
+
+  const detail = Array.isArray(searchParams.detail) ? searchParams.detail[0] : searchParams.detail;
+
+  if (send === 'error') {
+    return {
+      tone: 'error',
+      title: 'Text was not sent',
+      body:
+        detail === 'lead_suppressed'
+          ? 'This lead is suppressed, so outbound messaging is blocked.'
+          : detail === 'companyId_contactId_conversationId_text_required'
+            ? 'The send action was missing required data.'
+            : 'The send attempt failed before Telnyx accepted the message.'
+    };
+  }
+
+  return {
+    tone: 'ok',
+    title: 'Text sent',
+    body:
+      detail === 'accepted_by_telnyx'
+        ? 'Telnyx accepted the message. Delivery updates will appear in the thread below.'
+        : 'The message was logged successfully.'
+  };
+}
+
+function readPayloadRecord(payload: unknown) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return null;
+  }
+
+  return payload as Record<string, unknown>;
+}
+
+function parseLifecycleAttempt(value: unknown) {
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+type MessageLifecycleState = {
+  label: string;
+  tone: 'ok' | 'warn' | 'error' | 'muted';
+  detail: string;
+};
+
+function lifecycleForMessage(message: {
+  direction: 'INBOUND' | 'OUTBOUND';
+  externalId: string | null;
+  createdAt: Date;
+}, lifecycleEvents: Array<{
+  eventType: string;
+  createdAt: Date;
+  payload: Record<string, unknown> | null;
+}>) : MessageLifecycleState {
+  if (message.direction === 'INBOUND') {
+    return {
+      label: 'Received',
+      tone: 'ok',
+      detail: 'Inbound message captured from Telnyx.'
+    };
+  }
+
+  const latestFailure = lifecycleEvents.find((event) => event.eventType === 'telnyx_message_delivery_failed');
+
+  if (latestFailure) {
+    const errors = Array.isArray(latestFailure.payload?.errors) ? latestFailure.payload?.errors : [];
+    const firstError = errors[0] && typeof errors[0] === 'object' && !Array.isArray(errors[0]) ? errors[0] as Record<string, unknown> : null;
+    const errorDetail =
+      (typeof firstError?.detail === 'string' && firstError.detail) ||
+      (typeof firstError?.title === 'string' && firstError.title) ||
+      'Telnyx reported a delivery failure.';
+
+    return {
+      label: 'Delivery failed',
+      tone: 'error',
+      detail: errorDetail
+    };
+  }
+
+  const latestUnconfirmed = lifecycleEvents.find((event) => event.eventType === 'telnyx_message_delivery_unconfirmed');
+
+  if (latestUnconfirmed) {
+    return {
+      label: 'Delivery unconfirmed',
+      tone: 'warn',
+      detail: 'Telnyx could not confirm delivery yet.'
+    };
+  }
+
+  const latestFinalized = lifecycleEvents.find((event) => event.eventType === 'telnyx_message_finalized');
+
+  if (latestFinalized) {
+    const deliveryStatus = typeof latestFinalized.payload?.deliveryStatus === 'string' ? latestFinalized.payload.deliveryStatus : null;
+
+    return {
+      label: 'Delivered',
+      tone: 'ok',
+      detail: deliveryStatus ? `Telnyx finalized this message as ${deliveryStatus}.` : 'Telnyx finalized delivery.'
+    };
+  }
+
+  const latestSent = lifecycleEvents.find((event) => event.eventType === 'telnyx_message_sent');
+  const latestAttempt = lifecycleEvents
+    .map((event) => parseLifecycleAttempt(event.payload?.attempt))
+    .find((value) => typeof value === 'number');
+
+  if (latestSent || message.externalId) {
+    return {
+      label: 'Accepted',
+      tone: 'ok',
+      detail: latestAttempt ? `Accepted by Telnyx on attempt ${latestAttempt}.` : 'Accepted by Telnyx and waiting on delivery updates.'
+    };
+  }
+
+  return {
+    label: 'Logged',
+    tone: 'muted',
+    detail: `Stored in CRM at ${formatDateTime(message.createdAt)}.`
+  };
+}
+
 export default async function ConversationDetailPage({
   params,
   searchParams
@@ -99,18 +234,16 @@ export default async function ConversationDetailPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { conversationId } = await params;
-  const conversation = await safeLoad(
-    () =>
-      db.conversation.findUnique({
-        where: { id: conversationId },
-        include: {
-          company: true,
-          contact: true,
-          messages: { orderBy: { createdAt: 'asc' } }
-        }
-      }),
-    null
-  );
+  const loadConversation = () =>
+    db.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        company: true,
+        contact: true,
+        messages: { orderBy: { createdAt: 'asc' } }
+      }
+    });
+  const conversation = await safeLoad<Awaited<ReturnType<typeof loadConversation>>>(loadConversation, null);
   const resolvedSearchParams = searchParams ? await searchParams : {};
 
   if (!conversation) {
@@ -121,13 +254,15 @@ export default async function ConversationDetailPage({
     );
   }
 
+  const activeConversation = conversation;
+  const sendFlash = buildSendFlash(resolvedSearchParams);
   const bookingFlash = buildBookingFlash(resolvedSearchParams);
   const recentAppointments = await safeLoad(
     () =>
       db.appointment.findMany({
         where: {
-          companyId: conversation.companyId,
-          contactId: conversation.contactId
+          companyId: activeConversation.companyId,
+          contactId: activeConversation.contactId
         },
         orderBy: { startTime: 'desc' },
         take: 3
@@ -135,21 +270,21 @@ export default async function ConversationDetailPage({
     []
   );
   const associatedLead = await safeLoad(
-    () =>
-      db.lead.findFirst({
-        where: {
-          companyId: conversation.companyId,
-          contactId: conversation.contactId
-        },
+      () =>
+        db.lead.findFirst({
+          where: {
+            companyId: activeConversation.companyId,
+            contactId: activeConversation.contactId
+          },
         select: { id: true }
       }),
     null
   );
   const readiness = notificationReadiness();
-  const lastMessage = conversation.messages[conversation.messages.length - 1] || null;
+  const lastMessage = activeConversation.messages[activeConversation.messages.length - 1] || null;
   const threadState = !lastMessage ? 'New thread' : lastMessage.direction === 'INBOUND' ? 'Needs reply' : 'Waiting on contact';
   const sharedTelnyxSender = process.env.TELNYX_FROM_NUMBER?.trim() || null;
-  const primaryRoutingNumber = companyPrimaryInboundNumber(conversation.company);
+  const primaryRoutingNumber = companyPrimaryInboundNumber(activeConversation.company);
   const activeSenderNumber = primaryRoutingNumber || sharedTelnyxSender;
   const telnyxMode = primaryRoutingNumber
     ? 'dedicated'
@@ -162,16 +297,68 @@ export default async function ConversationDetailPage({
       : telnyxMode === 'shared'
         ? 'Outbound SMS is available, but replies are still on the shared fallback sender.'
         : 'Do not trust live SMS here until a shared sender or dedicated inbound number is configured.';
-  const normalizedPhone = normalizePhone(conversation.contact?.phone || '');
+  const normalizedPhone = normalizePhone(activeConversation.contact?.phone || '');
+  const conversationLifecycleEvents = await safeLoad(
+    () =>
+      db.eventLog.findMany({
+        where: {
+          companyId: activeConversation.companyId,
+          eventType: {
+            in: [
+              'telnyx_message_sent',
+              'telnyx_message_finalized',
+              'telnyx_message_delivery_failed',
+              'telnyx_message_delivery_unconfirmed'
+            ]
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 200,
+        select: {
+          eventType: true,
+          createdAt: true,
+          payload: true
+        }
+      }),
+    []
+  );
+  const lifecycleByMessageId = new Map<string, Array<{ eventType: string; createdAt: Date; payload: Record<string, unknown> | null }>>();
+
+  for (const event of conversationLifecycleEvents) {
+    const payload = readPayloadRecord(event.payload);
+    const internalMessageId = typeof payload?.internalMessageId === 'string' ? payload.internalMessageId : null;
+
+    if (!internalMessageId) {
+      continue;
+    }
+
+    const existing = lifecycleByMessageId.get(internalMessageId) || [];
+    existing.push({
+      eventType: event.eventType,
+      createdAt: event.createdAt,
+      payload
+    });
+    lifecycleByMessageId.set(internalMessageId, existing);
+  }
 
   return (
     <LayoutShell
       title={conversation.contact?.name || 'Conversation'}
       description="Review the full thread, send the next message, and book the appointment from the same screen."
-      companyId={conversation.companyId}
-      companyName={conversation.company?.name || undefined}
+      companyId={activeConversation.companyId}
+      companyName={activeConversation.company?.name || undefined}
       section="clients"
     >
+      {sendFlash && (
+        <div className="panel panel-stack">
+          <div className="inline-row">
+            <span className={`status-dot ${sendFlash.tone}`} />
+            <strong>{sendFlash.title}</strong>
+          </div>
+          <div className="text-muted">{sendFlash.body}</div>
+        </div>
+      )}
+
       {bookingFlash && (
         <div className="panel panel-stack">
           <div className="inline-row">
@@ -224,30 +411,56 @@ export default async function ConversationDetailPage({
           <div className="key-value-grid">
             <div className="key-value-card">
               <span className="key-value-label">Phone</span>
-              {conversation.contact?.phone || 'No phone'}
+              {activeConversation.contact?.phone || 'No phone'}
             </div>
             <div className="key-value-card">
               <span className="key-value-label">Client notification email</span>
-              {conversation.company?.notificationEmail || 'Not configured'}
+              {activeConversation.company?.notificationEmail || 'Not configured'}
             </div>
             <div className="key-value-card">
               <span className="key-value-label">Conversation ID</span>
-              <span className="tiny-muted">{conversation.id}</span>
+              <span className="tiny-muted">{activeConversation.id}</span>
             </div>
           </div>
 
           <div className="message-thread">
-            {conversation.messages.length === 0 && <div className="empty-state">No messages yet.</div>}
+            {activeConversation.messages.length === 0 && <div className="empty-state">No messages yet.</div>}
 
-            {conversation.messages.map((message) => {
+            {activeConversation.messages.map((message) => {
               const outbound = message.direction === 'OUTBOUND';
+              const lifecycle = lifecycleForMessage(
+                message,
+                lifecycleByMessageId.get(message.id) || []
+              );
+
               return (
                 <div key={message.id} className={`message-row${outbound ? ' outbound' : ''}`}>
                   <div className={`message-bubble${outbound ? ' outbound' : ''}`}>
-                    <div className="message-meta">
-                      {message.direction} • {formatDateTime(message.createdAt)}
+                    <div className="message-meta" style={{ justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                      <span>
+                        {message.direction} • {formatDateTime(message.createdAt)}
+                      </span>
+                      <span className={`status-chip ${
+                        lifecycle.tone === 'error'
+                          ? 'status-chip-attention'
+                          : lifecycle.tone === 'warn' || lifecycle.tone === 'muted'
+                            ? 'status-chip-muted'
+                            : ''
+                      }`}>
+                        <span className={`status-dot ${
+                          lifecycle.tone === 'error'
+                            ? 'error'
+                            : lifecycle.tone === 'warn'
+                              ? 'warn'
+                              : lifecycle.tone === 'muted'
+                                ? 'warn'
+                                : 'ok'
+                        }`} />
+                        {lifecycle.label}
+                      </span>
                     </div>
                     <div className="pre-wrap">{message.content}</div>
+                    <div className="tiny-muted">{lifecycle.detail}</div>
                   </div>
                 </div>
               );
@@ -270,14 +483,14 @@ export default async function ConversationDetailPage({
                   <span className={`status-dot ${conversation.company?.notificationEmail ? 'ok' : 'warn'}`} />
                   Client notification target
                 </span>
-                <span>{conversation.company?.notificationEmail || 'Missing company email'}</span>
+                <span>{activeConversation.company?.notificationEmail || 'Missing company email'}</span>
               </div>
               <div className="status-item">
                 <span className="status-label">
-                  <span className={`status-dot ${conversation.contact?.phone ? 'ok' : 'warn'}`} />
+                  <span className={`status-dot ${activeConversation.contact?.phone ? 'ok' : 'warn'}`} />
                   Contact phone for booking text
                 </span>
-                <span>{conversation.contact?.phone || 'Missing phone'}</span>
+                <span>{activeConversation.contact?.phone || 'Missing phone'}</span>
               </div>
             </div>
           </section>
@@ -326,9 +539,9 @@ export default async function ConversationDetailPage({
           >
             <div className="metric-label">Outbound SMS</div>
             <h2 className="form-title">Send the next text</h2>
-            <input type="hidden" name="companyId" value={conversation.companyId} />
-            <input type="hidden" name="contactId" value={conversation.contactId} />
-            <input type="hidden" name="conversationId" value={conversation.id} />
+            <input type="hidden" name="companyId" value={activeConversation.companyId} />
+            <input type="hidden" name="contactId" value={activeConversation.contactId} />
+            <input type="hidden" name="conversationId" value={activeConversation.id} />
             <textarea
               name="text"
               placeholder="Write the next outbound text"
@@ -349,9 +562,9 @@ export default async function ConversationDetailPage({
           >
             <div className="metric-label">Booking</div>
             <h2 className="form-title">Book the appointment</h2>
-            <input type="hidden" name="companyId" value={conversation.companyId} />
-            <input type="hidden" name="contactId" value={conversation.contactId} />
-            <input type="hidden" name="conversationId" value={conversation.id} />
+            <input type="hidden" name="companyId" value={activeConversation.companyId} />
+            <input type="hidden" name="contactId" value={activeConversation.contactId} />
+            <input type="hidden" name="conversationId" value={activeConversation.id} />
             <div className="field-stack">
               <label className="key-value-label" htmlFor="startTime">
                 Appointment date and time
