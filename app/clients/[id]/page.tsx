@@ -116,38 +116,6 @@ function replyRate(replyCount: number, total: number) {
   return `${Math.round((replyCount / total) * 100)}%`;
 }
 
-function bookingRate(bookingCount: number, total: number) {
-  if (!total) {
-    return '—';
-  }
-
-  return `${Math.round((bookingCount / total) * 100)}%`;
-}
-
-function formatDurationCompact(ms: number | null) {
-  if (!ms || ms <= 0) {
-    return '—';
-  }
-
-  const totalMinutes = Math.round(ms / 60000);
-
-  if (totalMinutes < 60) {
-    return `${totalMinutes}m`;
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (hours < 24) {
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-  }
-
-  const days = Math.floor(hours / 24);
-  const remainingHours = hours % 24;
-
-  return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
-}
-
 function buildClientHealthBanner(options: {
   setupGaps: string[];
   needsReplyCount: number;
@@ -502,19 +470,7 @@ export default async function ClientWorkspacePage({
     notFound();
   }
 
-  const clientOptions = await safeLoad(
-    () =>
-      db.company.findMany({
-        select: {
-          id: true,
-          name: true
-        },
-        orderBy: { name: 'asc' }
-      }),
-    [{ id: company.id, name: company.name }]
-  );
-
-  const [allWindowLeads, allSources, upcomingBookings, sequenceLeadCounts, intakeEvents, weeklyStats] = await Promise.all([
+  const [allWindowLeads, upcomingBookings, sequenceLeadCounts, intakeEvents, weeklyStats] = await Promise.all([
     safeLoad(
       () =>
         db.lead.findMany({
@@ -537,16 +493,6 @@ export default async function ClientWorkspacePage({
           },
           orderBy: { createdAt: 'desc' },
           take: 500
-        }),
-      []
-    ),
-    safeLoad(
-      () =>
-        db.lead.findMany({
-          where: { companyId: id },
-          select: { source: true },
-          orderBy: { createdAt: 'desc' },
-          take: 250
         }),
       []
     ),
@@ -661,10 +607,6 @@ export default async function ClientWorkspacePage({
       )
     : [];
   const conversationByContactId = new Map(conversations.map((conversation) => [conversation.contactId, conversation.id]));
-
-  const sourceOptions = Array.from(
-    new Set(allSources.map((row) => row.source?.trim()).filter((value): value is string => Boolean(value)))
-  ).sort((left, right) => left.localeCompare(right));
 
   const leadCounts = sequenceLeadCounts.reduce(
     (acc, row) => {
@@ -898,11 +840,6 @@ export default async function ClientWorkspacePage({
         ? latestOnboardingPayload.notificationEmail
         : '';
 
-  const weeklySnapshotCards = [
-    { label: 'New leads this week', value: String(weeklyStats.newLeadsThisWeek), detail: 'Fresh leads captured for this client' },
-    { label: 'Appointments this week', value: String(weeklyStats.appointmentsThisWeek), detail: 'Bookings created in the last 7 days' },
-    { label: 'Messages this week', value: String(weeklyStats.messagesThisWeek), detail: 'Sent and received conversations combined' }
-  ];
   const clientHealthBanner = buildClientHealthBanner({
     setupGaps,
     needsReplyCount: queueCounts.needs_reply,
@@ -977,7 +914,6 @@ export default async function ClientWorkspacePage({
   return (
     <LayoutShell
       title={company.name}
-      description="Delivery workspace for this paying client: leads table first, conversations on the side, sequences and bookings below."
       companyId={company.id}
       companyName={company.name}
       section="clients"
@@ -1026,70 +962,53 @@ export default async function ClientWorkspacePage({
       <section className="panel panel-stack">
         <div className="record-header">
           <div className="panel-stack">
-            <div className="metric-label">Client health</div>
             <div className="inline-row">
               <h2 className="section-title section-title-large">{company.name}</h2>
               {isDemoLabel(company.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
             </div>
-            <span className={`status-chip ${clientHealthBanner.tone === 'error' || clientHealthBanner.tone === 'warn' ? 'status-chip-attention' : ''}`}>
+            <div className="inline-row client-health-line">
               <span className={`status-dot ${clientHealthBanner.tone === 'error' ? 'error' : clientHealthBanner.tone === 'warn' ? 'warn' : 'ok'}`} />
-              {clientHealthBanner.label}
-            </span>
-            <div className="record-subtitle">{clientHealthBanner.reason}</div>
-          </div>
-          <div className="panel-stack" style={{ alignItems: 'flex-end' }}>
-            <div className="inline-actions">
-              {topPriorityRow ? (
-                <a className="button" href={topPriorityHref}>
-                  Work next
-                </a>
-              ) : null}
-              <a className="button-secondary" href="#transcript-panel">
-                Messages
-              </a>
-              <a className="button" href="#setup">
-                Edit Profile
-              </a>
+              <strong>{clientHealthBanner.label}</strong>
+              <span className="record-subtitle">{clientHealthBanner.reason}</span>
             </div>
-            <form className="context-form is-compact" action="/clients">
-              <div className="field-stack context-field">
-                <label className="key-value-label" htmlFor="workspace-client-switcher">
-                  Switch client
-                </label>
-                <select id="workspace-client-switcher" className="select-input" name="clientId" defaultValue={company.id}>
-                  {clientOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="inline-actions context-form-actions">
-                <button type="submit" className="button-secondary">
-                  Open client
-                </button>
-                <span className="context-form-hint tiny-muted">Jump workspaces without backing out.</span>
-              </div>
-            </form>
+          </div>
+          <div className="inline-actions">
+            {topPriorityRow ? (
+              <a className="button" href={topPriorityHref}>
+                Work next
+              </a>
+            ) : null}
+            <a className="button-ghost" href="#transcript-panel">
+              Messages
+            </a>
+            <a className="button-ghost" href="#setup">
+              Edit profile
+            </a>
           </div>
         </div>
       </section>
 
       <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">This week's numbers</div>
-            <h2 className="section-title">The three numbers that matter first.</h2>
+        <div className="metric-label">This week</div>
+        <div className="workspace-stats-strip">
+          <div className="workspace-stats-item">
+            <span className="workspace-stats-value">{weeklyStats.newLeadsThisWeek}</span>
+            <span className="workspace-stats-label">New leads</span>
           </div>
-        </div>
-        <div className="metric-grid">
-          {weeklySnapshotCards.map((card) => (
-            <section key={card.label} className="metric-card">
-              <div className="metric-label">{card.label}</div>
-              <div className="metric-value">{card.value}</div>
-              <div className="metric-copy">{card.detail}</div>
-            </section>
-          ))}
+          <div className="workspace-stats-item">
+            <span className="workspace-stats-value">{weeklyStats.appointmentsThisWeek}</span>
+            <span className="workspace-stats-label">Appointments</span>
+          </div>
+          <div className="workspace-stats-item">
+            <span className="workspace-stats-value">{weeklyStats.messagesThisWeek}</span>
+            <span className="workspace-stats-label">Messages</span>
+          </div>
+          <div className="workspace-stats-item">
+            <span className="workspace-stats-value">
+              {replyRate(leadCounts.REPLIED + leadCounts.BOOKED, Math.max(1, allWindowLeads.length))}
+            </span>
+            <span className="workspace-stats-label">Reply rate</span>
+          </div>
         </div>
       </section>
 
@@ -1098,7 +1017,6 @@ export default async function ClientWorkspacePage({
           <div className="record-header">
             <div className="panel-stack">
               <div className="metric-label">Client leads</div>
-              <h2 className="section-title">Open the next lead, reply fast, and keep the queue moving.</h2>
             </div>
             <div className="inline-actions">
               <span className={`status-chip ${urgentQueueCount > 0 ? 'status-chip-attention' : 'status-chip-muted'}`}>
@@ -1110,78 +1028,27 @@ export default async function ClientWorkspacePage({
             </div>
           </div>
 
-          <form className="workspace-filter-form" action={`/clients/${company.id}`}>
+          <form className="workspace-search-bar" action={`/clients/${company.id}`}>
             <input type="hidden" name="window" value={windowDays} />
             <input type="hidden" name="queue" value={queue || ''} />
-            <div className="workspace-filter-row">
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-lead-search">
-                  Search
-                </label>
-                <input
-                  id="client-lead-search"
-                  className="text-input"
-                  name="q"
-                  type="search"
-                  placeholder="Name, phone, or source"
-                  defaultValue={searchQuery}
-                />
-              </div>
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-lead-status">
-                  Status
-                </label>
-                <select id="client-lead-status" className="select-input" name="status" defaultValue={status}>
-                  <option value="">All statuses</option>
-                  {['NEW', 'CONTACTED', 'REPLIED', 'BOOKED', 'SUPPRESSED'].map((value) => (
-                    <option key={value} value={value}>
-                      {formatStatusLabel(value)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-lead-source">
-                  Source
-                </label>
-                <select id="client-lead-source" className="select-input" name="source" defaultValue={source}>
-                  <option value="">All sources</option>
-                  {sourceOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-lead-sort">
-                  Sort
-                </label>
-                <select id="client-lead-sort" className="select-input" name="sort" defaultValue={sort}>
-                  <option value="activity">Last activity</option>
-                  <option value="name">Lead name</option>
-                  <option value="source">Source</option>
-                  <option value="status">Status</option>
-                </select>
-              </div>
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-lead-dir">
-                  Direction
-                </label>
-                <select id="client-lead-dir" className="select-input" name="dir" defaultValue={dir}>
-                  <option value="desc">Descending</option>
-                  <option value="asc">Ascending</option>
-                </select>
-              </div>
-            </div>
-            <div className="workspace-filter-actions">
-              <button type="submit" className="button">
-                Apply filters
-              </button>
-              <a className="button-ghost" href={`/clients/${company.id}?window=${windowDays}`}>
-                Clear
-              </a>
-            </div>
+            <input type="hidden" name="status" value={status} />
+            <input type="hidden" name="source" value={source} />
+            <input type="hidden" name="sort" value={sort} />
+            <input type="hidden" name="dir" value={dir} />
+            <input
+              id="client-lead-search"
+              className="text-input"
+              name="q"
+              type="search"
+              placeholder="Search leads, phone, or source"
+              defaultValue={searchQuery}
+            />
+            <button type="submit" className="button-ghost">
+              Search
+            </button>
+            <a className="button-ghost" href={`/clients/${company.id}?window=${windowDays}`}>
+              Clear
+            </a>
           </form>
 
           <div className="filter-bar">
@@ -1377,21 +1244,6 @@ export default async function ClientWorkspacePage({
                         </div>
                       </div>
                       <div className="inline-actions">
-                        {threadPhone && (
-                          <>
-                            <a className="button-secondary" href={`tel:${threadPhone}`}>
-                              Call
-                            </a>
-                            <a className="button-secondary" href={`sms:${threadPhone}`}>
-                              Open SMS
-                            </a>
-                          </>
-                        )}
-                        {selectedLead ? (
-                          <a className="button-ghost" href={`/leads/${selectedLead.id}`}>
-                            Lead record
-                          </a>
-                        ) : null}
                         <a className="button-ghost" href={`/conversations/${selectedConversation.id}`}>
                           Full thread
                         </a>
@@ -1409,64 +1261,57 @@ export default async function ClientWorkspacePage({
                       </div>
                     </div>
 
+                    <div className="message-thread">
+                      {selectedConversation.messages.length === 0 ? (
+                        <div className="empty-state">No messages yet. Send the next text from here.</div>
+                      ) : (
+                        selectedConversation.messages.map((message) => {
+                          const lifecycle = lifecycleForMessage(
+                            message,
+                            selectedLifecycleByMessageId.get(message.id) || []
+                          );
+
+                          return (
+                            <div key={message.id} className={`message-row${message.direction === 'OUTBOUND' ? ' outbound' : ''}`}>
+                              <div className={`message-bubble${message.direction === 'OUTBOUND' ? ' outbound' : ''}`}>
+                                <div className="message-meta" style={{ justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                                  <span>
+                                    {message.direction} • {formatCompactDateTime(message.createdAt)}
+                                  </span>
+                                  <span
+                                    className={`status-chip ${
+                                      lifecycle.tone === 'error'
+                                        ? 'status-chip-attention'
+                                        : lifecycle.tone === 'warn' || lifecycle.tone === 'muted'
+                                          ? 'status-chip-muted'
+                                          : ''
+                                    }`}
+                                  >
+                                    <span
+                                      className={`status-dot ${
+                                        lifecycle.tone === 'error'
+                                          ? 'error'
+                                          : lifecycle.tone === 'warn'
+                                            ? 'warn'
+                                            : lifecycle.tone === 'muted'
+                                              ? 'warn'
+                                              : 'ok'
+                                      }`}
+                                    />
+                                    {lifecycle.label}
+                                  </span>
+                                </div>
+                                <div className="pre-wrap">{message.content}</div>
+                                <div className="tiny-muted">{lifecycle.detail}</div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
                     <section className="panel panel-stack">
-                      <div className="record-header">
-                        <div className="panel-stack">
-                          <div className="metric-label">Telnyx sender path</div>
-                          <div className="inline-row">
-                            <span
-                              className={`status-chip ${
-                                selectedRoutingObservation?.outboundNumber || selectedRoutingObservation?.inboundNumber
-                                  ? ''
-                                  : assignedRoutingNumbers.length > 1 || telnyxMode === 'shared'
-                                    ? 'status-chip-muted'
-                                    : 'status-chip-attention'
-                              }`}
-                            >
-                              <strong>Reply routing</strong>{' '}
-                              {selectedRoutingObservation?.inboundNumber || selectedRoutingObservation?.outboundNumber
-                                ? 'observed'
-                                : assignedRoutingNumbers.length > 1
-                                  ? 'client-safe, exact line not observed yet'
-                                  : telnyxMode === 'shared'
-                                    ? 'shared fallback'
-                                    : activeSenderNumber
-                                      ? 'single sender context is clear'
-                                      : 'sender missing'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="tiny-muted">{telnyxTrustCopy}</div>
-                      </div>
-
-                      <div className="key-value-grid">
-                        <div className="key-value-card">
-                          <span className="key-value-label">Active sender number</span>
-                          {activeSenderNumber || 'No sender configured'}
-                        </div>
-                        <div className="key-value-card">
-                          <span className="key-value-label">Observed outbound sender</span>
-                          {selectedRoutingObservation?.outboundNumber || 'No outbound thread event observed yet'}
-                        </div>
-                        <div className="key-value-card">
-                          <span className="key-value-label">Observed inbound line</span>
-                          {selectedRoutingObservation?.inboundNumber || 'No inbound reply captured on this thread yet'}
-                        </div>
-                      </div>
-
-                      <div className="panel-stack" style={{ gap: 6 }}>
-                        <span className="key-value-label">Assigned client numbers</span>
-                        <span className="tiny-muted">
-                          {assignedRoutingNumbers.length > 0
-                            ? assignedRoutingNumbers.join(', ')
-                            : 'No dedicated clinic numbers yet; using shared fallback sender'}
-                        </span>
-                      </div>
-                    </section>
-
-                    <div className="client-panel-actions-grid">
-                      <form action={sendConversationMessageAction} className="panel panel-stack">
-                        <div className="metric-label">Quick reply</div>
+                      <form action={sendConversationMessageAction} className="panel-stack">
                         <input type="hidden" name="companyId" value={selectedConversation.companyId} />
                         <input type="hidden" name="contactId" value={selectedConversation.contactId} />
                         <input type="hidden" name="conversationId" value={selectedConversation.id} />
@@ -1477,125 +1322,116 @@ export default async function ClientWorkspacePage({
                           className="text-area"
                           rows={3}
                         />
-                        <button type="submit" className="button">
-                          Send text
-                        </button>
+                        <div className="inline-actions inline-actions-wrap">
+                          <button type="submit" className="button-secondary">
+                            Send text
+                          </button>
+                          {threadPhone ? (
+                            <a className="button-ghost" href={`sms:${threadPhone}`}>
+                              Open SMS
+                            </a>
+                          ) : null}
+                          {selectedLead ? (
+                            <a className="button-ghost" href={`/leads/${selectedLead.id}`}>
+                              Lead record
+                            </a>
+                          ) : null}
+                        </div>
                       </form>
 
-                      <form action={bookConversationAction} className="panel panel-stack">
-                        <div className="metric-label">Quick book</div>
+                      <div className="inline-actions inline-actions-wrap">
+                        <form action={bookConversationAction} className="inline-actions workspace-inline-form">
                         <input type="hidden" name="companyId" value={selectedConversation.companyId} />
                         <input type="hidden" name="contactId" value={selectedConversation.contactId} />
                         <input type="hidden" name="conversationId" value={selectedConversation.id} />
                         <input type="hidden" name="returnTo" value={selectedThreadHref} />
-                        <div className="field-stack">
-                          <label className="key-value-label" htmlFor="client-workspace-start-time">
-                            Appointment date and time
-                          </label>
                           <input
                             id="client-workspace-start-time"
                             type="datetime-local"
                             name="startTime"
-                            className="text-input"
+                            className="text-input workspace-booking-input"
                             defaultValue={defaultBookingInputValue()}
                             min={formatDateTimeLocalInput(new Date())}
                             step={900}
                             required
                           />
-                        </div>
                         <button type="submit" className="button-secondary">
-                          Book and notify
+                          Book
                         </button>
                       </form>
 
                       {selectedLead ? (
-                        <section className="panel panel-stack">
-                          <div className="metric-label">Quick status</div>
-                          <div className="inline-actions inline-actions-wrap">
-                            <LeadStatusButton
-                              leadId={selectedLead.id}
-                              companyId={selectedLead.companyId}
-                              status="CONTACTED"
-                              label="Mark contacted"
-                              returnTo={selectedThreadHref}
-                            />
-                            <LeadStatusButton
-                              leadId={selectedLead.id}
-                              companyId={selectedLead.companyId}
-                              status="REPLIED"
-                              label="Mark replied"
-                              returnTo={selectedThreadHref}
-                            />
-                            <LeadStatusButton
-                              leadId={selectedLead.id}
-                              companyId={selectedLead.companyId}
-                              status="BOOKED"
-                              label="Mark booked"
-                              returnTo={selectedThreadHref}
-                            />
-                            <LeadStatusButton
-                              leadId={selectedLead.id}
-                              companyId={selectedLead.companyId}
-                              status="SUPPRESSED"
-                              label="Suppress"
-                              returnTo={selectedThreadHref}
-                            />
-                          </div>
-                        </section>
+                        <>
+                          <LeadStatusButton
+                            leadId={selectedLead.id}
+                            companyId={selectedLead.companyId}
+                            status="REPLIED"
+                            label="Mark replied"
+                            returnTo={selectedThreadHref}
+                          />
+                          <LeadStatusButton
+                            leadId={selectedLead.id}
+                            companyId={selectedLead.companyId}
+                            status="BOOKED"
+                            label="Mark booked"
+                            returnTo={selectedThreadHref}
+                          />
+                          <LeadStatusButton
+                            leadId={selectedLead.id}
+                            companyId={selectedLead.companyId}
+                            status="CONTACTED"
+                            label="Mark contacted"
+                            returnTo={selectedThreadHref}
+                          />
+                          <LeadStatusButton
+                            leadId={selectedLead.id}
+                            companyId={selectedLead.companyId}
+                            status="SUPPRESSED"
+                            label="Suppress"
+                            returnTo={selectedThreadHref}
+                          />
+                        </>
                       ) : null}
-                    </div>
+                      </div>
+
+                      <details className="routing-details">
+                        <summary className="routing-summary">
+                          <span className="key-value-label">Routing</span>
+                          <span className="tiny-muted">
+                            {selectedRoutingObservation?.inboundNumber || selectedRoutingObservation?.outboundNumber
+                              ? `Observed · ${selectedRoutingObservation?.inboundNumber || selectedRoutingObservation?.outboundNumber}`
+                              : telnyxMode === 'shared'
+                                ? `Shared fallback · ${activeSenderNumber || 'missing'}`
+                                : activeSenderNumber
+                                  ? `Dedicated line · ${activeSenderNumber}`
+                                  : 'Sender missing'}
+                          </span>
+                        </summary>
+                        <div className="key-value-grid">
+                          <div className="key-value-card">
+                            <span className="key-value-label">Active sender</span>
+                            {activeSenderNumber || 'No sender configured'}
+                          </div>
+                          <div className="key-value-card">
+                            <span className="key-value-label">Observed outbound</span>
+                            {selectedRoutingObservation?.outboundNumber || 'No outbound thread event observed yet'}
+                          </div>
+                          <div className="key-value-card">
+                            <span className="key-value-label">Observed inbound</span>
+                            {selectedRoutingObservation?.inboundNumber || 'No inbound reply captured yet'}
+                          </div>
+                        </div>
+                        <div className="tiny-muted">
+                          {assignedRoutingNumbers.length > 0
+                            ? `Assigned client numbers: ${assignedRoutingNumbers.join(', ')}`
+                            : telnyxTrustCopy}
+                        </div>
+                      </details>
+                    </section>
 
                   </>
                 );
               })()}
-              <div className="message-thread">
-                {selectedConversation.messages.length === 0 ? (
-                  <div className="empty-state">This thread has no messages yet.</div>
-                ) : (
-                  selectedConversation.messages.map((message) => {
-                    const lifecycle = lifecycleForMessage(
-                      message,
-                      selectedLifecycleByMessageId.get(message.id) || []
-                    );
-
-                    return (
-                      <div key={message.id} className={`message-row${message.direction === 'OUTBOUND' ? ' outbound' : ''}`}>
-                        <div className={`message-bubble${message.direction === 'OUTBOUND' ? ' outbound' : ''}`}>
-                          <div className="message-meta" style={{ justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                            <span>
-                              {message.direction} • {formatCompactDateTime(message.createdAt)}
-                            </span>
-                            <span
-                              className={`status-chip ${
-                                lifecycle.tone === 'error'
-                                  ? 'status-chip-attention'
-                                  : lifecycle.tone === 'warn' || lifecycle.tone === 'muted'
-                                    ? 'status-chip-muted'
-                                    : ''
-                              }`}
-                            >
-                              <span
-                                className={`status-dot ${
-                                  lifecycle.tone === 'error'
-                                    ? 'error'
-                                    : lifecycle.tone === 'warn'
-                                      ? 'warn'
-                                      : lifecycle.tone === 'muted'
-                                        ? 'warn'
-                                        : 'ok'
-                                }`}
-                              />
-                              {lifecycle.label}
-                            </span>
-                          </div>
-                          <div className="pre-wrap">{message.content}</div>
-                          <div className="tiny-muted">{lifecycle.detail}</div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
             </>
           ) : selectedLead ? (
             <>
@@ -1630,7 +1466,6 @@ export default async function ClientWorkspacePage({
                 </a>
               </div>
               <form action={sendConversationMessageAction} className="panel panel-stack">
-                <div className="metric-label">Start first text</div>
                 <input type="hidden" name="companyId" value={company.id} />
                 <input type="hidden" name="contactId" value={selectedLead.contactId} />
                 <input type="hidden" name="returnTo" value={selectedLeadHref} />
@@ -1640,12 +1475,11 @@ export default async function ClientWorkspacePage({
                   className="text-area"
                   rows={3}
                 />
-                <button type="submit" className="button">
+                <button type="submit" className="button-secondary">
                   Create thread and send
                 </button>
               </form>
               <section className="panel panel-stack">
-                <div className="metric-label">Quick status</div>
                 <div className="inline-actions inline-actions-wrap">
                   <LeadStatusButton
                     leadId={selectedLead.id}

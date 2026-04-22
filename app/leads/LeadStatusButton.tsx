@@ -16,9 +16,7 @@ export function LeadStatusButton({
   const className =
     status === 'SUPPRESSED'
       ? 'button-danger'
-      : status === 'CONTACTED'
-        ? 'button-secondary'
-        : 'button';
+      : 'button-secondary';
 
   return (
     <form action={updateLeadStatusAction}>
