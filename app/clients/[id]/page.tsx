@@ -13,6 +13,15 @@ import { normalizePhone } from '@/lib/phone';
 export const dynamic = 'force-dynamic';
 
 const pageSize = 50;
+const operatorQueueStates = [
+  'needs_reply',
+  'delivery_issue',
+  'awaiting_delivery',
+  'waiting_on_contact',
+  'no_thread'
+] as const;
+
+type OperatorQueueState = (typeof operatorQueueStates)[number];
 
 function parseWindow(value?: string) {
   if (value === '7' || value === '90') {
@@ -96,6 +105,59 @@ function bookingRate(bookingCount: number, total: number) {
   }
 
   return `${Math.round((bookingCount / total) * 100)}%`;
+}
+
+function parseOperatorQueue(value?: string): OperatorQueueState | undefined {
+  return operatorQueueStates.includes(value as OperatorQueueState) ? (value as OperatorQueueState) : undefined;
+}
+
+function operatorQueueLabel(value: OperatorQueueState) {
+  switch (value) {
+    case 'needs_reply':
+      return 'Needs reply';
+    case 'delivery_issue':
+      return 'Delivery issue';
+    case 'awaiting_delivery':
+      return 'Awaiting delivery';
+    case 'waiting_on_contact':
+      return 'Waiting on contact';
+    case 'no_thread':
+      return 'No thread';
+    default:
+      return value;
+  }
+}
+
+function operatorQueueStateForLead(
+  conversationId: string,
+  latestThreadMessage: {
+    direction: 'INBOUND' | 'OUTBOUND';
+    externalId: string | null;
+    createdAt: Date;
+  } | null,
+  latestThreadLifecycle: { tone: 'ok' | 'warn' | 'error' | 'muted' } | null
+): OperatorQueueState {
+  if (!conversationId) {
+    return 'no_thread';
+  }
+
+  if (!latestThreadMessage) {
+    return 'waiting_on_contact';
+  }
+
+  if (latestThreadMessage.direction === 'INBOUND') {
+    return 'needs_reply';
+  }
+
+  if (latestThreadLifecycle?.tone === 'error') {
+    return 'delivery_issue';
+  }
+
+  if (latestThreadLifecycle?.tone === 'warn') {
+    return 'awaiting_delivery';
+  }
+
+  return 'waiting_on_contact';
 }
 
 function buildBookingFlash(searchParams: {
@@ -229,6 +291,7 @@ function buildClientHref(
     window: number;
     status?: string;
     source?: string;
+    queue?: string;
     sort?: string;
     dir?: string;
     page?: number;
@@ -242,6 +305,7 @@ function buildClientHref(
   const values = {
     status: update.status ?? base.status,
     source: update.source ?? base.source,
+    queue: update.queue ?? base.queue,
     sort: update.sort ?? base.sort,
     dir: update.dir ?? base.dir,
     page: update.page ?? base.page
@@ -274,6 +338,7 @@ export default async function ClientWorkspacePage({
     window?: string;
     status?: string;
     source?: string;
+    queue?: string;
     sort?: string;
     dir?: string;
     page?: string;
@@ -298,6 +363,7 @@ export default async function ClientWorkspacePage({
     ? (status as LeadStatus)
     : undefined;
   const source = query.source || '';
+  const queue = parseOperatorQueue(query.queue);
   const sort = query.sort || 'activity';
   const dir = query.dir === 'asc' ? 'asc' : 'desc';
   const page = Math.max(1, Number(query.page || '1') || 1);
@@ -474,25 +540,17 @@ export default async function ClientWorkspacePage({
     return dir === 'asc' ? compare : compare * -1;
   });
 
-  const totalPages = Math.max(1, Math.ceil(sortedLeads.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const pagedLeads = sortedLeads.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const pagedConversationIds = Array.from(
-    new Set(
-      pagedLeads
-        .map((lead) => conversationByContactId.get(lead.contactId))
-        .filter((value): value is string => Boolean(value))
-    )
-  );
-  const pagedMessages = pagedConversationIds.length
+  const allConversationIds = conversations.map((conversation) => conversation.id);
+  const latestConversationMessages = allConversationIds.length
     ? await safeLoad(
         () =>
           db.message.findMany({
             where: {
               companyId: id,
-              conversationId: { in: pagedConversationIds }
+              conversationId: { in: allConversationIds }
             },
-            orderBy: { createdAt: 'desc' },
+            orderBy: [{ conversationId: 'asc' }, { createdAt: 'desc' }],
+            distinct: ['conversationId'],
             select: {
               id: true,
               conversationId: true,
@@ -504,15 +562,15 @@ export default async function ClientWorkspacePage({
         []
       )
     : [];
-  const latestMessageByConversationId = new Map<string, (typeof pagedMessages)[number]>();
+  const latestMessageByConversationId = new Map<string, (typeof latestConversationMessages)[number]>();
 
-  for (const message of pagedMessages) {
+  for (const message of latestConversationMessages) {
     if (!latestMessageByConversationId.has(message.conversationId)) {
       latestMessageByConversationId.set(message.conversationId, message);
     }
   }
 
-  const pagedLifecycleEvents = pagedConversationIds.length
+  const latestLifecycleEvents = allConversationIds.length
     ? await safeLoad(
         () =>
           db.eventLog.findMany({
@@ -538,7 +596,54 @@ export default async function ClientWorkspacePage({
         []
       )
     : [];
-  const pagedLifecycleByMessageId = buildLifecycleByMessageId(pagedLifecycleEvents);
+  const latestLifecycleByMessageId = buildLifecycleByMessageId(latestLifecycleEvents);
+  const leadRows = sortedLeads.map((lead) => {
+    const conversationId = conversationByContactId.get(lead.contactId) || '';
+    const latestThreadMessage = conversationId ? latestMessageByConversationId.get(conversationId) || null : null;
+    const latestThreadLifecycle = latestThreadMessage
+      ? lifecycleForMessage(
+          latestThreadMessage,
+          latestLifecycleByMessageId.get(latestThreadMessage.id) || []
+        )
+      : null;
+    const threadStateKey = operatorQueueStateForLead(conversationId, latestThreadMessage, latestThreadLifecycle);
+    const speedLabel = lead.lastRepliedAt ? 'Replied' : lead.lastContactedAt ? 'Sent' : 'None';
+    const href = buildClientHref(
+      company.id,
+      { window: windowDays, status, source, queue, sort, dir, page },
+      {
+        conversationId,
+        leadId: lead.id
+      }
+    );
+
+    return {
+      lead,
+      conversationId,
+      latestThreadLifecycle,
+      threadStateKey,
+      threadLabel: operatorQueueLabel(threadStateKey),
+      speedLabel,
+      href
+    };
+  });
+  const queueCounts = leadRows.reduce(
+    (acc, row) => {
+      acc[row.threadStateKey] += 1;
+      return acc;
+    },
+    {
+      needs_reply: 0,
+      delivery_issue: 0,
+      awaiting_delivery: 0,
+      waiting_on_contact: 0,
+      no_thread: 0
+    } as Record<OperatorQueueState, number>
+  );
+  const filteredLeadRows = queue ? leadRows.filter((row) => row.threadStateKey === queue) : leadRows;
+  const totalPages = Math.max(1, Math.ceil(filteredLeadRows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pagedLeadRows = filteredLeadRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const selectedConversation = selectedConversationId
     ? await safeLoad(
         () =>
@@ -765,7 +870,7 @@ export default async function ClientWorkspacePage({
               <a
                 key={value}
                 className={`filter-chip ${windowDays === value ? 'is-active' : ''}`}
-                href={buildClientHref(company.id, { window: windowDays, status, source, sort, dir, page: currentPage }, { window: value, page: 1 })}
+                href={buildClientHref(company.id, { window: windowDays, status, source, queue, sort, dir, page: currentPage }, { window: value, page: 1 })}
               >
                 {value} days
               </a>
@@ -797,6 +902,7 @@ export default async function ClientWorkspacePage({
 
           <form className="workspace-filter-form" action={`/clients/${company.id}`}>
             <input type="hidden" name="window" value={windowDays} />
+            <input type="hidden" name="queue" value={queue || ''} />
             <div className="workspace-filter-row">
               <div className="field-stack">
                 <label className="key-value-label" htmlFor="client-lead-status">
@@ -855,6 +961,24 @@ export default async function ClientWorkspacePage({
             </div>
           </form>
 
+          <div className="filter-bar">
+            <a
+              className={`filter-chip ${!queue ? 'is-active' : ''}`}
+              href={buildClientHref(company.id, { window: windowDays, status, source, queue, sort, dir, page: currentPage }, { queue: '', page: 1 })}
+            >
+              All leads {leadRows.length}
+            </a>
+            {operatorQueueStates.map((value) => (
+              <a
+                key={value}
+                className={`filter-chip ${queue === value ? 'is-active' : ''}`}
+                href={buildClientHref(company.id, { window: windowDays, status, source, queue, sort, dir, page: currentPage }, { queue: value, page: 1 })}
+              >
+                {operatorQueueLabel(value)} {queueCounts[value]}
+              </a>
+            ))}
+          </div>
+
           <div className="table-wrap">
             <table className="data-table">
               <thead>
@@ -870,43 +994,17 @@ export default async function ClientWorkspacePage({
                 </tr>
               </thead>
               <tbody>
-                {pagedLeads.length === 0 ? (
+                {pagedLeadRows.length === 0 ? (
                   <tr>
                     <td colSpan={8}>
-                      <div className="empty-state">No leads yet in this window.</div>
+                      <div className="empty-state">
+                        {queue ? `No leads in ${operatorQueueLabel(queue).toLowerCase()} right now.` : 'No leads yet in this window.'}
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  pagedLeads.map((lead) => {
-                    const conversationId = conversationByContactId.get(lead.contactId) || '';
-                    const speedLabel = lead.lastRepliedAt ? 'Replied' : lead.lastContactedAt ? 'Sent' : 'None';
-                    const latestThreadMessage = conversationId ? latestMessageByConversationId.get(conversationId) || null : null;
-                    const latestThreadLifecycle = latestThreadMessage
-                      ? lifecycleForMessage(
-                          latestThreadMessage,
-                          pagedLifecycleByMessageId.get(latestThreadMessage.id) || []
-                        )
-                      : null;
-                    const threadLabel = !conversationId
-                      ? 'No thread'
-                      : !latestThreadMessage
-                        ? 'New thread'
-                        : latestThreadMessage.direction === 'INBOUND'
-                          ? 'Needs reply'
-                          : latestThreadLifecycle?.tone === 'error'
-                            ? 'Delivery issue'
-                            : latestThreadLifecycle?.tone === 'warn'
-                              ? 'Awaiting delivery'
-                              : 'Waiting on contact';
-                    const href = buildClientHref(
-                      company.id,
-                      { window: windowDays, status, source, sort, dir, page: currentPage },
-                      {
-                        conversationId,
-                        leadId: lead.id
-                      }
-                    );
-
+                  pagedLeadRows.map((row) => {
+                    const { lead, latestThreadLifecycle, threadLabel, speedLabel, href } = row;
                     return (
                       <tr key={lead.id}>
                         <td>
@@ -959,13 +1057,13 @@ export default async function ClientWorkspacePage({
             <div className="inline-actions">
               <a
                 className="button-secondary"
-                href={buildClientHref(company.id, { window: windowDays, status, source, sort, dir, page: currentPage }, { page: Math.max(1, currentPage - 1) })}
+                href={buildClientHref(company.id, { window: windowDays, status, source, queue, sort, dir, page: currentPage }, { page: Math.max(1, currentPage - 1) })}
               >
                 Previous
               </a>
               <a
                 className="button-secondary"
-                href={buildClientHref(company.id, { window: windowDays, status, source, sort, dir, page: currentPage }, { page: Math.min(totalPages, currentPage + 1) })}
+                href={buildClientHref(company.id, { window: windowDays, status, source, queue, sort, dir, page: currentPage }, { page: Math.min(totalPages, currentPage + 1) })}
               >
                 Next
               </a>
