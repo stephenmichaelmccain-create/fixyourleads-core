@@ -1,11 +1,10 @@
 ## Now
 - Keep `Our Leads` moving toward a real outbound calling surface: stronger follow-up queues, safer duplicate handling, and clearer sold-to-signup flow.
-- Keep `/clients/[id]` as the primary operator surface for active client work: fewer clicks, faster replies, clearer booking state, and stronger thread-level controls.
+- Keep `/clients/[id]` and `/conversations/[conversationId]` as the primary operator surfaces for active client work: fewer clicks, faster replies, clearer booking state, and stronger thread-level controls.
 - Keep all changes deploy-safe on `main`. No destructive schema or config changes without review.
 
 ## Next
-- Build the website-signup waiting pipeline more clearly off sold leads.
-- Add an explicit `Waiting for signup` / `Onboarding` bridge from sold prospects into clients.
+- Turn the new `/clients/intake` bridge into a fuller signup/onboarding pipeline once website form data starts landing.
 - Tighten diagnostics around queues, events, and client health only where they speed up debugging.
 - Improve conversation workflows further with even fewer clicks and better thread-level operator controls.
 - Make multi-number client routing fully explicit per conversation/message, not just per client.
