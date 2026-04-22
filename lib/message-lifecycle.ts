@@ -16,6 +16,11 @@ export type MessageLifecycleState = {
   detail: string;
 };
 
+export type ConversationRoutingObservation = {
+  inboundNumber: string | null;
+  outboundNumber: string | null;
+};
+
 function formatLifecycleTime(value: Date) {
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -58,6 +63,52 @@ export function buildLifecycleByMessageId(events: LifecycleEvent[]) {
   }
 
   return lifecycleByMessageId;
+}
+
+export function buildConversationRoutingObservation(
+  events: LifecycleEvent[],
+  conversationId: string
+): ConversationRoutingObservation {
+  const observation: ConversationRoutingObservation = {
+    inboundNumber: null,
+    outboundNumber: null
+  };
+
+  for (const event of events) {
+    const payload = readPayloadRecord(event.payload);
+    const payloadConversationId = typeof payload?.conversationId === 'string' ? payload.conversationId : null;
+
+    if (payloadConversationId !== conversationId) {
+      continue;
+    }
+
+    if (!observation.inboundNumber && event.eventType === 'message_received') {
+      const observedInbound = typeof payload?.to === 'string' ? payload.to : null;
+      if (observedInbound) {
+        observation.inboundNumber = observedInbound;
+      }
+    }
+
+    if (!observation.outboundNumber) {
+      const observedOutbound = typeof payload?.from === 'string' ? payload.from : null;
+      if (
+        observedOutbound &&
+        (event.eventType === 'manual_message_sent' ||
+          event.eventType === 'telnyx_message_sent' ||
+          event.eventType === 'telnyx_message_finalized' ||
+          event.eventType === 'telnyx_message_delivery_failed' ||
+          event.eventType === 'telnyx_message_delivery_unconfirmed')
+      ) {
+        observation.outboundNumber = observedOutbound;
+      }
+    }
+
+    if (observation.inboundNumber && observation.outboundNumber) {
+      break;
+    }
+  }
+
+  return observation;
 }
 
 function parseLifecycleAttempt(value: unknown) {

@@ -4,7 +4,13 @@ import { normalizePhone } from '@/lib/phone';
 import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 import { sendSms } from '@/lib/telnyx';
 
-export async function storeInboundMessage(companyId: string, phone: string, content: string, externalId: string) {
+export async function storeInboundMessage(
+  companyId: string,
+  phone: string,
+  content: string,
+  externalId: string,
+  inboundNumber?: string | null
+) {
   const normalizedPhone = normalizePhone(phone);
 
   const contact = await db.contact.upsert({
@@ -56,7 +62,13 @@ export async function storeInboundMessage(companyId: string, phone: string, cont
     data: {
       companyId,
       eventType: 'message_received',
-      payload: { messageId: message.id, conversationId: conversation.id, leadId: lead.id }
+      payload: {
+        messageId: message.id,
+        conversationId: conversation.id,
+        leadId: lead.id,
+        from: normalizedPhone,
+        to: inboundNumber || null
+      }
     }
   });
 
@@ -99,7 +111,8 @@ export async function sendOutboundMessage(companyId: string, contactId: string, 
     create: { companyId, contactId }
   });
 
-  const telnyxResult = await sendSms(contact.phone, content, companyPrimaryInboundNumber(company));
+  const senderNumber = companyPrimaryInboundNumber(company);
+  const telnyxResult = await sendSms(contact.phone, content, senderNumber);
 
   const message = await db.message.create({
     data: {
@@ -129,7 +142,13 @@ export async function sendOutboundMessage(companyId: string, contactId: string, 
     data: {
       companyId,
       eventType,
-      payload: { messageId: message.id, contactId, conversationId: conversation.id }
+      payload: {
+        messageId: message.id,
+        contactId,
+        conversationId: conversation.id,
+        from: senderNumber,
+        to: contact.phone
+      }
     }
   });
 

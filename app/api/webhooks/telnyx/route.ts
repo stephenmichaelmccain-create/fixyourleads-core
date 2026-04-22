@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
-    const result = await storeInboundMessage(companyId, from, text, messageId);
+    const result = await storeInboundMessage(companyId, from, text, messageId, inboundNumber);
 
     await getMessageQueue().add('handle_incoming_message', {
       companyId,

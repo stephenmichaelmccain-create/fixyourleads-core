@@ -6,7 +6,11 @@ import { bookConversationAction, sendConversationMessageAction } from './actions
 import { LeadStatusButton } from '@/app/leads/LeadStatusButton';
 import { normalizePhone } from '@/lib/phone';
 import { allInboundNumbers, companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
-import { buildLifecycleByMessageId, lifecycleForMessage } from '@/lib/message-lifecycle';
+import {
+  buildConversationRoutingObservation,
+  buildLifecycleByMessageId,
+  lifecycleForMessage
+} from '@/lib/message-lifecycle';
 
 function formatDateTime(value: Date | string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -257,11 +261,13 @@ export default async function ConversationDetailPage({
       db.eventLog.findMany({
         where: {
           companyId: activeConversation.companyId,
-          eventType: {
-            in: [
-              'telnyx_message_sent',
-              'telnyx_message_finalized',
-              'telnyx_message_delivery_failed',
+              eventType: {
+                in: [
+                  'message_received',
+                  'manual_message_sent',
+                  'telnyx_message_sent',
+                  'telnyx_message_finalized',
+                  'telnyx_message_delivery_failed',
               'telnyx_message_delivery_unconfirmed'
             ]
           }
@@ -277,6 +283,7 @@ export default async function ConversationDetailPage({
     []
   );
   const lifecycleByMessageId = buildLifecycleByMessageId(conversationLifecycleEvents);
+  const routingObservation = buildConversationRoutingObservation(conversationLifecycleEvents, activeConversation.id);
   const returnTo = `/conversations/${activeConversation.id}`;
   const lastLifecycle = lastMessage
     ? lifecycleForMessage(lastMessage, lifecycleByMessageId.get(lastMessage.id) || [])
@@ -388,11 +395,13 @@ export default async function ConversationDetailPage({
                 </span>
                 <span className="tiny-muted">
                   Routing memory:{' '}
-                  {assignedRoutingNumbers.length > 1
-                    ? 'client-safe, exact sender line not stored per message yet'
-                    : activeSenderNumber
-                      ? 'single sender context is clear'
-                      : 'sender missing'}
+                  {routingObservation.inboundNumber || routingObservation.outboundNumber
+                    ? 'observed from real thread events'
+                    : assignedRoutingNumbers.length > 1
+                      ? 'client-safe, exact sender line not observed yet'
+                      : activeSenderNumber
+                        ? 'single sender context is clear'
+                        : 'sender missing'}
                 </span>
               </div>
               <div className="text-muted">{nextAction.body}</div>
@@ -492,6 +501,20 @@ export default async function ConversationDetailPage({
                   Active sender number
                 </span>
                 <span>{activeSenderNumber || 'No sender configured'}</span>
+              </div>
+              <div className="status-item">
+                <span className="status-label">
+                  <span className={`status-dot ${routingObservation.outboundNumber ? 'ok' : 'warn'}`} />
+                  Observed outbound sender
+                </span>
+                <span>{routingObservation.outboundNumber || 'No outbound thread event observed yet'}</span>
+              </div>
+              <div className="status-item">
+                <span className="status-label">
+                  <span className={`status-dot ${routingObservation.inboundNumber ? 'ok' : 'warn'}`} />
+                  Observed inbound line
+                </span>
+                <span>{routingObservation.inboundNumber || 'No inbound reply captured on this thread yet'}</span>
               </div>
               <div className="status-item">
                 <span className="status-label">
