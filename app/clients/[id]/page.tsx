@@ -119,6 +119,30 @@ function bookingRate(bookingCount: number, total: number) {
   return `${Math.round((bookingCount / total) * 100)}%`;
 }
 
+function formatDurationCompact(ms: number | null) {
+  if (!ms || ms <= 0) {
+    return '—';
+  }
+
+  const totalMinutes = Math.round(ms / 60000);
+
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours < 24) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+
+  return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+}
+
 function parseOperatorQueue(value?: string): OperatorQueueState | undefined {
   return operatorQueueStates.includes(value as OperatorQueueState) ? (value as OperatorQueueState) : undefined;
 }
@@ -742,10 +766,23 @@ export default async function ClientWorkspacePage({
     !hasInboundRouting(company) ? 'Inbound routing number' : null,
     !company.notificationEmail ? 'Client notification email' : null
   ].filter(Boolean) as string[];
+  const firstTouchSamples = allWindowLeads
+    .filter((lead) => lead.lastContactedAt && lead.lastContactedAt >= lead.createdAt)
+    .map((lead) => lead.lastContactedAt!.getTime() - lead.createdAt.getTime());
+  const avgFirstTouchMs = firstTouchSamples.length
+    ? Math.round(firstTouchSamples.reduce((sum, value) => sum + value, 0) / firstTouchSamples.length)
+    : null;
+  const latestBooking = upcomingBookings[0] || null;
 
   const snapshotCards = [
     { label: 'Leads received', value: String(allWindowLeads.length), detail: `${windowDays}-day window` },
-    { label: 'Avg response time', value: '—', detail: 'TODO: needs response-time logging' },
+    {
+      label: 'Avg first touch',
+      value: formatDurationCompact(avgFirstTouchMs),
+      detail: firstTouchSamples.length
+        ? `${firstTouchSamples.length} leads with an outbound touch`
+        : 'No outbound touches recorded yet'
+    },
     { label: 'Reply rate', value: replyRate(leadCounts.REPLIED + leadCounts.BOOKED, allWindowLeads.length), detail: 'Replied or booked' },
     { label: 'Bookings created', value: String(leadCounts.BOOKED), detail: `${windowDays}-day window` },
     { label: 'Booking conversion', value: bookingRate(leadCounts.BOOKED, allWindowLeads.length), detail: 'Bookings / leads' }
@@ -753,39 +790,81 @@ export default async function ClientWorkspacePage({
 
   const sequenceRows = [
     {
-      name: 'Speed-to-Lead',
-      triggered: allWindowLeads.length,
-      replied: leadCounts.REPLIED + leadCounts.BOOKED,
-      booked: leadCounts.BOOKED,
-      enabled: true
+      name: 'New lead response',
+      triggered: leadCounts.NEW + leadCounts.CONTACTED,
+      state: leadCounts.NEW + leadCounts.CONTACTED > 0 ? 'Live' : 'Clear',
+      detail:
+        leadCounts.NEW + leadCounts.CONTACTED > 0
+          ? 'Fresh leads still moving through first-touch and reply handling.'
+          : 'No untouched leads waiting on first-touch work.',
+      href: buildClientHref(
+        company.id,
+        { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage },
+        {
+          queue: queueCounts.no_thread > 0 ? 'no_thread' : 'waiting_on_contact',
+          page: 1
+        }
+      )
     },
     {
-      name: 'No-Show Recovery',
+      name: 'Reply handling',
+      triggered: queueCounts.needs_reply,
+      state: queueCounts.needs_reply > 0 ? 'Needs action' : 'Clear',
+      detail:
+        queueCounts.needs_reply > 0
+          ? 'Inbound texts are waiting on an operator reply right now.'
+          : 'No inbound threads are stalled waiting for a human reply.',
+      href: buildClientHref(
+        company.id,
+        { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage },
+        {
+          queue: 'needs_reply',
+          page: 1
+        }
+      )
+    },
+    {
+      name: 'Delivery recovery',
+      triggered: queueCounts.delivery_issue + queueCounts.awaiting_delivery,
+      state:
+        queueCounts.delivery_issue > 0
+          ? 'Needs action'
+          : queueCounts.awaiting_delivery > 0
+            ? 'Watching'
+            : 'Clear',
+      detail:
+        queueCounts.delivery_issue > 0
+          ? 'At least one outbound text failed and needs manual attention.'
+          : queueCounts.awaiting_delivery > 0
+            ? 'Recent sends are still waiting on carrier confirmation.'
+            : 'No delivery issues are blocking the active queue.',
+      href: buildClientHref(
+        company.id,
+        { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage },
+        {
+          queue: queueCounts.delivery_issue > 0 ? 'delivery_issue' : 'awaiting_delivery',
+          page: 1
+        }
+      )
+    },
+    {
+      name: 'Booked follow-up',
       triggered: upcomingBookings.length,
-      replied: 0,
-      booked: 0,
-      enabled: false
+      state: upcomingBookings.length > 0 ? 'Active' : 'Idle',
+      detail: latestBooking
+        ? `Next appointment is ${formatCompactDateTime(latestBooking.startTime)}.`
+        : 'No bookings are scheduled in the next 14 days.',
+      href: '#bookings'
     },
     {
-      name: 'Dead Lead Reactivation',
-      triggered: leadCounts.SUPPRESSED,
-      replied: 0,
-      booked: 0,
-      enabled: false
-    },
-    {
-      name: 'Review Automation',
-      triggered: leadCounts.BOOKED,
-      replied: 0,
-      booked: leadCounts.BOOKED,
-      enabled: false
-    },
-    {
-      name: 'VIP Winback',
-      triggered: 0,
-      replied: 0,
-      booked: 0,
-      enabled: false
+      name: 'Client setup',
+      triggered: setupGaps.length,
+      state: setupGaps.length > 0 ? 'Needs setup' : 'Ready',
+      detail:
+        setupGaps.length > 0
+          ? setupGaps.join(', ')
+          : 'Routing and notifications are configured for this client.',
+      href: '#setup'
     }
   ];
   const selectedThreadHref = selectedConversation
@@ -1596,17 +1675,17 @@ export default async function ClientWorkspacePage({
       </div>
 
       <section id="sequences" className="panel panel-stack">
-        <div className="metric-label">Active sequences</div>
-        <h2 className="section-title">Display only for now.</h2>
+        <div className="metric-label">Workflow coverage</div>
+        <h2 className="section-title">What is live, what is blocked, and where to jump next.</h2>
         <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Sequence</th>
-                <th>Triggered</th>
-                <th>Replied</th>
-                <th>Booked</th>
+                <th>Workflow</th>
+                <th>Current load</th>
                 <th>State</th>
+                <th>What it is watching</th>
+                <th>Jump</th>
               </tr>
             </thead>
             <tbody>
@@ -1614,10 +1693,24 @@ export default async function ClientWorkspacePage({
                 <tr key={row.name}>
                   <td>{row.name}</td>
                   <td>{row.triggered}</td>
-                  <td>{row.replied}</td>
-                  <td>{row.booked}</td>
                   <td>
-                    <span className={`status-chip ${row.enabled ? '' : 'status-chip-muted'}`}>{row.enabled ? 'On' : 'Off'}</span>
+                    <span
+                      className={`status-chip ${
+                        row.state === 'Needs action'
+                          ? 'status-chip-attention'
+                          : row.state === 'Clear' || row.state === 'Idle'
+                            ? 'status-chip-muted'
+                            : ''
+                      }`}
+                    >
+                      {row.state}
+                    </span>
+                  </td>
+                  <td>{row.detail}</td>
+                  <td>
+                    <a className="button-secondary" href={row.href}>
+                      Open
+                    </a>
                   </td>
                 </tr>
               ))}
