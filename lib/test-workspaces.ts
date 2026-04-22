@@ -45,6 +45,10 @@ export function isLikelyTestWorkspaceName(value: string | null | undefined) {
     return true;
   }
 
+  if (normalized.startsWith('stephen ') || normalized.startsWith('logogo ')) {
+    return true;
+  }
+
   if (normalized.startsWith('test')) {
     return true;
   }
