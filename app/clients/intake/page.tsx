@@ -4,33 +4,12 @@ import { db } from '@/lib/db';
 import { createClientFromProspectAction } from '@/app/clients/intake/actions';
 import { isDemoLabel } from '@/lib/demo';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
-import { intakeStageDetails, normalizeClinicKey } from '@/lib/client-intake';
+import { intakeStageDetails, normalizeClinicKey, parseProspectMetadata } from '@/lib/client-intake';
 import { safeLoad } from '@/lib/ui-data';
 
 export const dynamic = 'force-dynamic';
 
-const PROSPECT_META_PREFIX = 'fyl:';
-
-function parseProspectNotes(notes?: string | null) {
-  const meta: Record<string, string> = {};
-
-  for (const line of String(notes || '').split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith(PROSPECT_META_PREFIX)) {
-      continue;
-    }
-
-    const [key, ...parts] = trimmed.slice(PROSPECT_META_PREFIX.length).split('=');
-    const value = parts.join('=').trim();
-    if (key && value) {
-      meta[key.trim()] = value;
-    }
-  }
-
-  return meta;
-}
-
-function formatDateTime(value: Date | null | undefined) {
+function formatDateTime(value: Date | string | null | undefined) {
   if (!value) {
     return 'Not set';
   }
@@ -71,12 +50,13 @@ export default async function ClientIntakePage() {
   const companyByKey = new Map(companies.map((company) => [normalizeClinicKey(company.name), company]));
   const intakeRows = soldProspects.map((prospect) => {
     const matchedCompany = companyByKey.get(normalizeClinicKey(prospect.name)) || null;
+    const profile = parseProspectMetadata(prospect.notes);
     const stage = intakeStageDetails({
       hasWorkspace: Boolean(matchedCompany),
       hasRouting: matchedCompany ? hasInboundRouting(matchedCompany) : false,
-      hasNotificationEmail: Boolean(matchedCompany?.notificationEmail)
+      hasNotificationEmail: Boolean(matchedCompany?.notificationEmail),
+      hasSignupReceived: Boolean(profile.signup_received_at)
     });
-    const profile = parseProspectNotes(prospect.notes);
     const inboundNumbers = matchedCompany ? allInboundNumbers(matchedCompany) : [];
 
     return {
@@ -210,7 +190,9 @@ export default async function ClientIntakePage() {
                       <div className="panel-stack" style={{ gap: 6 }}>
                         <span>{row.profile.source || 'Manual add'}</span>
                         <span className="tiny-muted">
-                          {row.profile.import_batch || row.profile.source_record || row.prospect.lastCallOutcome || 'No source batch'}
+                          {row.profile.signup_received_at
+                            ? `Signup received ${formatDateTime(row.profile.signup_received_at)}`
+                            : row.profile.import_batch || row.profile.source_record || row.prospect.lastCallOutcome || 'No source batch'}
                         </span>
                       </div>
                     </td>
