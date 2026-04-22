@@ -71,6 +71,21 @@ function pickFirstValue(payload: OnboardingPayloadRecord, keys: string[]) {
   return undefined;
 }
 
+function pickTaxIdLast4(payload: OnboardingPayloadRecord) {
+  const direct = pickFirstValue(payload, ['taxIdLast4', 'tax_id_last4', 'einLast4', 'ein_last4']);
+  if (direct) {
+    return direct.slice(-4);
+  }
+
+  const rawEin = pickFirstValue(payload, ['ein', 'tax_id', 'taxId']);
+  if (!rawEin) {
+    return undefined;
+  }
+
+  const digitsOnly = rawEin.replace(/\D/g, '');
+  return digitsOnly.length >= 4 ? digitsOnly.slice(-4) : undefined;
+}
+
 async function readPayload(request: NextRequest): Promise<OnboardingPayloadRecord | null> {
   const contentType = String(request.headers.get('content-type') || '').toLowerCase();
 
@@ -118,6 +133,8 @@ function normalizeOnboardingPayload(payload: OnboardingPayloadRecord) {
     clinicName: pickFirstValue(payload, [
       'clinicName',
       'clinic_name',
+      'dba_name',
+      'legal_name',
       'business',
       'businessName',
       'business_name',
@@ -129,6 +146,7 @@ function normalizeOnboardingPayload(payload: OnboardingPayloadRecord) {
     contactName: pickFirstValue(payload, [
       'contactName',
       'contact_name',
+      'rep_name',
       'name',
       'ownerName',
       'owner_name',
@@ -138,6 +156,8 @@ function normalizeOnboardingPayload(payload: OnboardingPayloadRecord) {
     notificationEmail: pickFirstValue(payload, [
       'notificationEmail',
       'notification_email',
+      'rep_email',
+      'notify_email',
       'email',
       'contactEmail',
       'contact_email'
@@ -146,6 +166,7 @@ function normalizeOnboardingPayload(payload: OnboardingPayloadRecord) {
       'phone',
       'phoneNumber',
       'phone_number',
+      'rep_phone',
       'contactPhone',
       'contact_phone'
     ]),
@@ -166,10 +187,32 @@ function normalizeOnboardingPayload(payload: OnboardingPayloadRecord) {
       'recordId',
       'record_id'
     ]),
-    businessType: pickFirstValue(payload, ['businessType', 'business_type', 'clinicType', 'clinic_type']),
-    campaignUseCase: pickFirstValue(payload, ['campaignUseCase', 'campaign_use_case', 'useCase', 'use_case']),
-    telnyxBrandName: pickFirstValue(payload, ['telnyxBrandName', 'telnyx_brand_name', 'brandName', 'brand_name']),
-    taxIdLast4: pickFirstValue(payload, ['taxIdLast4', 'tax_id_last4', 'einLast4', 'ein_last4'])
+    businessType: pickFirstValue(payload, [
+      'businessType',
+      'business_type',
+      'clinicType',
+      'clinic_type',
+      'vertical',
+      'legal_form',
+      'entity_type'
+    ]),
+    campaignUseCase: pickFirstValue(payload, [
+      'campaignUseCase',
+      'campaign_use_case',
+      'useCase',
+      'use_case',
+      'campaign_description',
+      'opt_in_method'
+    ]),
+    telnyxBrandName: pickFirstValue(payload, [
+      'telnyxBrandName',
+      'telnyx_brand_name',
+      'brandName',
+      'brand_name',
+      'dba_name',
+      'legal_name'
+    ]),
+    taxIdLast4: pickTaxIdLast4(payload)
   };
 }
 
@@ -228,11 +271,12 @@ export async function POST(request: NextRequest) {
       notificationEmail: true
     }
   });
+  type MatchedCompany = (typeof companies)[number];
 
   const matchedCompany =
-    companies.find((company) => normalizeClinicKey(company.name) === clinicKey) ||
+    companies.find((company: MatchedCompany) => normalizeClinicKey(company.name) === clinicKey) ||
     companies.find(
-      (company) =>
+      (company: MatchedCompany) =>
         parsed.data.notificationEmail &&
         String(company.notificationEmail || '').toLowerCase() === parsed.data.notificationEmail.toLowerCase()
     ) ||
