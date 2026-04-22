@@ -38,6 +38,10 @@ function parseWindow(value?: string) {
   return 30;
 }
 
+function normalizeSearch(value?: string | null) {
+  return (value || '').trim().toLowerCase();
+}
+
 function startOfTrailingDays(days: number) {
   const value = new Date();
   value.setHours(0, 0, 0, 0);
@@ -315,6 +319,7 @@ function buildClientHref(
     window: number;
     status?: string;
     source?: string;
+    q?: string;
     queue?: string;
     sort?: string;
     dir?: string;
@@ -329,6 +334,7 @@ function buildClientHref(
   const values = {
     status: update.status ?? base.status,
     source: update.source ?? base.source,
+    q: update.q ?? base.q,
     queue: update.queue ?? base.queue,
     sort: update.sort ?? base.sort,
     dir: update.dir ?? base.dir,
@@ -362,6 +368,7 @@ export default async function ClientWorkspacePage({
     window?: string;
     status?: string;
     source?: string;
+    q?: string;
     queue?: string;
     sort?: string;
     dir?: string;
@@ -387,6 +394,8 @@ export default async function ClientWorkspacePage({
     ? (status as LeadStatus)
     : undefined;
   const source = query.source || '';
+  const searchQuery = (query.q || '').trim();
+  const normalizedSearchQuery = normalizeSearch(query.q);
   const queue = parseOperatorQueue(query.queue);
   const sort = query.sort || 'activity';
   const dir = query.dir === 'asc' ? 'asc' : 'desc';
@@ -541,7 +550,16 @@ export default async function ClientWorkspacePage({
     } as Record<'NEW' | 'CONTACTED' | 'REPLIED' | 'BOOKED' | 'SUPPRESSED', number>
   );
 
-  const sortedLeads = [...allWindowLeads].sort((left, right) => {
+  const searchedLeads = normalizedSearchQuery
+    ? allWindowLeads.filter((lead) => {
+        const haystacks = [lead.contact.name, lead.contact.phone, lead.source]
+          .map((value) => normalizeSearch(value))
+          .filter(Boolean);
+
+        return haystacks.some((value) => value.includes(normalizedSearchQuery));
+      })
+    : allWindowLeads;
+  const sortedLeads = [...searchedLeads].sort((left, right) => {
     const leftActivity = latestLeadActivity(left).getTime();
     const rightActivity = latestLeadActivity(right).getTime();
 
@@ -634,7 +652,7 @@ export default async function ClientWorkspacePage({
     const speedLabel = lead.lastRepliedAt ? 'Replied' : lead.lastContactedAt ? 'Sent' : 'None';
     const href = buildClientHref(
       company.id,
-      { window: windowDays, status, source, queue, sort, dir, page },
+      { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page },
       {
         conversationId,
         leadId: lead.id
@@ -683,7 +701,7 @@ export default async function ClientWorkspacePage({
     topPriorityQueue && topPriorityRow
       ? buildClientHref(
           company.id,
-          { window: windowDays, status, source, queue, sort, dir, page },
+          { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page },
           {
             queue: topPriorityQueue,
             page: 1,
@@ -767,7 +785,7 @@ export default async function ClientWorkspacePage({
   const selectedThreadHref = selectedConversation
     ? buildClientHref(
         company.id,
-        { window: windowDays, status, source, sort, dir, page: currentPage },
+        { window: windowDays, status, source, q: searchQuery, sort, dir, page: currentPage },
         {
           conversationId: selectedConversation.id,
           leadId: selectedLead?.id || selectedLeadId || undefined
@@ -777,7 +795,7 @@ export default async function ClientWorkspacePage({
   const selectedLeadHref = selectedLead
     ? buildClientHref(
         company.id,
-        { window: windowDays, status, source, sort, dir, page: currentPage },
+        { window: windowDays, status, source, q: searchQuery, sort, dir, page: currentPage },
         {
           leadId: selectedLead.id
         }
@@ -944,7 +962,11 @@ export default async function ClientWorkspacePage({
               <a
                 key={value}
                 className={`filter-chip ${windowDays === value ? 'is-active' : ''}`}
-                href={buildClientHref(company.id, { window: windowDays, status, source, queue, sort, dir, page: currentPage }, { window: value, page: 1 })}
+                href={buildClientHref(
+                  company.id,
+                  { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage },
+                  { window: value, page: 1 }
+                )}
               >
                 {value} days
               </a>
@@ -978,6 +1000,19 @@ export default async function ClientWorkspacePage({
             <input type="hidden" name="window" value={windowDays} />
             <input type="hidden" name="queue" value={queue || ''} />
             <div className="workspace-filter-row">
+              <div className="field-stack">
+                <label className="key-value-label" htmlFor="client-lead-search">
+                  Search
+                </label>
+                <input
+                  id="client-lead-search"
+                  className="text-input"
+                  name="q"
+                  type="search"
+                  placeholder="Name, phone, or source"
+                  defaultValue={searchQuery}
+                />
+              </div>
               <div className="field-stack">
                 <label className="key-value-label" htmlFor="client-lead-status">
                   Status
@@ -1090,7 +1125,11 @@ export default async function ClientWorkspacePage({
           <div className="filter-bar">
             <a
               className={`filter-chip ${!queue ? 'is-active' : ''}`}
-              href={buildClientHref(company.id, { window: windowDays, status, source, queue, sort, dir, page: currentPage }, { queue: '', page: 1 })}
+              href={buildClientHref(
+                company.id,
+                { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage },
+                { queue: '', page: 1 }
+              )}
             >
               All leads {leadRows.length}
             </a>
@@ -1098,7 +1137,11 @@ export default async function ClientWorkspacePage({
               <a
                 key={value}
                 className={`filter-chip ${queue === value ? 'is-active' : ''}`}
-                href={buildClientHref(company.id, { window: windowDays, status, source, queue, sort, dir, page: currentPage }, { queue: value, page: 1 })}
+                href={buildClientHref(
+                  company.id,
+                  { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage },
+                  { queue: value, page: 1 }
+                )}
               >
                 {operatorQueueLabel(value)} {queueCounts[value]}
               </a>
@@ -1181,18 +1224,26 @@ export default async function ClientWorkspacePage({
 
           {totalPages > 1 && (
             <div className="inline-actions">
-              <a
-                className="button-secondary"
-                href={buildClientHref(company.id, { window: windowDays, status, source, queue, sort, dir, page: currentPage }, { page: Math.max(1, currentPage - 1) })}
-              >
-                Previous
-              </a>
-              <a
-                className="button-secondary"
-                href={buildClientHref(company.id, { window: windowDays, status, source, queue, sort, dir, page: currentPage }, { page: Math.min(totalPages, currentPage + 1) })}
-              >
-                Next
-              </a>
+                <a
+                  className="button-secondary"
+                  href={buildClientHref(
+                    company.id,
+                    { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage },
+                    { page: Math.max(1, currentPage - 1) }
+                  )}
+                >
+                  Previous
+                </a>
+                <a
+                  className="button-secondary"
+                  href={buildClientHref(
+                    company.id,
+                    { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage },
+                    { page: Math.min(totalPages, currentPage + 1) }
+                  )}
+                >
+                  Next
+                </a>
             </div>
           )}
         </section>
