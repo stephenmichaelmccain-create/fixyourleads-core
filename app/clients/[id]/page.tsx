@@ -5,6 +5,7 @@ import { updateCompanyAction } from '@/app/companies/actions';
 import { bookConversationAction, sendConversationMessageAction } from '@/app/conversations/[conversationId]/actions';
 import { LeadStatusButton } from '@/app/leads/LeadStatusButton';
 import { db } from '@/lib/db';
+import { isDemoLabel } from '@/lib/demo';
 import { buildLifecycleByMessageId, lifecycleForMessage } from '@/lib/message-lifecycle';
 import { safeLoad } from '@/lib/ui-data';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
@@ -882,7 +883,10 @@ export default async function ClientWorkspacePage({
         <div className="record-header">
           <div className="panel-stack">
             <div className="metric-label">Client workspace</div>
-            <h2 className="section-title section-title-large">{company.name}</h2>
+            <div className="inline-row">
+              <h2 className="section-title section-title-large">{company.name}</h2>
+              {isDemoLabel(company.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
+            </div>
             <div className="inline-row">
               <span className={`status-chip ${setupGaps.length > 0 ? 'status-chip-attention' : ''}`}>
                 <span className={`status-dot ${setupGaps.length > 0 ? 'warn' : 'ok'}`} />

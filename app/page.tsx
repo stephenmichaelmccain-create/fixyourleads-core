@@ -1,6 +1,7 @@
 import { LayoutShell } from './components/LayoutShell';
 import { ProspectStatus } from '@prisma/client';
 import { db } from '@/lib/db';
+import { isDemoLabel } from '@/lib/demo';
 import { safeLoad } from '@/lib/ui-data';
 import { hasInboundRouting } from '@/lib/inbound-numbers';
 
@@ -250,7 +251,10 @@ export default async function HomePage() {
               {needsAttention.map((client) => (
                 <a key={client.id} className="workspace-list-item" href={`/clients/${client.id}`}>
                   <div className="workspace-list-header">
-                    <strong>{client.name}</strong>
+                    <div className="inline-row">
+                      <strong>{client.name}</strong>
+                      {isDemoLabel(client.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
+                    </div>
                     <span className={`status-chip ${client.missingSetup.length > 0 ? 'status-chip-attention' : 'status-chip-muted'}`}>
                       {client.missingSetup.length > 0 ? 'Setup gap' : 'Low activity'}
                     </span>

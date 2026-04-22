@@ -11,6 +11,8 @@
     "env:openclaw": "node scripts/bootstrap-openclaw-env.mjs",
     "lint": "echo 'lint not configured yet'",
     "db:push": "prisma db push",
+    "demo:seed": "tsx scripts/demo-data.ts seed",
+    "demo:clear": "tsx scripts/demo-data.ts clear",
     "worker": "tsx workers/index.ts",
     "worker:lead": "tsx workers/process_new_lead.ts",
     "worker:message": "tsx workers/handle_incoming_message.ts",

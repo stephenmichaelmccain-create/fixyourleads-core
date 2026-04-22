@@ -1,6 +1,7 @@
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { createCompanyAction } from '@/app/companies/actions';
 import { db } from '@/lib/db';
+import { isDemoLabel } from '@/lib/demo';
 import { safeLoad } from '@/lib/ui-data';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
 import { redirect } from 'next/navigation';
@@ -211,7 +212,10 @@ export default async function ClientsPage({
                       <td>
                         <div className="panel-stack" style={{ gap: 6 }}>
                           <a className="table-link" href={`/clients/${row.id}`}>
-                            <strong>{row.name}</strong>
+                            <span className="inline-row">
+                              <strong>{row.name}</strong>
+                              {isDemoLabel(row.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
+                            </span>
                           </a>
                           <a className="tiny-muted" href={`/diagnostics/clients/${row.id}`}>
                             Open health view

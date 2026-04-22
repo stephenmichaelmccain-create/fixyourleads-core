@@ -1,6 +1,7 @@
 import { ProspectStatus } from '@prisma/client';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
+import { isDemoLabel } from '@/lib/demo';
 import { safeLoad } from '@/lib/ui-data';
 import { createProspectAction } from './actions';
 
@@ -552,7 +553,10 @@ export default async function OurLeadsPage({
                         }}
                       >
                         <div className="record-stack">
-                          <strong>{prospect.name}</strong>
+                          <span className="inline-row">
+                            <strong>{prospect.name}</strong>
+                            {isDemoLabel(prospect.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
+                          </span>
                           <span className="tiny-muted">
                             {prospect.city || 'City not set'}
                             {prospect.notes ? ' • Notes on file' : ''}
@@ -602,7 +606,12 @@ export default async function OurLeadsPage({
           <section className="panel panel-stack sticky-panel">
             <div className="metric-label">Prospect detail</div>
             <div className="inline-row justify-between">
-              <h2 className="form-title">{activeSelection}</h2>
+              <div className="inline-row">
+                <h2 className="form-title">{activeSelection}</h2>
+                {selectedProspect && isDemoLabel(selectedProspect.name) ? (
+                  <span className="status-chip status-chip-muted">Demo</span>
+                ) : null}
+              </div>
               {selectedProspect ? (
                 <a
                   className="button-ghost"
