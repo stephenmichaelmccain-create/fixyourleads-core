@@ -1,5 +1,7 @@
 # FixYourLeads Project Status
 
+2026-04-22: Shipped a protected cleanup route for test workspaces, deleted the fake prod client workspaces (`fixyourleads`, `stephen`, website test signups), added real Vitest coverage for website/Telnyx payloads, and wired lightweight Sentry support so the app is code-ready for a DSN.
+
 Last updated: 2026-04-21
 
 ## Purpose

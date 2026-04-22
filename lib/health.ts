@@ -110,7 +110,7 @@ function observabilityCheck(sentryDsnSet: boolean): DependencyCheck {
     ? { status: 'ok', detail: 'Sentry DSN is configured and structured runtime logs are enabled' }
     : {
         status: 'missing_config',
-        detail: 'SENTRY_DSN is optional, but recommended; runtime errors still land in Railway logs as structured JSON'
+        detail: 'Sentry SDK is wired, but SENTRY_DSN is still missing; runtime errors still land in Railway logs as structured JSON'
       };
 }
 
