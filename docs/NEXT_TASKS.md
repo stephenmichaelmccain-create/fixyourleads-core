@@ -7,7 +7,6 @@
 ## Next
 - Extend the safer follow-up heartbeat runner beyond observe-only reporting without auto-sending anything yet.
 - Add the next diagnostics subpage for client-specific queue and recent activity drill-down if the shared queue view stops being enough.
-- Make `/events` more searchable and filterable as the master event log.
 - Improve text conversation visibility with clearer message direction, timestamps, and delivery state.
 
 ## Blocked

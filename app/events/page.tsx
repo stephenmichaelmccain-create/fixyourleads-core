@@ -17,6 +17,7 @@ type SearchParamShape = Promise<{
   eventType?: string;
   window?: string;
   q?: string;
+  related?: string;
 }>;
 
 function startForWindow(windowValue: string) {
@@ -41,12 +42,14 @@ function buildEventsHref({
   companyId,
   eventType,
   window,
-  q
+  q,
+  related
 }: {
   companyId?: string;
   eventType?: string;
   window?: string;
   q?: string;
+  related?: string;
 }) {
   const params = new URLSearchParams();
 
@@ -64,6 +67,10 @@ function buildEventsHref({
 
   if (q) {
     params.set('q', q);
+  }
+
+  if (related) {
+    params.set('related', related);
   }
 
   const query = params.toString();
@@ -128,6 +135,40 @@ function shortPayload(payload: unknown) {
   return summaryParts.length > 0 ? summaryParts.join(' · ') : null;
 }
 
+function relatedRecordType(payload: unknown) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return 'unclassified';
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  if (record.leadId) {
+    return 'lead';
+  }
+
+  if (record.conversationId) {
+    return 'conversation';
+  }
+
+  if (record.appointmentId) {
+    return 'appointment';
+  }
+
+  if (record.contactId) {
+    return 'contact';
+  }
+
+  return 'unclassified';
+}
+
+function humanizeRelatedRecordType(value: string) {
+  if (value === 'unclassified') {
+    return 'Unclassified';
+  }
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function payloadString(payload: unknown) {
   try {
     return JSON.stringify(payload);
@@ -176,6 +217,7 @@ export default async function EventsPage({
   const selectedEventType = String(params.eventType || '').trim();
   const selectedWindow = String(params.window || '7d').trim() || '7d';
   const searchQuery = String(params.q || '').trim();
+  const selectedRelated = String(params.related || '').trim();
   const windowStart = startForWindow(selectedWindow);
   const snapshotAt = new Date().toISOString();
 
@@ -226,24 +268,38 @@ export default async function EventsPage({
   ]);
 
   const normalizedQuery = searchQuery.toLowerCase();
-  const events = normalizedQuery
-    ? rawEvents.filter((event) => {
-        const haystack = [
-          event.eventType,
-          event.company?.name || '',
-          payloadString(event.payload)
-        ]
-          .join(' ')
-          .toLowerCase();
+  const normalizedTerms = normalizedQuery.split(/\s+/).filter(Boolean);
+  const events = rawEvents.filter((event) => {
+    const haystack = [
+      event.id,
+      event.eventType,
+      event.companyId,
+      event.company?.name || '',
+      relatedRecordType(event.payload),
+      shortPayload(event.payload) || '',
+      payloadString(event.payload)
+    ]
+      .join(' ')
+      .toLowerCase();
 
-        return haystack.includes(normalizedQuery);
-      })
-    : rawEvents;
+    const matchesQuery =
+      normalizedTerms.length === 0 ? true : normalizedTerms.every((term) => haystack.includes(term));
+    const matchesRelated = selectedRelated ? relatedRecordType(event.payload) === selectedRelated : true;
+
+    return matchesQuery && matchesRelated;
+  });
 
   const latestEvent = events[0] || null;
   const visibleEventTypes = new Set(events.map((event) => event.eventType));
   const visibleCompanies = new Set(events.map((event) => event.companyId));
   const activeCompanyName = companies.find((company) => company.id === selectedCompanyId)?.name || null;
+  const liveFeedCategoryLabel = selectedRelated
+    ? `${humanizeRelatedRecordType(selectedRelated)} related`
+    : selectedEventType
+      ? humanizeEventType(selectedEventType)
+      : selectedWindow === 'all'
+        ? 'All events'
+        : `Window ${selectedWindow}`;
 
   return (
     <LayoutShell
@@ -253,7 +309,7 @@ export default async function EventsPage({
     >
       <LiveFeedControls
         snapshotAt={snapshotAt}
-        categoryLabel={selectedEventType ? humanizeEventType(selectedEventType) : selectedWindow === 'all' ? 'All events' : `Window ${selectedWindow}`}
+        categoryLabel={liveFeedCategoryLabel}
         visibleCount={events.length}
         latestEventLabel={latestEvent ? humanizeEventType(latestEvent.eventType) : null}
         latestEventAt={latestEvent ? latestEvent.createdAt.toISOString() : null}
@@ -346,8 +402,22 @@ export default async function EventsPage({
                 name="q"
                 className="text-input"
                 defaultValue={searchQuery}
-                placeholder="booking, stop, query, delivery_failed"
+                placeholder="booking stop, query leadId, delivery_failed"
               />
+            </div>
+
+            <div className="field-stack">
+              <label className="key-value-label" htmlFor="events-related">
+                Related record
+              </label>
+              <select id="events-related" name="related" className="select-input" defaultValue={selectedRelated}>
+                <option value="">Any related record</option>
+                <option value="lead">Lead</option>
+                <option value="conversation">Conversation</option>
+                <option value="appointment">Appointment</option>
+                <option value="contact">Contact</option>
+                <option value="unclassified">Unclassified</option>
+              </select>
             </div>
           </div>
 
@@ -383,6 +453,7 @@ export default async function EventsPage({
               const tone = eventTone(event.eventType);
               const links = payloadLinks(event.companyId, event.payload);
               const summary = shortPayload(event.payload);
+              const related = relatedRecordType(event.payload);
 
               return (
                 <article key={event.id} className="record-card">
@@ -396,15 +467,25 @@ export default async function EventsPage({
                             : ''
                       }`}
                     >
-                      <span className={`status-dot ${tone}`} />
+                    <span className={`status-dot ${tone}`} />
                       {humanizeEventType(event.eventType)}
                     </span>
+                    <span className="tiny-muted">{humanizeRelatedRecordType(related)}</span>
                     <span className="tiny-muted">{formatDateTime(event.createdAt)}</span>
                   </div>
 
                   <div className="panel-stack">
                     <div className="inline-row">
-                      <a className="table-link" href={buildEventsHref({ companyId: event.companyId, window: selectedWindow })}>
+                      <a
+                        className="table-link"
+                        href={buildEventsHref({
+                          companyId: event.companyId,
+                          eventType: selectedEventType || undefined,
+                          window: selectedWindow,
+                          q: searchQuery || undefined,
+                          related: selectedRelated || undefined
+                        })}
+                      >
                         {event.company?.name || event.companyId}
                       </a>
                     </div>
