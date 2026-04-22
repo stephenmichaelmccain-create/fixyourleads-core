@@ -1,14 +1,79 @@
 # New Chat Prompt
 
-Paste this into a fresh chat when you want a new session to recover context fast.
+Use the short version first. Only use the longer one if the new chat actually
+needs the extra context.
+
+## Low-token starter
 
 ```text
-You are joining an in-progress Railway + OpenClaw + FixYourLeads project.
+You are joining the FixYourLeads project.
+
+Read only these files first:
+- docs/PROJECT_STATUS.md
+- docs/MINIMUM_PRODUCTION_WORKFLOW.md
+- docs/LOW_TOKEN_WORKFLOW.md
+
+Repo anchors:
+- repo: fixyourleads-core
+- local path: ~/.openclaw/workspace/fixyourleads-core
+- Railway project: adorable-commitment
+- live app: https://app-production-9ba1.up.railway.app
+
+Rules:
+- low-token mode
+- do not repeat unchanged context
+- do not print secret values
+- report confirmed facts separately from guesses
+- prefer product progress over infra churn
+- keep updates short and delta-only
+- use GitHub as the stable backup for repo-safe changes
+
+What to do first:
+1. read the three docs above
+2. check git status
+3. tell me only:
+   - where the project stands
+   - what is blocked
+   - the next 3 highest-ROI steps
+```
+
+## UI-only starter
+
+```text
+You are joining the FixYourLeads project to work on UI only.
+
+Read only:
+- docs/PROJECT_STATUS.md
+- docs/LOW_TOKEN_WORKFLOW.md
+- app/globals.css
+- app/layout.tsx
+- app/page.tsx
+- app/diagnostics/page.tsx
+
+Rules:
+- low-token mode
+- no infra deep dive unless the UI is blocked by it
+- keep brand aligned with fixyourleads.com
+- remove demo-looking copy and fake states when possible
+- keep updates short and focused on visible progress
+
+What to do:
+1. inspect current UI state
+2. identify the highest-value UI cleanup or feature
+3. implement it
+4. summarize only the user-visible changes and any blocker
+```
+
+## Full recovery starter
+
+```text
+You are joining an in-progress Railway + FixYourLeads project.
 
 Start by reading these files in the repo:
 - README.md
 - docs/PROJECT_STATUS.md
 - docs/MINIMUM_PRODUCTION_WORKFLOW.md
+- docs/LOW_TOKEN_WORKFLOW.md
 - docs/NEW_CHAT_PROMPT.md
 - railway-worker.md
 - package.json
@@ -25,6 +90,7 @@ Important rules:
 - Separate confirmed facts from hypotheses.
 - Prefer concrete repo and deploy findings over theory.
 - Treat GitHub as the stable backup and history source for repo-safe changes.
+- Keep updates short and avoid repeating unchanged context.
 
 Current runtime env contract:
 - DATABASE_URL
@@ -33,32 +99,6 @@ Current runtime env contract:
 - TELNYX_FROM_NUMBER
 - APP_BASE_URL
 - INTERNAL_API_KEY
-
-Already established:
-- Codex Railway MCP works after OAuth.
-- Railway list-projects works.
-- Railway whoami is unreliable because of a server-side validation issue.
-- The repo has a local bootstrap command:
-  npm run env:openclaw
-- That bootstrap currently auto-loads:
-  - TELNYX_API_KEY
-  - APP_BASE_URL via FYL_BASE_URL
-  - INTERNAL_API_KEY
-- The remaining local runtime gaps are:
-  - DATABASE_URL
-  - REDIS_URL
-  - TELNYX_FROM_NUMBER
-- The live app is up and the production schema has been pushed.
-- Production currently has:
-  - app
-  - worker
-  - Postgres
-  - Redis
-- The app now has:
-  - a Companies page
-  - manual conversation send/book controls
-  - duplicate lead suppression by company/contact
-  - optional SMTP-based booking notifications
 
 Current product target:
 - lightweight multi-tenant CRM for clinic outreach
@@ -75,8 +115,7 @@ What I need from you:
 2. Check git status and recent commits.
 3. Confirm what is already wired correctly.
 4. Identify the smallest missing pieces for the minimum production workflow.
-5. Prefer product progress over infra churn unless production is actually broken.
-6. If you make repo-safe changes, prepare them for commit/push.
+5. If you make repo-safe changes, prepare them for commit/push.
 
 Give me:
 1. current repo status
