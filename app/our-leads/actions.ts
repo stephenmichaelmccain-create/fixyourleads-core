@@ -21,12 +21,14 @@ function addDaysFromNow(days: number, hour: number) {
 
 function buildOurLeadsHref({
   prospectId,
+  q,
   status,
   city,
   nextActionDue,
   updated
 }: {
   prospectId?: string;
+  q?: string;
   status?: string;
   city?: string;
   nextActionDue?: string;
@@ -36,6 +38,10 @@ function buildOurLeadsHref({
 
   if (prospectId) {
     params.set('prospectId', prospectId);
+  }
+
+  if (q) {
+    params.set('q', q);
   }
 
   if (status) {
@@ -103,12 +109,13 @@ export async function createProspectAction(formData: FormData) {
 export async function updateProspectOutcomeAction(formData: FormData) {
   const prospectId = readText(formData, 'prospectId');
   const outcome = readText(formData, 'outcome');
+  const q = readText(formData, 'q');
   const status = readText(formData, 'status');
   const city = readText(formData, 'city');
   const nextActionDue = readText(formData, 'nextActionDue');
 
   if (!prospectId) {
-    redirect(buildOurLeadsHref({ status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, status, city, nextActionDue }));
   }
 
   const outcomeMap: Record<
@@ -158,7 +165,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   const selection = outcomeMap[outcome];
 
   if (!selection) {
-    redirect(buildOurLeadsHref({ prospectId, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ prospectId, q, status, city, nextActionDue }));
   }
 
   const existing = await db.prospect.findUnique({
@@ -170,7 +177,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirect(buildOurLeadsHref({ status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, status, city, nextActionDue }));
   }
 
   await db.$transaction(async (tx) => {
@@ -200,6 +207,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   redirect(
     buildOurLeadsHref({
       prospectId,
+      q,
       status,
       city,
       nextActionDue,

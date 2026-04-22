@@ -28,6 +28,7 @@ const dueOptions = [
 
 type SearchParamShape = Promise<{
   prospectId?: string;
+  q?: string;
   status?: string;
   city?: string;
   nextActionDue?: string;
@@ -102,6 +103,10 @@ function websiteHref(website?: string | null) {
   return /^https?:\/\//i.test(website) ? website : `https://${website}`;
 }
 
+function normalizeSearch(value: string) {
+  return value.trim().toLowerCase();
+}
+
 function dueBucketMatches(date: Date | null, bucket: string, now: Date) {
   if (!bucket) {
     return true;
@@ -165,11 +170,13 @@ function compareProspects(
 
 function buildPageHref({
   prospectId,
+  q,
   status,
   city,
   nextActionDue
 }: {
   prospectId?: string;
+  q?: string;
   status?: string;
   city?: string;
   nextActionDue?: string;
@@ -178,6 +185,10 @@ function buildPageHref({
 
   if (prospectId) {
     params.set('prospectId', prospectId);
+  }
+
+  if (q) {
+    params.set('q', q);
   }
 
   if (status) {
@@ -218,6 +229,8 @@ export default async function OurLeadsPage({
     Object.values(ProspectStatus).includes((params.status || '') as ProspectStatus)
       ? (params.status as ProspectStatus)
       : '';
+  const searchQuery = String(params.q || '').trim();
+  const normalizedSearchQuery = normalizeSearch(searchQuery);
   const selectedCity = String(params.city || '').trim();
   const selectedDue = String(params.nextActionDue || '').trim();
   const selectedProspectId = String(params.prospectId || '').trim();
@@ -268,6 +281,23 @@ export default async function OurLeadsPage({
   ).sort((left, right) => left.localeCompare(right));
 
   const visibleProspects = [...allProspects]
+    .filter((prospect) => {
+      if (!normalizedSearchQuery) {
+        return true;
+      }
+
+      const searchFields = [
+        prospect.name,
+        prospect.city,
+        prospect.phone,
+        prospect.website,
+        prospect.ownerName,
+        prospect.lastCallOutcome,
+        prospect.notes
+      ];
+
+      return searchFields.some((value) => normalizeSearch(value || '').includes(normalizedSearchQuery));
+    })
     .filter((prospect) => (selectedStatus ? prospect.status === selectedStatus : true))
     .filter((prospect) => (selectedCity ? prospect.city === selectedCity : true))
     .filter((prospect) => dueBucketMatches(prospect.nextActionAt, selectedDue, now))
@@ -401,6 +431,7 @@ export default async function OurLeadsPage({
                 className="workspace-list-item"
                 href={buildPageHref({
                   prospectId: prospect.id,
+                  q: searchQuery,
                   status: selectedStatus,
                   city: selectedCity,
                   nextActionDue: selectedDue
@@ -528,6 +559,19 @@ export default async function OurLeadsPage({
             <form action="/our-leads" className="workspace-filter-form">
               <div className="workspace-filter-row">
                 <div className="field-stack">
+                  <label className="key-value-label" htmlFor="our-leads-search">
+                    Search clinics
+                  </label>
+                  <input
+                    id="our-leads-search"
+                    name="q"
+                    className="text-input"
+                    defaultValue={searchQuery}
+                    placeholder="Name, phone, website, owner, or city"
+                  />
+                </div>
+
+                <div className="field-stack">
                   <label className="key-value-label" htmlFor="our-leads-status">
                     Status
                   </label>
@@ -580,7 +624,7 @@ export default async function OurLeadsPage({
 
             {visibleProspects.length === 0 ? (
               <div className="empty-state">
-                No prospects match the current filters. Reset the board or add a new med spa at the top.
+                No prospects match the current filters. Reset the board or add a new clinic at the top.
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
@@ -615,6 +659,7 @@ export default async function OurLeadsPage({
                   {visibleProspects.map((prospect) => {
                     const rowHref = buildPageHref({
                       prospectId: prospect.id,
+                      q: searchQuery,
                       status: selectedStatus,
                       city: selectedCity,
                       nextActionDue: selectedDue
@@ -708,6 +753,7 @@ export default async function OurLeadsPage({
                 <a
                   className="button-ghost"
                   href={buildPageHref({
+                    q: searchQuery,
                     status: selectedStatus,
                     city: selectedCity,
                     nextActionDue: selectedDue
@@ -740,6 +786,7 @@ export default async function OurLeadsPage({
                 <form action={updateProspectOutcomeAction} className="panel panel-stack">
                   <div className="metric-label">Quick call outcome</div>
                   <input type="hidden" name="prospectId" value={selectedProspect.id} />
+                  <input type="hidden" name="q" value={searchQuery} />
                   <input type="hidden" name="status" value={selectedStatus} />
                   <input type="hidden" name="city" value={selectedCity} />
                   <input type="hidden" name="nextActionDue" value={selectedDue} />
@@ -832,7 +879,7 @@ export default async function OurLeadsPage({
                 <section className="panel-stack">
                   <div className="metric-label">SMS thread</div>
                   <div className="empty-state">
-                    No SMS thread data is attached to this prospect yet. This screen will only show text history after the med spa is moved into a live contact and conversation flow.
+                    No SMS thread data is attached to this prospect yet. This screen will only show text history after the clinic is moved into a live contact and conversation flow.
                   </div>
                 </section>
               </>

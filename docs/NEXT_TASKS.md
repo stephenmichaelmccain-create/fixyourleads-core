@@ -1,13 +1,12 @@
 ## Now
-- Fix any live blocker first. Current live app is up, so next priority is core operator workflow improvements on `/clients/[id]`.
-- Keep the client workspace as the primary operator surface now that operators can send, book, and even start a first thread without leaving `/clients/[id]`.
-- Tighten the remaining operator-control gaps inside the client workspace now that operators can also filter by actionable queue states without scanning the whole table.
-- Keep surfacing the next best lead to work from `/clients/[id]` so operators do not have to think before acting.
-- Keep all changes deploy-safe if they might be merged later. No destructive schema or config changes.
+- Keep `Our Leads` moving toward a real outbound calling surface: stronger filters, richer clinic fields, and safer next-action handling.
+- Keep `/clients/[id]` as the primary operator surface for active client work: fewer clicks, faster replies, clearer booking state.
+- Keep all changes deploy-safe on `main`. No destructive schema or config changes without review.
 
 ## Next
-- Extend the safer follow-up heartbeat runner beyond observe-only reporting without auto-sending anything yet.
-- Add the next diagnostics subpage for client-specific queue and recent activity drill-down if the shared queue view stops being enough.
+- Add richer clinic/import fields to `Our Leads` so each row feels like a real prospecting record.
+- Build the website-signup waiting pipeline more clearly off sold leads.
+- Tighten diagnostics around queues, events, and client health only where they speed up debugging.
 - Improve conversation workflows further with even fewer clicks and better thread-level operator controls.
 
 ## Blocked
@@ -21,6 +20,5 @@
 
 ## Deploy Notes
 - `main` auto-deploys to Railway production.
-- Overnight work stays on `dream/2026-04-21-overnight` until human review.
 - Build and typecheck before each stable checkpoint.
-- Push every stable checkpoint to `origin/dream/2026-04-21-overnight`.
+- Push every stable checkpoint to `origin/main` only after it is deploy-safe.
