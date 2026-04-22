@@ -2,6 +2,27 @@
 
 Production application for clinic lead intake, outreach, messaging, and booking.
 
+## Product model
+
+This app runs two connected pipelines:
+
+- `Our Leads`: outbound prospecting for clinics we want to sell. These records are imported in bulk, called first, and moved through outcomes like no answer, booked, sold, or do not contact.
+- `Clients`: sold or onboarded clinics we actively serve. These workspaces hold conversations, bookings, routing numbers, and setup state.
+
+The bridge between them is `/clients/intake`:
+
+- sold prospects from `Our Leads` land there
+- direct website signups also land there
+- onboarding submissions enrich or match an existing client workspace
+
+Core runtime flow:
+
+1. lead or signup reaches the app through a webhook or internal create route
+2. Prisma writes the source-of-truth records in Postgres
+3. BullMQ workers pick up slow or async work like lead processing and message handling
+4. operators work mostly from `/our-leads`, `/clients`, `/clients/[id]`, and `/conversations/[id]`
+5. Telnyx powers SMS and routing, while diagnostics and `/events` show the live operational truth
+
 ## Start here
 - `docs/PROJECT_STATUS.md` for the current handoff and deploy state
 - `docs/MINIMUM_PRODUCTION_WORKFLOW.md` for the narrow product target
@@ -53,10 +74,36 @@ You still need to provide:
 - `REDIS_URL`
 - `TELNYX_FROM_NUMBER`
 
+## Main workflows
+
+### Website intake
+- `POST /api/webhooks/website/intake`
+- `POST /api/webhooks/website/onboarding`
+
+These public website-facing routes accept browser or form-platform submissions and land them in the client intake bridge. Intake routes currently normalize the live website payload shapes for:
+- book-a-call modal / lightbox
+- full signup
+- onboarding / 10DLC setup
+
+### Telnyx
+- `POST /api/webhooks/telnyx`
+
+Inbound SMS is routed by the destination number so multiple clients can safely share one Telnyx account while keeping number ownership isolated per client.
+
+### Lead sourcing
+- `POST /api/webhooks/lead`
+- `POST /api/internal/leads/import/google-maps`
+
+These feed the outbound `Our Leads` workflow.
+
 ## Current routes
 - POST /api/webhooks/lead
 - POST /api/webhooks/telnyx
+- POST /api/webhooks/website/intake
+- POST /api/webhooks/website/onboarding
 - POST /api/internal/leads/import/google-maps
+- POST /api/internal/clients/intake
+- POST /api/internal/clients/onboarding
 - GET /api/health
 
 ## Lean guardrails
@@ -65,11 +112,18 @@ You still need to provide:
 - `instrumentation.ts` emits structured JSON for server boot, unhandled rejections, and uncaught exceptions into Railway logs.
 - Sentry is intentionally optional for now. If you wire a DSN later, diagnostics will reflect that immediately.
 - `npm run check:health` is available for quick local or deployed readiness checks.
+- `npm test` runs the webhook payload normalization tests for the live website form shapes.
 
 ## Current pages
-- `/companies`
-- `/leads`
-- `/conversations`
+- `/`
+- `/our-leads`
+- `/clients`
+- `/clients/[id]`
+- `/clients/intake`
+- `/conversations/[conversationId]`
 - `/bookings`
 - `/events`
 - `/diagnostics`
+- `/diagnostics/queues`
+- `/diagnostics/workflows`
+- `/diagnostics/clients/[id]`
