@@ -187,6 +187,18 @@ export default async function ClientWorkspacePage({
     notFound();
   }
 
+  const clientOptions = await safeLoad(
+    () =>
+      db.company.findMany({
+        select: {
+          id: true,
+          name: true
+        },
+        orderBy: { name: 'asc' }
+      }),
+    [{ id: company.id, name: company.name }]
+  );
+
   const [allWindowLeads, allSources, upcomingBookings, sequenceLeadCounts] = await Promise.all([
     safeLoad(
       () =>
@@ -425,16 +437,41 @@ export default async function ClientWorkspacePage({
               {setupGaps.length > 0 ? <span className="readiness-pill is-warn">Fix setup before trusting automation</span> : null}
             </div>
           </div>
-          <div className="inline-actions">
-            <a className="button-secondary" href="#transcript-panel">
-              Open Conversations
-            </a>
-            <a className="button-secondary" href="#bookings">
-              View Bookings
-            </a>
-            <a className="button" href="#setup">
-              Edit Setup
-            </a>
+          <div className="panel-stack" style={{ alignItems: 'flex-end' }}>
+            <div className="inline-actions">
+              <a className="button-secondary" href={`/diagnostics/clients/${company.id}`}>
+                Client Health
+              </a>
+              <a className="button-secondary" href="#transcript-panel">
+                Open Conversations
+              </a>
+              <a className="button-secondary" href="#bookings">
+                View Bookings
+              </a>
+              <a className="button" href="#setup">
+                Edit Setup
+              </a>
+            </div>
+            <form className="context-form is-compact" action="/clients">
+              <div className="field-stack context-field">
+                <label className="key-value-label" htmlFor="workspace-client-switcher">
+                  Switch client
+                </label>
+                <select id="workspace-client-switcher" className="select-input" name="clientId" defaultValue={company.id}>
+                  {clientOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="inline-actions context-form-actions">
+                <button type="submit" className="button-secondary">
+                  Open client
+                </button>
+                <span className="context-form-hint tiny-muted">Jump workspaces without backing out.</span>
+              </div>
+            </form>
           </div>
         </div>
       </section>

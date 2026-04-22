@@ -3,6 +3,7 @@ import { createCompanyAction } from '@/app/companies/actions';
 import { db } from '@/lib/db';
 import { safeLoad } from '@/lib/ui-data';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,10 +40,16 @@ export default async function ClientsPage({
 }: {
   searchParams?: Promise<{
     notice?: string;
+    clientId?: string;
   }>;
 }) {
   const params = (await searchParams) || {};
   const notice = params.notice || '';
+
+  if (params.clientId) {
+    redirect(`/clients/${params.clientId}`);
+  }
+
   const weekStart = startOfTrailingDays(7);
   const idleThreshold = new Date(Date.now() - 1000 * 60 * 60 * 48);
 
@@ -202,9 +209,14 @@ export default async function ClientsPage({
                   rows.map((row) => (
                     <tr key={row.id} id={`client-${row.id}`}>
                       <td>
-                        <a className="table-link" href={`/clients/${row.id}`}>
-                          <strong>{row.name}</strong>
-                        </a>
+                        <div className="panel-stack" style={{ gap: 6 }}>
+                          <a className="table-link" href={`/clients/${row.id}`}>
+                            <strong>{row.name}</strong>
+                          </a>
+                          <a className="tiny-muted" href={`/diagnostics/clients/${row.id}`}>
+                            Open health view
+                          </a>
+                        </div>
                       </td>
                       <td>
                         <span className={`status-chip ${row.tone === 'error' ? 'status-chip-attention' : row.tone === 'warn' ? 'status-chip-muted' : ''}`}>
