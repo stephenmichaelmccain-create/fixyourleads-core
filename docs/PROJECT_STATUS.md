@@ -18,7 +18,6 @@ outreach, messaging, and booking workflows.
 ## Repo and deploy anchors
 
 - Repo name: `fixyourleads-core`
-- Local repo path: `~/.openclaw/workspace/fixyourleads-core`
 - Primary Railway project: `adorable-commitment`
 - Reported live app URL: `https://app-production-9ba1.up.railway.app`
 
@@ -50,7 +49,7 @@ Run this from the repo root:
 npm run env:bootstrap
 ```
 
-That generates `.env.local` from existing OpenClaw secret files and currently
+That generates `.env.local` from existing local secret files and currently
 auto-loads:
 
 - `TELNYX_API_KEY`
@@ -71,6 +70,7 @@ These are still expected to be filled separately for local runtime:
   `https://app-production-9ba1.up.railway.app`
 - The diagnostics and health surfaces are up:
   - `/diagnostics`
+  - `/diagnostics/workflows`
   - `/api/health`
 - The Railway runtime env contract is now present in production:
   - `DATABASE_URL`
@@ -97,6 +97,7 @@ These are still expected to be filled separately for local runtime:
   - `/api/health` returns `503` when required runtime checks fail
   - deployment metadata and observability readiness are exposed on
     `/diagnostics`
+- Diagnostics no longer treat OpenClaw or MCP wiring as part of app readiness.
 - Structured runtime error logs are now emitted from the app server on boot,
   unhandled promise rejections, and uncaught exceptions.
 - Sentry is still optional. The app can run without it, but diagnostics now
@@ -105,6 +106,7 @@ These are still expected to be filled separately for local runtime:
   - `/leads`
   - `/conversations`
   - `/events`
+- Internal-only debug routes that were not part of operator work were removed.
 - GitHub should be treated as the stable backup and history source for repo-safe
   changes.
 

@@ -15,7 +15,6 @@ Read only these files first:
 
 Repo anchors:
 - repo: fixyourleads-core
-- local path: ~/.openclaw/workspace/fixyourleads-core
 - Railway project: adorable-commitment
 - live app: https://app-production-9ba1.up.railway.app
 
@@ -80,7 +79,6 @@ Start by reading these files in the repo:
 
 Project anchors:
 - Repo: fixyourleads-core
-- Local path: ~/.openclaw/workspace/fixyourleads-core
 - Railway project: adorable-commitment
 - Live app URL: https://app-production-9ba1.up.railway.app
 

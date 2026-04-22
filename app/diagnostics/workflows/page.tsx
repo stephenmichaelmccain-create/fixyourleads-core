@@ -159,9 +159,9 @@ const workflows = [
       '/diagnostics/workflows',
       '/api/health',
       '/api/internal/health',
-      '/api/internal/runtime',
-      '/api/internal/events',
-      '/api/internal/conversations'
+      '/events',
+      '/conversations',
+      '/bookings'
     ],
     services: [
       'lib/health.ts',

@@ -42,8 +42,8 @@ These are recommended for observability, but the app still runs without them:
 - NEXT_PUBLIC_SENTRY_ENVIRONMENT
 
 ## Local bootstrap
-Run `npm run env:bootstrap` from the repo root to generate `.env.local` from the
-existing OpenClaw secret files. It currently auto-loads:
+Run `npm run env:bootstrap` from the repo root to generate `.env.local` from
+existing local secret files. It currently auto-loads:
 - `TELNYX_API_KEY`
 - `APP_BASE_URL` from `FYL_BASE_URL` when present
 - `INTERNAL_API_KEY`
