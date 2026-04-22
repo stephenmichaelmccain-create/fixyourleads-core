@@ -137,58 +137,44 @@ export default async function HomePage() {
   return (
     <LayoutShell
       title="Good morning, Levi."
-      description="This is the five-minute morning check. Open the one thing that needs you and skip the rest."
+      description="Five-minute morning check."
       section="home"
     >
-      <div className="panel-grid">
-        <section className="panel panel-stack panel-dark">
-          <div className="metric-label">Coffee check</div>
-          <h2 className="section-title section-title-large">
-            {allClear ? 'Everything is running.' : 'Here is what needs you first.'}
-          </h2>
-          <p className="page-copy">
-            {allClear
-              ? 'Nothing needs your attention right now. You can leave the CRM alone unless a new client or prospect comes in.'
-              : 'Work the unread client messages first, then today’s appointments, then any client setup issues.'}
-          </p>
-          <div className="inline-actions">
-            <a className="button" href="/messages?filter=needs_human">
-              Work messages
-            </a>
-            <a className="button-secondary" href="/clients">
-              Open clients
-            </a>
-            <a className="button-ghost" href="/leads">
-              Open leads
-            </a>
+      {!allClear ? (
+        <section className="panel panel-stack">
+          <div className="inline-row">
+            <span className="status-dot warn" />
+            <strong>Something needs attention.</strong>
           </div>
+          <div className="text-muted">Start with unread client messages, then today’s appointments, then any setup issues.</div>
         </section>
+      ) : (
+        <section className="panel panel-stack">
+          <div className="inline-row">
+            <span className="status-dot ok" />
+            <strong>Everything is running.</strong>
+          </div>
+          <div className="text-muted">Nothing needs your attention right now.</div>
+        </section>
+      )}
 
+      <div className="panel-grid">
         <section className="metric-card">
           <div className="metric-label">Unread client messages</div>
           <div className="metric-value">{unreadClientMessages}</div>
-          <div className="metric-copy">Messages where the latest reply came from the clinic and now needs a human.</div>
-          <a className="button-secondary" href="/messages?filter=needs_human">
-            Work now
-          </a>
+          <div className="metric-copy">Messages where the latest reply came from the clinic.</div>
         </section>
 
         <section className="metric-card">
           <div className="metric-label">Appointments today</div>
           <div className="metric-value">{appointmentsToday}</div>
-          <div className="metric-copy">Today’s booked appointments across active client workspaces.</div>
-          <a className="button-secondary" href="/clients">
-            View
-          </a>
+          <div className="metric-copy">Booked appointments across active client workspaces.</div>
         </section>
 
         <section className="metric-card">
           <div className="metric-label">Clients needing attention</div>
           <div className="metric-value">{clientsNeedingAttention}</div>
-          <div className="metric-copy">Clients missing routing or notification setup, or waiting on a human reply.</div>
-          <a className="button-secondary" href="/clients">
-            Fix now
-          </a>
+          <div className="metric-copy">Missing setup or waiting on a human reply.</div>
         </section>
       </div>
 
