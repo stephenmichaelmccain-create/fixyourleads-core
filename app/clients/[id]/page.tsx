@@ -716,11 +716,14 @@ export default async function ClientWorkspacePage({
   const totalPages = Math.max(1, Math.ceil(filteredLeadRows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pagedLeadRows = filteredLeadRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const selectedConversation = selectedConversationId
+  const defaultSelectedRow = selectedConversationId || selectedLeadId ? null : topPriorityRow || pagedLeadRows[0] || null;
+  const effectiveSelectedConversationId = selectedConversationId || defaultSelectedRow?.conversationId || '';
+  const effectiveSelectedLeadId = selectedLeadId || defaultSelectedRow?.lead.id || '';
+  const selectedConversation = effectiveSelectedConversationId
     ? await safeLoad(
         () =>
           db.conversation.findUnique({
-            where: { id: selectedConversationId },
+            where: { id: effectiveSelectedConversationId },
             include: {
               contact: true,
               messages: {
@@ -732,7 +735,9 @@ export default async function ClientWorkspacePage({
         null
       )
     : null;
-  const selectedLead = selectedLeadId ? allWindowLeads.find((lead) => lead.id === selectedLeadId) || null : null;
+  const selectedLead = effectiveSelectedLeadId
+    ? allWindowLeads.find((lead) => lead.id === effectiveSelectedLeadId) || null
+    : null;
   const setupGaps = [
     !hasInboundRouting(company) ? 'Inbound routing number' : null,
     !company.notificationEmail ? 'Client notification email' : null
@@ -789,7 +794,7 @@ export default async function ClientWorkspacePage({
         { window: windowDays, status, source, q: searchQuery, sort, dir, page: currentPage },
         {
           conversationId: selectedConversation.id,
-          leadId: selectedLead?.id || selectedLeadId || undefined
+          leadId: selectedLead?.id || effectiveSelectedLeadId || undefined
         }
       )
     : '';
@@ -848,6 +853,18 @@ export default async function ClientWorkspacePage({
           <div className="text-muted">The latest routing and notification changes are live in this workspace.</div>
         </section>
       )}
+
+      {!selectedConversationId && !selectedLeadId && defaultSelectedRow ? (
+        <section className="panel panel-stack">
+          <div className="inline-row">
+            <span className="status-dot ok" />
+            <strong>Work rail auto-opened.</strong>
+          </div>
+          <div className="text-muted">
+            Opened {defaultSelectedRow.lead.contact.name || 'the top-priority lead'} from the current queue so the operator can act immediately.
+          </div>
+        </section>
+      ) : null}
 
       {sendFlash && (
         <section className="panel panel-stack">
