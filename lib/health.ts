@@ -6,6 +6,7 @@ import { envPresence, missingRequiredEnvVars } from '@/lib/runtime-safe';
 import { getTelnyxWebhookSecurityConfig } from '@/lib/security';
 import { checkTelnyxConnectivity } from '@/lib/telnyx';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
+import { emptyWorkerHeartbeatSummary, readWorkerHeartbeatSummary } from '@/lib/worker-heartbeat';
 
 type CheckStatus = 'ok' | 'missing_config' | 'error';
 
@@ -111,6 +112,45 @@ function observabilityCheck(sentryDsnSet: boolean): DependencyCheck {
         status: 'missing_config',
         detail: 'SENTRY_DSN is optional, but recommended; runtime errors still land in Railway logs as structured JSON'
       };
+}
+
+function workerHeartbeatCheck(summary: Awaited<ReturnType<typeof readWorkerHeartbeatSummary>>): DependencyCheck {
+  if (!summary.lastSeenAt) {
+    return {
+      status: 'missing_config',
+      detail: 'Worker heartbeat has not reported yet'
+    };
+  }
+
+  const lastSeen = new Date(summary.lastSeenAt).getTime();
+
+  if (!Number.isFinite(lastSeen)) {
+    return {
+      status: 'error',
+      detail: 'Worker heartbeat timestamp is invalid'
+    };
+  }
+
+  const ageMs = Date.now() - lastSeen;
+
+  if (ageMs > 3 * 60 * 1000) {
+    return {
+      status: 'error',
+      detail: `Worker heartbeat is stale (${Math.round(ageMs / 1000)}s old)`
+    };
+  }
+
+  if (!summary.lastSweepAt) {
+    return {
+      status: 'missing_config',
+      detail: 'Follow-up sweep has not run yet'
+    };
+  }
+
+  return {
+    status: 'ok',
+    detail: `Worker heartbeat is live; last sweep ${summary.lastSweepAt}`
+  };
 }
 
 function hasConfiguredEnv(name: string) {
@@ -245,7 +285,8 @@ export async function getRuntimeHealth() {
     latestEvents,
     latestLeads,
     latestMessages,
-    queueHealth
+    queueHealth,
+    workerHeartbeat
   ] = await Promise.all([
     checkDatabase(env.databaseUrlSet),
     checkRedis(env.redisUrlSet),
@@ -322,7 +363,8 @@ export async function getRuntimeHealth() {
         companyId: true
       }
     }),
-    getQueueHealth(env.redisUrlSet)
+    getQueueHealth(env.redisUrlSet),
+    readWorkerHeartbeatSummary()
   ]);
 
   const deployment = baseDeployment(env);
@@ -489,6 +531,7 @@ export async function getRuntimeHealth() {
       topEventsLast24h
     },
     recentEvents24h,
+    workerHeartbeat,
     queueHealth,
     missingRequiredEnv,
     checks: {
@@ -502,7 +545,8 @@ export async function getRuntimeHealth() {
       telnyxCompanyRouting: telnyxRoutingStatus,
       internalApiKey: internalApiKeyCheck(env),
       observability: observabilityCheck(sentryDsnSet),
-      notifications: notificationCheck(notifications)
+      notifications: notificationCheck(notifications),
+      workerHeartbeat: workerHeartbeatCheck(workerHeartbeat)
     }
   };
 }
@@ -516,6 +560,7 @@ export async function getRuntimeHealthProbe() {
   const [database, redis] = await Promise.all([checkDatabase(env.databaseUrlSet), checkRedis(env.redisUrlSet)]);
   const deployment = baseDeployment(env);
   const observability = observabilitySummary(env);
+  const workerHeartbeat = env.redisUrlSet ? await readWorkerHeartbeatSummary() : emptyWorkerHeartbeatSummary();
   const checks = {
     database,
     redis,
@@ -532,7 +577,13 @@ export async function getRuntimeHealthProbe() {
     } satisfies DependencyCheck,
     internalApiKey: internalApiKeyCheck(env),
     observability: observabilityCheck(observability.sentryDsnSet),
-    notifications: notificationCheck(notifications)
+    notifications: notificationCheck(notifications),
+    workerHeartbeat: env.redisUrlSet
+      ? workerHeartbeatCheck(workerHeartbeat)
+      : ({
+          status: 'missing_config',
+          detail: 'REDIS_URL is required for worker heartbeat visibility'
+        } satisfies DependencyCheck)
   };
   const ok =
     missingRequiredEnv.length === 0 &&
@@ -589,6 +640,7 @@ export async function getRuntimeHealthProbe() {
       topEventsLast24h: []
     },
     recentEvents24h: [],
+    workerHeartbeat,
     queueHealth: [],
     missingRequiredEnv,
     checks

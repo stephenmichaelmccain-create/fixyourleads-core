@@ -210,6 +210,11 @@ export default async function DiagnosticsPage() {
 
       <section className="panel panel-stack">
         <div className="metric-label">Queue health</div>
+        <div className="inline-actions">
+          <a className="button-secondary" href="/diagnostics/queues">
+            Open queue detail
+          </a>
+        </div>
         <ul className="status-list">
           {health.queueHealth.map((queue) => (
             <li key={queue.name} className="status-item">
@@ -244,6 +249,24 @@ export default async function DiagnosticsPage() {
             ))
           )}
         </ul>
+        <div className="key-value-grid">
+          <div className="key-value-card">
+            <span className="key-value-label">Worker heartbeat</span>
+            {health.checks.workerHeartbeat.status === 'ok' ? 'Live' : 'Needs attention'}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Last seen</span>
+            {health.workerHeartbeat.lastSeenAt ? shortDateString(health.workerHeartbeat.lastSeenAt) : 'Not reported yet'}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Last follow-up sweep</span>
+            {health.workerHeartbeat.lastSweepAt ? shortDateString(health.workerHeartbeat.lastSweepAt) : 'Not reported yet'}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Overdue prospects</span>
+            {health.workerHeartbeat.followUp.overdueCount}
+          </div>
+        </div>
       </section>
 
       <section className="panel panel-stack">
