@@ -111,6 +111,7 @@ export function intakeStageDetails(options: {
   hasRouting: boolean;
   hasNotificationEmail: boolean;
   hasSignupReceived?: boolean;
+  hasOnboardingReceived?: boolean;
 }): {
   stage: IntakeStage;
   label: string;
@@ -132,6 +133,24 @@ export function intakeStageDetails(options: {
       label: 'Signup received',
       tone: 'warn',
       detail: 'Website signup landed. Finish routing and notification setup so the client can go live.'
+    };
+  }
+
+  if (options.hasOnboardingReceived && (!options.hasRouting || !options.hasNotificationEmail)) {
+    return {
+      stage: 'setup_pending',
+      label: 'Onboarding received',
+      tone: 'warn',
+      detail: 'Onboarding landed. Finish routing and notification setup so the client can go live.'
+    };
+  }
+
+  if (options.hasOnboardingReceived) {
+    return {
+      stage: 'ready',
+      label: 'Ready for go live',
+      tone: 'ok',
+      detail: 'Signup and onboarding are in. Routing and notifications look ready for launch.'
     };
   }
 

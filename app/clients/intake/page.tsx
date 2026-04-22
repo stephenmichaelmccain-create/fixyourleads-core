@@ -28,7 +28,7 @@ function formatDateTime(value: Date | string | null | undefined) {
 }
 
 export default async function ClientIntakePage() {
-  const [soldProspects, companies, signupEvents] = await Promise.all([
+  const [soldProspects, companies, signupEvents, onboardingEvents] = await Promise.all([
     safeLoad(
       () =>
         db.prospect.findMany({
@@ -66,29 +66,78 @@ export default async function ClientIntakePage() {
           }
         }),
       []
+    ),
+    safeLoad(
+      () =>
+        db.eventLog.findMany({
+          where: {
+            eventType: 'client_onboarding_received'
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+          select: {
+            id: true,
+            companyId: true,
+            createdAt: true,
+            payload: true
+          }
+        }),
+      []
     )
   ]);
 
   const companyByKey = new Map(companies.map((company) => [normalizeClinicKey(company.name), company]));
+  const latestOnboardingByCompanyId = new Map(
+    onboardingEvents.map((event) => {
+      const payload =
+        event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
+          ? (event.payload as Record<string, unknown>)
+          : {};
+
+      return [
+        event.companyId,
+        {
+          receivedAt:
+            typeof payload.onboardingReceivedAt === 'string' ? payload.onboardingReceivedAt : event.createdAt.toISOString(),
+          payload
+        }
+      ] as const;
+    })
+  );
   const intakeRows = soldProspects.map((prospect) => {
     const matchedCompany = companyByKey.get(normalizeClinicKey(prospect.name)) || null;
     const profile = parseProspectMetadata(prospect.notes);
+    const onboardingEvent = matchedCompany ? latestOnboardingByCompanyId.get(matchedCompany.id) || null : null;
+    const mergedProfile = {
+      ...profile,
+      onboarding_received_at: onboardingEvent?.receivedAt || profile.onboarding_received_at || '',
+      business_type:
+        typeof onboardingEvent?.payload.businessType === 'string'
+          ? onboardingEvent.payload.businessType
+          : profile.business_type || '',
+      campaign_use_case:
+        typeof onboardingEvent?.payload.campaignUseCase === 'string'
+          ? onboardingEvent.payload.campaignUseCase
+          : profile.campaign_use_case || ''
+    } as Record<string, string>;
     const stage = intakeStageDetails({
       hasWorkspace: Boolean(matchedCompany),
       hasRouting: matchedCompany ? hasInboundRouting(matchedCompany) : false,
       hasNotificationEmail: Boolean(matchedCompany?.notificationEmail),
-      hasSignupReceived: Boolean(profile.signup_received_at)
+      hasSignupReceived: Boolean(profile.signup_received_at),
+      hasOnboardingReceived: Boolean(onboardingEvent)
     });
     const inboundNumbers = matchedCompany ? allInboundNumbers(matchedCompany) : [];
 
     return {
       rowId: `prospect:${prospect.id}`,
       prospect,
-      profile,
+      profile: mergedProfile,
       matchedCompany,
       stage,
       inboundNumbers,
-      signupReceivedAt: profile.signup_received_at || null
+      signupReceivedAt: mergedProfile.signup_received_at || null,
+      onboardingReceivedAt: mergedProfile.onboarding_received_at || null
     };
   });
 
@@ -113,8 +162,10 @@ export default async function ClientIntakePage() {
       hasWorkspace: true,
       hasRouting: hasInboundRouting(matchedCompany),
       hasNotificationEmail: Boolean(matchedCompany.notificationEmail),
-      hasSignupReceived: true
+      hasSignupReceived: true,
+      hasOnboardingReceived: Boolean(latestOnboardingByCompanyId.get(matchedCompany.id))
     });
+    const onboardingEvent = latestOnboardingByCompanyId.get(matchedCompany.id) || null;
 
     return [
       {
@@ -129,13 +180,23 @@ export default async function ClientIntakePage() {
           signup_contact_name: String(payload.contactName || ''),
           signup_notification_email: String(payload.notificationEmail || ''),
           signup_phone: String(payload.phone || ''),
-          signup_website: String(payload.website || '')
+          signup_website: String(payload.website || ''),
+          onboarding_received_at: onboardingEvent?.receivedAt || '',
+          business_type:
+            typeof onboardingEvent?.payload.businessType === 'string'
+              ? onboardingEvent.payload.businessType
+              : '',
+          campaign_use_case:
+            typeof onboardingEvent?.payload.campaignUseCase === 'string'
+              ? onboardingEvent.payload.campaignUseCase
+              : ''
         } as Record<string, string>,
         matchedCompany,
         stage,
         inboundNumbers: allInboundNumbers(matchedCompany),
         signupReceivedAt:
-          typeof payload.signupReceivedAt === 'string' ? payload.signupReceivedAt : event.createdAt.toISOString()
+          typeof payload.signupReceivedAt === 'string' ? payload.signupReceivedAt : event.createdAt.toISOString(),
+        onboardingReceivedAt: onboardingEvent?.receivedAt || null
       }
     ];
   });
@@ -226,7 +287,7 @@ export default async function ClientIntakePage() {
                           {!row.prospect ? <span className="status-chip status-chip-muted">Direct signup</span> : null}
                         </span>
                         <span className="tiny-muted">
-                          {row.profile.clinic_type || 'Clinic type not set'}
+                          {row.profile.clinic_type || row.profile.business_type || 'Clinic type not set'}
                           {row.prospect?.city ? ` • ${row.prospect.city}` : ''}
                           {row.profile.predicted_revenue ? ` • ${row.profile.predicted_revenue}` : ''}
                         </span>
@@ -268,8 +329,10 @@ export default async function ClientIntakePage() {
                       <div className="panel-stack" style={{ gap: 6 }}>
                         <span>{humanizeIntakeSource(row.profile.source)}</span>
                         <span className="tiny-muted">
-                          {row.signupReceivedAt
-                            ? `Signup received ${formatDateTime(row.signupReceivedAt)}`
+                          {row.onboardingReceivedAt
+                            ? `Onboarding received ${formatDateTime(row.onboardingReceivedAt)}`
+                            : row.signupReceivedAt
+                              ? `Signup received ${formatDateTime(row.signupReceivedAt)}`
                             : row.profile.import_batch ||
                               row.profile.source_record ||
                               row.prospect?.lastCallOutcome ||
@@ -280,6 +343,9 @@ export default async function ClientIntakePage() {
                     <td>
                       <div className="panel-stack" style={{ gap: 6 }}>
                         <span>{formatDateTime(row.prospect?.nextActionAt || row.signupReceivedAt)}</span>
+                        {row.profile.campaign_use_case ? (
+                          <span className="tiny-muted">{row.profile.campaign_use_case}</span>
+                        ) : null}
                         <div className="inline-actions">
                           {row.prospect ? (
                             <a
