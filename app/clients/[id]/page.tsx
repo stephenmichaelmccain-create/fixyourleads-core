@@ -1689,6 +1689,9 @@ export default async function ClientWorkspacePage({
                 defaultValue={allInboundNumbers(company).join('\n')}
                 rows={3}
               />
+              <span className="tiny-muted">
+                One number can belong to only one client. Add one number per line so replies stay tied to the right workspace.
+              </span>
             </div>
             <div className="inline-actions">
               <button type="submit" className="button">

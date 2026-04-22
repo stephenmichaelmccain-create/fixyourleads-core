@@ -4,7 +4,7 @@ import { safeLoad } from '@/lib/ui-data';
 import { notificationReadiness } from '@/lib/notifications';
 import { bookConversationAction, sendConversationMessageAction } from './actions';
 import { normalizePhone } from '@/lib/phone';
-import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
+import { allInboundNumbers, companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 import { buildLifecycleByMessageId, lifecycleForMessage } from '@/lib/message-lifecycle';
 
 function formatDateTime(value: Date | string) {
@@ -183,6 +183,7 @@ export default async function ConversationDetailPage({
   const threadState = !lastMessage ? 'New thread' : lastMessage.direction === 'INBOUND' ? 'Needs reply' : 'Waiting on contact';
   const sharedTelnyxSender = process.env.TELNYX_FROM_NUMBER?.trim() || null;
   const primaryRoutingNumber = companyPrimaryInboundNumber(activeConversation.company);
+  const assignedRoutingNumbers = allInboundNumbers(activeConversation.company);
   const activeSenderNumber = primaryRoutingNumber || sharedTelnyxSender;
   const telnyxMode = primaryRoutingNumber
     ? 'dedicated'
@@ -400,6 +401,19 @@ export default async function ConversationDetailPage({
               </div>
               <div className="status-item">
                 <span className="status-label">
+                  <span className={`status-dot ${assignedRoutingNumbers.length > 0 ? 'ok' : 'warn'}`} />
+                  Assigned client numbers
+                </span>
+                <span>
+                  {assignedRoutingNumbers.length > 0
+                    ? assignedRoutingNumbers.join(', ')
+                    : telnyxMode === 'shared'
+                      ? 'No dedicated clinic numbers yet; using shared fallback sender'
+                      : 'No client numbers configured'}
+                </span>
+              </div>
+              <div className="status-item">
+                <span className="status-label">
                   <span className={`status-dot ${
                     telnyxMode === 'dedicated'
                       ? 'ok'
@@ -430,7 +444,11 @@ export default async function ConversationDetailPage({
             />
             <div className="text-muted">
               This send will use {activeSenderNumber || 'no configured sender'}.
-              {telnyxMode === 'shared' ? ' Replies may still arrive on the shared sender lane until this company gets its own inbound number.' : ''}
+              {assignedRoutingNumbers.length > 1
+                ? ` This client has ${assignedRoutingNumbers.length} assigned numbers; replies route by the exact destination number used on the thread.`
+                : telnyxMode === 'shared'
+                  ? ' Replies may still arrive on the shared sender lane until this company gets its own inbound number.'
+                  : ''}
             </div>
             <button type="submit" className="button">
               Send text

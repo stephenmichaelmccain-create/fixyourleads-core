@@ -252,6 +252,14 @@ export default async function ClientDiagnosticsPage({
             <span className="key-value-label">Inbound numbers</span>
             {inboundNumbers.length === 0 ? 'Not set' : inboundNumbers.join(', ')}
           </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Primary sender</span>
+            {inboundNumbers[0] || 'No primary routing number yet'}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Routing scope</span>
+            {inboundNumbers.length <= 1 ? 'Single clinic number' : `${inboundNumbers.length} clinic numbers assigned`}
+          </div>
         </div>
       </section>
 
