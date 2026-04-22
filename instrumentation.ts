@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/nextjs';
+
 type RuntimeErrorSource = 'uncaught_exception' | 'unhandled_rejection';
 
 function deploymentMeta() {
@@ -57,6 +59,14 @@ function onRuntimeError(source: RuntimeErrorSource, error: unknown) {
     source,
     error: normalizeError(error)
   });
+
+  if (process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN) {
+    Sentry.captureException(error, {
+      tags: {
+        runtime_error_source: source
+      }
+    });
+  }
 }
 
 let registered = false;
@@ -67,6 +77,14 @@ export async function register() {
   }
 
   registered = true;
+
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    await import('./sentry.server.config');
+  }
+
+  if (process.env.NEXT_RUNTIME === 'edge') {
+    await import('./sentry.edge.config');
+  }
 
   logRuntimeEvent('info', 'runtime_boot', {
     uptimeSeconds: Math.round(process.uptime())

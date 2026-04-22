@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",
+    "@sentry/nextjs": "^10.49.0",
     "bullmq": "^5.49.1",
     "ioredis": "^5.4.1",
     "next": "^15.3.0",
