@@ -55,7 +55,16 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
       }
     }
   });
-  const contact = await db.contact.findUniqueOrThrow({ where: { id: contactId } });
+  const contact = await db.contact.findFirst({
+    where: {
+      id: contactId,
+      companyId
+    }
+  });
+
+  if (!contact) {
+    throw new Error('contact_not_found_for_company');
+  }
   const conversation = await db.conversation.findUniqueOrThrow({
     where: { companyId_contactId: { companyId, contactId } }
   });

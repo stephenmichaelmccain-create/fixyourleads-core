@@ -64,7 +64,17 @@ export async function storeInboundMessage(companyId: string, phone: string, cont
 }
 
 export async function sendOutboundMessage(companyId: string, contactId: string, content: string, eventType = 'manual_message_sent') {
-  const contact = await db.contact.findUniqueOrThrow({ where: { id: contactId } });
+  const contact = await db.contact.findFirst({
+    where: {
+      id: contactId,
+      companyId
+    }
+  });
+
+  if (!contact) {
+    throw new Error('contact_not_found_for_company');
+  }
+
   const company = await db.company.findUniqueOrThrow({
     where: { id: companyId },
     select: {

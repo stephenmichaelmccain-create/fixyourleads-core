@@ -15,9 +15,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'companyId_contactId_text_required' }, { status: 400 });
   }
 
-  const contact = await db.contact.findUnique({ where: { id: contactId } });
+  const contact = await db.contact.findFirst({
+    where: {
+      id: contactId,
+      companyId
+    }
+  });
   if (!contact) {
-    return NextResponse.json({ error: 'contact_not_found' }, { status: 404 });
+    return NextResponse.json({ error: 'contact_not_found_for_company' }, { status: 404 });
   }
 
   const { message } = await sendOutboundMessage(companyId, contactId, text);
