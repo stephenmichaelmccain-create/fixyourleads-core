@@ -3,7 +3,7 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { isDemoLabel } from '@/lib/demo';
 import { safeLoad } from '@/lib/ui-data';
-import { createProspectAction, updateProspectOutcomeAction } from './actions';
+import { createProspectAction, scheduleProspectCallbackAction, updateProspectOutcomeAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -368,6 +368,8 @@ export default async function OurLeadsPage({
                 ? 'Logged voicemail and queued the next touch for tomorrow.'
                 : updated === 'not_interested'
                   ? 'Marked not interested and scheduled a later retry.'
+                  : updated === 'callback'
+                    ? 'Scheduled the clinic to come back into the queue automatically.'
                   : updated === 'do_not_contact'
                     ? 'Suppressed this clinic from future outreach.'
                     : updated === 'booked'
@@ -825,6 +827,32 @@ export default async function OurLeadsPage({
                   </div>
                   <div className="tiny-muted">
                     Each outcome updates the status, logs the call, and sets the next action automatically.
+                  </div>
+                </form>
+
+                <form action={scheduleProspectCallbackAction} className="panel panel-stack">
+                  <div className="metric-label">Schedule callback</div>
+                  <input type="hidden" name="prospectId" value={selectedProspect.id} />
+                  <input type="hidden" name="q" value={searchQuery} />
+                  <input type="hidden" name="status" value={selectedStatus} />
+                  <input type="hidden" name="city" value={selectedCity} />
+                  <input type="hidden" name="nextActionDue" value={selectedDue} />
+                  <div className="inline-actions inline-actions-wrap">
+                    <button type="submit" className="button-secondary" name="preset" value="tomorrow">
+                      Tomorrow
+                    </button>
+                    <button type="submit" className="button-secondary" name="preset" value="3_days">
+                      3 days
+                    </button>
+                    <button type="submit" className="button-secondary" name="preset" value="1_week">
+                      1 week
+                    </button>
+                    <button type="submit" className="button-secondary" name="preset" value="1_month">
+                      1 month
+                    </button>
+                  </div>
+                  <div className="tiny-muted">
+                    Use presets when a clinic should come back later and you do not want the team to remember it manually.
                   </div>
                 </form>
 

@@ -39,6 +39,21 @@ function addDaysFromNow(days: number, hour: number) {
   return value;
 }
 
+function readCallbackPreset(preset: string) {
+  switch (preset) {
+    case 'tomorrow':
+      return { label: 'Tomorrow', nextActionAt: addDaysFromNow(1, 9) };
+    case '3_days':
+      return { label: '3 days', nextActionAt: addDaysFromNow(3, 10) };
+    case '1_week':
+      return { label: '1 week', nextActionAt: addDaysFromNow(7, 10) };
+    case '1_month':
+      return { label: '1 month', nextActionAt: addDaysFromNow(30, 10) };
+    default:
+      return null;
+  }
+}
+
 function buildOurLeadsHref({
   prospectId,
   q,
@@ -281,6 +296,67 @@ export async function updateProspectOutcomeAction(formData: FormData) {
       city,
       nextActionDue,
       updated: outcome
+    })
+  );
+}
+
+export async function scheduleProspectCallbackAction(formData: FormData) {
+  const prospectId = readText(formData, 'prospectId');
+  const preset = readText(formData, 'preset');
+  const q = readText(formData, 'q');
+  const status = readText(formData, 'status');
+  const city = readText(formData, 'city');
+  const nextActionDue = readText(formData, 'nextActionDue');
+
+  if (!prospectId) {
+    redirect(buildOurLeadsHref({ q, status, city, nextActionDue }));
+  }
+
+  const callbackPlan = readCallbackPreset(preset);
+
+  if (!callbackPlan) {
+    redirect(buildOurLeadsHref({ prospectId, q, status, city, nextActionDue }));
+  }
+
+  const existing = await db.prospect.findUnique({
+    where: { id: prospectId },
+    select: {
+      id: true
+    }
+  });
+
+  if (!existing) {
+    redirect(buildOurLeadsHref({ q, status, city, nextActionDue }));
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.prospect.update({
+      where: { id: prospectId },
+      data: {
+        status: ProspectStatus.GATEKEEPER,
+        nextActionAt: callbackPlan.nextActionAt,
+        lastCallOutcome: `Call back later - ${callbackPlan.label}`
+      }
+    });
+
+    await tx.callLog.create({
+      data: {
+        prospectId,
+        outcome: `Scheduled callback - ${callbackPlan.label}`,
+        notes: `Callback preset chosen: ${callbackPlan.label}.`
+      }
+    });
+  });
+
+  revalidatePath('/our-leads');
+  redirect(
+    buildOurLeadsHref({
+      prospectId,
+      q,
+      status,
+      city,
+      nextActionDue,
+      updated: 'callback'
     })
   );
 }
