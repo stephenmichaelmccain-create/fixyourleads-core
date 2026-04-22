@@ -272,6 +272,10 @@ select {
   line-height: 1.7;
 }
 
+.page-copy-inverse {
+  color: rgba(255, 255, 255, 0.78);
+}
+
 .section-grid,
 .panel-grid,
 .metric-grid,
@@ -302,6 +306,16 @@ select {
   border-radius: 24px;
   padding: 20px;
   box-shadow: 0 12px 32px rgba(52, 16, 88, 0.05);
+}
+
+.panel-success {
+  border-color: rgba(26, 156, 89, 0.22);
+  background: linear-gradient(180deg, rgba(246, 255, 250, 0.98), rgba(236, 255, 244, 0.98));
+}
+
+.panel-attention {
+  border-color: rgba(212, 71, 88, 0.22);
+  background: linear-gradient(180deg, rgba(255, 247, 248, 0.98), rgba(255, 236, 239, 0.98));
 }
 
 .panel-dark,
@@ -985,6 +999,84 @@ select {
   transform: translateY(-2px);
   box-shadow: 0 18px 42px rgba(52, 16, 88, 0.12);
   border-color: rgba(176, 137, 244, 0.34);
+}
+
+.workflow-grid,
+.workflow-meta-grid,
+.workflow-columns,
+.workflow-chip-grid,
+.workflow-code-list {
+  display: grid;
+  gap: 16px;
+}
+
+.workflow-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.workflow-card {
+  align-content: start;
+}
+
+.workflow-meta-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.workflow-columns {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.workflow-column {
+  display: grid;
+  gap: 12px;
+}
+
+.workflow-stage-list {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 10px;
+  color: var(--fyl-black);
+}
+
+.workflow-chip-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.workflow-chip {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(215, 194, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.workflow-chip strong {
+  color: var(--fyl-white);
+}
+
+.workflow-chip span {
+  color: rgba(255, 255, 255, 0.74);
+  line-height: 1.5;
+}
+
+.workflow-code-list {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.workflow-code-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(176, 137, 244, 0.18);
+  background: linear-gradient(180deg, rgba(248, 243, 255, 0.98), rgba(242, 233, 255, 0.98));
+  color: var(--fyl-accent-strong);
+  font-size: 0.9rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .workspace-list {

@@ -39,6 +39,10 @@ export default async function DiagnosticsPage() {
   const health = await getRuntimeHealth();
   const env = health.env;
   const lastUpdated = new Date(health.timestamp);
+  type HealthCheck = { status: string; detail?: string | null };
+  const missingRequiredEnv = health.missingRequiredEnv ?? [];
+  const failingChecks = (Object.values(health.checks) as HealthCheck[]).filter((check) => check.status !== 'ok');
+  const queueIssues = health.queueHealth.filter((queue) => queue.status !== 'ok');
 
   return (
     <LayoutShell
@@ -47,13 +51,46 @@ export default async function DiagnosticsPage() {
       section="diagnostics"
     >
       <div className="panel-grid">
-        <section className={`panel panel-stack${health.ok ? '' : ''}`}>
+        <section className={`panel panel-stack ${health.ok ? 'panel-success' : 'panel-attention'}`}>
           <div className="metric-label">Overall readiness</div>
           <h2 className="section-title section-title-large">{health.ok ? 'Ready to operate' : 'Needs attention'}</h2>
           <p className="page-copy">
             The product should stay lean, but it still needs honest runtime checks. This view is the fastest way to know whether the
             system can safely run live outreach and booking flows.
           </p>
+          <div className="action-cluster">
+            <span className={`readiness-pill ${health.ok ? 'is-ready' : 'is-warn'}`}>{health.ok ? 'All clear' : 'Action needed'}</span>
+            <span className={`readiness-pill ${missingRequiredEnv.length === 0 ? 'is-ready' : 'is-warn'}`}>
+              {missingRequiredEnv.length === 0 ? 'Required env set' : `${missingRequiredEnv.length} required env missing`}
+            </span>
+            <span className={`readiness-pill ${failingChecks.length === 0 ? 'is-ready' : 'is-warn'}`}>
+              {failingChecks.length === 0 ? 'Checks passing' : `${failingChecks.length} checks failing`}
+            </span>
+            <span className={`readiness-pill ${queueIssues.length === 0 ? 'is-ready' : 'is-warn'}`}>
+              {queueIssues.length === 0 ? 'Queues ok' : `${queueIssues.length} queue issue${queueIssues.length === 1 ? '' : 's'}`}
+            </span>
+          </div>
+          {missingRequiredEnv.length > 0 ? (
+            <div className="tiny-muted">
+              Missing required env: {missingRequiredEnv.slice(0, 4).join(', ')}
+              {missingRequiredEnv.length > 4 ? ` +${missingRequiredEnv.length - 4} more` : ''}
+            </div>
+          ) : null}
+          {!health.ok ? (
+            <div className="inline-actions">
+              <a className="button-secondary" href="#dependency-checks">
+                Dependency checks
+              </a>
+              {missingRequiredEnv.length > 0 ? (
+                <a className="button-secondary" href="#missing-required-env">
+                  Missing env
+                </a>
+              ) : null}
+              <a className="button-ghost" href="#telnyx-webhook">
+                Telnyx webhook
+              </a>
+            </div>
+          ) : null}
         </section>
 
         <section className="panel panel-stack">
@@ -75,6 +112,23 @@ export default async function DiagnosticsPage() {
               <span className="key-value-label">Node</span>
               <span>{health.deployment.nodeEnv || 'unset'}</span>
             </div>
+          </div>
+        </section>
+
+        <section className="panel panel-stack">
+          <div className="metric-label">Workflow visibility</div>
+          <h2 className="section-title">See how the live system is wired</h2>
+          <p className="page-copy">
+            Open the workflow map to see the real routes, workers, data records, and external systems behind lead intake, messaging,
+            booking, and health checks.
+          </p>
+          <div className="inline-actions">
+            <a className="button-secondary" href="/diagnostics/workflows">
+              Open workflow map
+            </a>
+            <a className="button-ghost" href="/events">
+              Audit trail
+            </a>
           </div>
         </section>
 
@@ -249,18 +303,45 @@ export default async function DiagnosticsPage() {
 
       <section className="panel panel-stack">
         <div className="metric-label">Telnyx routing readiness</div>
-          <div className="key-value-grid">
-            <div className="key-value-card"><span className="key-value-label">Companies</span>{health.telnyx.companiesTotal}</div>
-          <div className="key-value-card"><span className="key-value-label">Routing ready</span>{health.telnyx.companiesWithRouting}</div>
-          <div className="key-value-card"><span className="key-value-label">Missing routing</span>{health.telnyx.companiesMissingRouting}</div>
-          <div className="key-value-card"><span className="key-value-label">Missing clinic email</span>{health.telnyx.companiesMissingNotification}</div>
-          <div className="key-value-card"><span className="key-value-label">Multi-number clinics</span>{health.telnyx.multiNumberCompanies.length}</div>
-          <div className="key-value-card"><span className="key-value-label">Routing conflicts</span>{health.telnyx.routingConflicts.length}</div>
-          <div className="key-value-card"><span className="key-value-label">Webhook URL</span>{health.telnyx.webhookUrl || 'needs APP_BASE_URL'}</div>
-          <div className="key-value-card"><span className="key-value-label">Signature mode</span>{health.telnyx.signatureVerificationEnabled ? 'strict' : 'not enforced'}</div>
-          <div className="key-value-card"><span className="key-value-label">Replay window</span>{`${health.telnyx.signatureMaxAgeSeconds}s`}</div>
+        <div className="key-value-grid">
+          <div className="key-value-card">
+            <span className="key-value-label">Companies</span>
+            {health.telnyx.companiesTotal}
           </div>
-        </section>
+          <div className="key-value-card">
+            <span className="key-value-label">Routing ready</span>
+            {health.telnyx.companiesWithRouting}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Missing routing</span>
+            {health.telnyx.companiesMissingRouting}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Missing clinic email</span>
+            {health.telnyx.companiesMissingNotification}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Multi-number clinics</span>
+            {health.telnyx.multiNumberCompanies.length}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Routing conflicts</span>
+            {health.telnyx.routingConflicts.length}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Webhook URL</span>
+            {health.telnyx.webhookUrl || 'needs APP_BASE_URL'}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Signature mode</span>
+            {health.telnyx.signatureVerificationEnabled ? 'strict' : 'not enforced'}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Replay window</span>
+            {`${health.telnyx.signatureMaxAgeSeconds}s`}
+          </div>
+        </div>
+      </section>
 
         <section className="panel panel-stack">
           <div className="metric-label">External connectivity</div>
@@ -287,8 +368,8 @@ export default async function DiagnosticsPage() {
               <span className="key-value-label">MCP token</span>{health.mcp.tokenConfigured ? 'set' : 'missing'}
             </div>
           </div>
-          <div className="text-muted">{health.telnyx.apiDetail || 'Telnyx API probe details pending'}</div>
-          <div className="text-muted">{health.mcp.connectivityDetail || 'MCP connectivity probe details pending'}</div>
+          <div className="text-muted">{health.telnyx.apiDetail || 'No Telnyx API probe detail returned.'}</div>
+          <div className="text-muted">{health.mcp.connectivityDetail || 'No MCP connectivity probe detail returned.'}</div>
         </section>
 
       <section className="panel panel-stack">
@@ -321,7 +402,7 @@ export default async function DiagnosticsPage() {
         )}
       </section>
 
-      <section className="panel panel-stack">
+      <section id="telnyx-webhook" className="panel panel-stack">
         <div className="metric-label">Telnyx webhook setup</div>
         <ul className="list-clean">
           <li>Point the Telnyx messaging profile or number webhook at <code>{health.telnyx.webhookUrl || '/api/webhooks/telnyx'}</code>.</li>
@@ -338,7 +419,7 @@ export default async function DiagnosticsPage() {
         </ul>
       </section>
 
-      <section className="panel panel-stack">
+      <section id="dependency-checks" className="panel panel-stack">
         <div className="metric-label">Dependency checks</div>
         <ul className="status-list">
           <li className="status-item">
@@ -421,11 +502,11 @@ export default async function DiagnosticsPage() {
         </ul>
       </section>
 
-      {health.missingRequiredEnv.length > 0 && (
-        <section className="panel panel-stack">
+      {missingRequiredEnv.length > 0 && (
+        <section id="missing-required-env" className="panel panel-stack">
           <div className="metric-label">Missing required env vars</div>
           <ul className="list-clean">
-            {health.missingRequiredEnv.map((name) => (
+            {missingRequiredEnv.map((name) => (
               <li key={name}>{name}</li>
             ))}
           </ul>
