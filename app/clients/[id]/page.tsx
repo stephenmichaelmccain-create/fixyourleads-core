@@ -148,6 +148,51 @@ function formatDurationCompact(ms: number | null) {
   return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
 }
 
+function buildClientHealthBanner(options: {
+  setupGaps: string[];
+  needsReplyCount: number;
+  deliveryIssueCount: number;
+  awaitingDeliveryCount: number;
+}) {
+  if (options.setupGaps.length > 0) {
+    return {
+      tone: 'error' as const,
+      label: 'At Risk',
+      reason: `${options.setupGaps.join(', ')} ${options.setupGaps.length === 1 ? 'is' : 'are'} still missing.`
+    };
+  }
+
+  if (options.needsReplyCount > 0) {
+    return {
+      tone: 'warn' as const,
+      label: 'Attention Needed',
+      reason: `AI flagged ${options.needsReplyCount} conversation${options.needsReplyCount === 1 ? '' : 's'} needing a human reply.`
+    };
+  }
+
+  if (options.deliveryIssueCount > 0) {
+    return {
+      tone: 'warn' as const,
+      label: 'Attention Needed',
+      reason: `${options.deliveryIssueCount} outbound message${options.deliveryIssueCount === 1 ? '' : 's'} failed delivery and need review.`
+    };
+  }
+
+  if (options.awaitingDeliveryCount > 0) {
+    return {
+      tone: 'warn' as const,
+      label: 'Attention Needed',
+      reason: `${options.awaitingDeliveryCount} recent message${options.awaitingDeliveryCount === 1 ? '' : 's'} are still waiting on carrier confirmation.`
+    };
+  }
+
+  return {
+    tone: 'ok' as const,
+    label: 'Healthy',
+    reason: 'Everything running smooth.'
+  };
+}
+
 function parseOperatorQueue(value?: string): OperatorQueueState | undefined {
   return operatorQueueStates.includes(value as OperatorQueueState) ? (value as OperatorQueueState) : undefined;
 }
@@ -437,6 +482,7 @@ export default async function ClientWorkspacePage({
   const bookingFlash = buildBookingFlash(query);
   const leadStatusFlash = buildLeadStatusFlash(query);
   const windowStart = startOfTrailingDays(windowDays);
+  const weekStart = startOfTrailingDays(7);
 
   const company = await safeLoad(
     () =>
@@ -468,7 +514,7 @@ export default async function ClientWorkspacePage({
     [{ id: company.id, name: company.name }]
   );
 
-  const [allWindowLeads, allSources, upcomingBookings, sequenceLeadCounts, intakeEvents] = await Promise.all([
+  const [allWindowLeads, allSources, upcomingBookings, sequenceLeadCounts, intakeEvents, weeklyStats] = await Promise.all([
     safeLoad(
       () =>
         db.lead.findMany({
@@ -559,6 +605,41 @@ export default async function ClientWorkspacePage({
           }
         }),
       []
+    ),
+    safeLoad(
+      async () => {
+        const [newLeadsThisWeek, appointmentsThisWeek, messagesThisWeek] = await Promise.all([
+          db.lead.count({
+            where: {
+              companyId: id,
+              createdAt: { gte: weekStart }
+            }
+          }),
+          db.appointment.count({
+            where: {
+              companyId: id,
+              createdAt: { gte: weekStart }
+            }
+          }),
+          db.message.count({
+            where: {
+              companyId: id,
+              createdAt: { gte: weekStart }
+            }
+          })
+        ]);
+
+        return {
+          newLeadsThisWeek,
+          appointmentsThisWeek,
+          messagesThisWeek
+        };
+      },
+      {
+        newLeadsThisWeek: 0,
+        appointmentsThisWeek: 0,
+        messagesThisWeek: 0
+      }
     )
   ]);
 
@@ -790,12 +871,6 @@ export default async function ClientWorkspacePage({
     !hasInboundRouting(company) ? 'Inbound routing number' : null,
     !company.notificationEmail ? 'Client notification email' : null
   ].filter(Boolean) as string[];
-  const firstTouchSamples = allWindowLeads
-    .filter((lead) => lead.lastContactedAt && lead.lastContactedAt >= lead.createdAt)
-    .map((lead) => lead.lastContactedAt!.getTime() - lead.createdAt.getTime());
-  const avgFirstTouchMs = firstTouchSamples.length
-    ? Math.round(firstTouchSamples.reduce((sum, value) => sum + value, 0) / firstTouchSamples.length)
-    : null;
   const latestBooking = upcomingBookings[0] || null;
   const latestSignupEvent = intakeEvents.find((event) => event.eventType === 'client_signup_received') || null;
   const latestOnboardingEvent = intakeEvents.find((event) => event.eventType === 'client_onboarding_received') || null;
@@ -823,99 +898,17 @@ export default async function ClientWorkspacePage({
         ? latestOnboardingPayload.notificationEmail
         : '';
 
-  const snapshotCards = [
-    { label: 'Leads received', value: String(allWindowLeads.length), detail: `${windowDays}-day window` },
-    {
-      label: 'Avg first touch',
-      value: formatDurationCompact(avgFirstTouchMs),
-      detail: firstTouchSamples.length
-        ? `${firstTouchSamples.length} leads with an outbound touch`
-        : 'No outbound touches recorded yet'
-    },
-    { label: 'Reply rate', value: replyRate(leadCounts.REPLIED + leadCounts.BOOKED, allWindowLeads.length), detail: 'Replied or booked' },
-    { label: 'Bookings created', value: String(leadCounts.BOOKED), detail: `${windowDays}-day window` },
-    { label: 'Booking conversion', value: bookingRate(leadCounts.BOOKED, allWindowLeads.length), detail: 'Bookings / leads' }
+  const weeklySnapshotCards = [
+    { label: 'New leads this week', value: String(weeklyStats.newLeadsThisWeek), detail: 'Fresh leads captured for this client' },
+    { label: 'Appointments this week', value: String(weeklyStats.appointmentsThisWeek), detail: 'Bookings created in the last 7 days' },
+    { label: 'Messages this week', value: String(weeklyStats.messagesThisWeek), detail: 'Sent and received conversations combined' }
   ];
-
-  const sequenceRows = [
-    {
-      name: 'New lead response',
-      triggered: leadCounts.NEW + leadCounts.CONTACTED,
-      state: leadCounts.NEW + leadCounts.CONTACTED > 0 ? 'Live' : 'Clear',
-      detail:
-        leadCounts.NEW + leadCounts.CONTACTED > 0
-          ? 'Fresh leads still moving through first-touch and reply handling.'
-          : 'No untouched leads waiting on first-touch work.',
-      href: buildClientHref(
-        company.id,
-        { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage },
-        {
-          queue: queueCounts.no_thread > 0 ? 'no_thread' : 'waiting_on_contact',
-          page: 1
-        }
-      )
-    },
-    {
-      name: 'Reply handling',
-      triggered: queueCounts.needs_reply,
-      state: queueCounts.needs_reply > 0 ? 'Needs action' : 'Clear',
-      detail:
-        queueCounts.needs_reply > 0
-          ? 'Inbound texts are waiting on an operator reply right now.'
-          : 'No inbound threads are stalled waiting for a human reply.',
-      href: buildClientHref(
-        company.id,
-        { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage },
-        {
-          queue: 'needs_reply',
-          page: 1
-        }
-      )
-    },
-    {
-      name: 'Delivery recovery',
-      triggered: queueCounts.delivery_issue + queueCounts.awaiting_delivery,
-      state:
-        queueCounts.delivery_issue > 0
-          ? 'Needs action'
-          : queueCounts.awaiting_delivery > 0
-            ? 'Watching'
-            : 'Clear',
-      detail:
-        queueCounts.delivery_issue > 0
-          ? 'At least one outbound text failed and needs manual attention.'
-          : queueCounts.awaiting_delivery > 0
-            ? 'Recent sends are still waiting on carrier confirmation.'
-            : 'No delivery issues are blocking the active queue.',
-      href: buildClientHref(
-        company.id,
-        { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage },
-        {
-          queue: queueCounts.delivery_issue > 0 ? 'delivery_issue' : 'awaiting_delivery',
-          page: 1
-        }
-      )
-    },
-    {
-      name: 'Booked follow-up',
-      triggered: upcomingBookings.length,
-      state: upcomingBookings.length > 0 ? 'Active' : 'Idle',
-      detail: latestBooking
-        ? `Next appointment is ${formatCompactDateTime(latestBooking.startTime)}.`
-        : 'No bookings are scheduled in the next 14 days.',
-      href: '#bookings'
-    },
-    {
-      name: 'Client setup',
-      triggered: setupGaps.length,
-      state: setupGaps.length > 0 ? 'Needs setup' : 'Ready',
-      detail:
-        setupGaps.length > 0
-          ? setupGaps.join(', ')
-          : 'Routing and notifications are configured for this client.',
-      href: '#setup'
-    }
-  ];
+  const clientHealthBanner = buildClientHealthBanner({
+    setupGaps,
+    needsReplyCount: queueCounts.needs_reply,
+    deliveryIssueCount: queueCounts.delivery_issue,
+    awaitingDeliveryCount: queueCounts.awaiting_delivery
+  });
   const selectedThreadHref = selectedConversation
     ? buildClientHref(
         company.id,
@@ -1000,18 +993,6 @@ export default async function ClientWorkspacePage({
         </section>
       )}
 
-      {!selectedConversationId && !selectedLeadId && defaultSelectedRow ? (
-        <section className="panel panel-stack">
-          <div className="inline-row">
-            <span className="status-dot ok" />
-            <strong>Work rail auto-opened.</strong>
-          </div>
-          <div className="text-muted">
-            Opened {defaultSelectedRow.lead.contact.name || 'the top-priority lead'} from the current queue so the operator can act immediately.
-          </div>
-        </section>
-      ) : null}
-
       {sendFlash && (
         <section className="panel panel-stack">
           <div className="inline-row">
@@ -1045,50 +1026,26 @@ export default async function ClientWorkspacePage({
       <section className="panel panel-stack">
         <div className="record-header">
           <div className="panel-stack">
-            <div className="metric-label">Client workspace</div>
+            <div className="metric-label">Client health</div>
             <div className="inline-row">
               <h2 className="section-title section-title-large">{company.name}</h2>
               {isDemoLabel(company.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
             </div>
-            <div className="inline-row">
-              <span className={`status-chip ${setupGaps.length > 0 ? 'status-chip-attention' : ''}`}>
-                <span className={`status-dot ${setupGaps.length > 0 ? 'warn' : 'ok'}`} />
-                {setupGaps.length > 0 ? `${setupGaps.length} setup gap${setupGaps.length === 1 ? '' : 's'}` : 'Healthy'}
-              </span>
-              {setupGaps.length > 0 ? <span className="readiness-pill is-warn">Fix setup before trusting automation</span> : null}
-            </div>
+            <span className={`status-chip ${clientHealthBanner.tone === 'error' || clientHealthBanner.tone === 'warn' ? 'status-chip-attention' : ''}`}>
+              <span className={`status-dot ${clientHealthBanner.tone === 'error' ? 'error' : clientHealthBanner.tone === 'warn' ? 'warn' : 'ok'}`} />
+              {clientHealthBanner.label}
+            </span>
+            <div className="record-subtitle">{clientHealthBanner.reason}</div>
           </div>
           <div className="panel-stack" style={{ alignItems: 'flex-end' }}>
-            {topPriorityRow ? (
-              <div className="context-alert is-compact">
-                <div className="panel-stack">
-                  <div className="metric-label">Work next</div>
-                  <div>
-                    {topPriorityRow.lead.contact.name || 'Unknown lead'} • {operatorQueueLabel(topPriorityQueue!)}
-                  </div>
-                  <div className="tiny-muted">
-                    {topPriorityRow.lead.source || 'Unknown source'} • {formatCompactDateTime(latestLeadActivity(topPriorityRow.lead))}
-                  </div>
-                </div>
-                <div className="inline-actions">
-                  <a className="button" href={topPriorityHref}>
-                    Open next lead
-                  </a>
-                </div>
-              </div>
-            ) : null}
             <div className="inline-actions">
-              <span className={`status-chip ${urgentQueueCount > 0 ? 'status-chip-attention' : 'status-chip-muted'}`}>
-                <strong>Urgent queue</strong> {urgentQueueCount}
-              </span>
-              <a className="button-secondary" href={`/diagnostics/clients/${company.id}`}>
-                Client Health
-              </a>
+              {topPriorityRow ? (
+                <a className="button" href={topPriorityHref}>
+                  Work next
+                </a>
+              ) : null}
               <a className="button-secondary" href="#transcript-panel">
-                Open Conversations
-              </a>
-              <a className="button-secondary" href="#bookings">
-                View Bookings
+                Messages
               </a>
               <a className="button" href="#setup">
                 Edit Profile
@@ -1121,27 +1078,12 @@ export default async function ClientWorkspacePage({
       <section className="panel panel-stack">
         <div className="record-header">
           <div className="panel-stack">
-            <div className="metric-label">Performance snapshot</div>
-            <h2 className="section-title">Numbers first. No charts yet.</h2>
-          </div>
-          <div className="filter-bar">
-            {[7, 30, 90].map((value) => (
-              <a
-                key={value}
-                className={`filter-chip ${windowDays === value ? 'is-active' : ''}`}
-                href={buildClientHref(
-                  company.id,
-                  { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage },
-                  { window: value, page: 1 }
-                )}
-              >
-                {value} days
-              </a>
-            ))}
+            <div className="metric-label">This week's numbers</div>
+            <h2 className="section-title">The three numbers that matter first.</h2>
           </div>
         </div>
         <div className="metric-grid">
-          {snapshotCards.map((card) => (
+          {weeklySnapshotCards.map((card) => (
             <section key={card.label} className="metric-card">
               <div className="metric-label">{card.label}</div>
               <div className="metric-value">{card.value}</div>
@@ -1155,12 +1097,17 @@ export default async function ClientWorkspacePage({
         <section id="leads" className="panel panel-stack">
           <div className="record-header">
             <div className="panel-stack">
-              <div className="metric-label">Leads table</div>
-              <h2 className="section-title">The main work surface for this client.</h2>
+              <div className="metric-label">Client leads</div>
+              <h2 className="section-title">Open the next lead, reply fast, and keep the queue moving.</h2>
             </div>
-            <span className="status-chip status-chip-muted">
-              <strong>Page</strong> {currentPage} / {totalPages}
-            </span>
+            <div className="inline-actions">
+              <span className={`status-chip ${urgentQueueCount > 0 ? 'status-chip-attention' : 'status-chip-muted'}`}>
+                <strong>Needs action</strong> {urgentQueueCount}
+              </span>
+              <span className="status-chip status-chip-muted">
+                <strong>Page</strong> {currentPage} / {totalPages}
+              </span>
+            </div>
           </div>
 
           <form className="workspace-filter-form" action={`/clients/${company.id}`}>
@@ -1236,58 +1183,6 @@ export default async function ClientWorkspacePage({
               </a>
             </div>
           </form>
-
-          <div className="queue-card-grid">
-            {operatorQueueStates.map((value) => {
-              const nextRow = nextLeadByQueue[value];
-              const queueHref = buildClientHref(
-                company.id,
-                { window: windowDays, status, source, queue, sort, dir, page: currentPage },
-                { queue: value, page: 1 }
-              );
-
-              return (
-                <section key={value} className={`queue-card${queue === value ? ' is-active' : ''}`}>
-                  <div className="workspace-list-header">
-                    <div className="panel-stack">
-                      <div className="metric-label">{operatorQueueLabel(value)}</div>
-                      <div className="queue-card-count">{queueCounts[value]}</div>
-                    </div>
-                    <span
-                      className={`status-chip ${
-                        value === 'needs_reply' || value === 'delivery_issue'
-                          ? 'status-chip-attention'
-                          : 'status-chip-muted'
-                      }`}
-                    >
-                      {queueCounts[value] > 0 ? 'Active' : 'Clear'}
-                    </span>
-                  </div>
-                  <div className="metric-copy">{operatorQueueDescription(value)}</div>
-                  {nextRow ? (
-                    <div className="queue-card-next">
-                      <strong>{nextRow.lead.contact.name || 'Unknown lead'}</strong>
-                      <span>
-                        {nextRow.lead.source || 'Unknown source'} • {formatCompactDateTime(latestLeadActivity(nextRow.lead))}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="queue-card-next is-empty">Nothing waiting in this queue right now.</div>
-                  )}
-                  <div className="workspace-list-actions">
-                    <a className="workspace-action-pill workspace-action-pill-muted" href={queueHref}>
-                      Open queue
-                    </a>
-                    {nextRow ? (
-                      <a className="workspace-action-pill" href={nextRow.href}>
-                        Work next
-                      </a>
-                    ) : null}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
 
           <div className="filter-bar">
             <a
@@ -1416,7 +1311,7 @@ export default async function ClientWorkspacePage({
         </section>
 
         <aside id="transcript-panel" className="panel panel-stack client-side-panel">
-          <div className="metric-label">Conversation thread</div>
+          <div className="metric-label">Messages</div>
           {selectedConversation ? (
             <>
               {(() => {
@@ -1796,53 +1691,8 @@ export default async function ClientWorkspacePage({
         </aside>
       </div>
 
-      <section id="sequences" className="panel panel-stack">
-        <div className="metric-label">Workflow coverage</div>
-        <h2 className="section-title">What is live, what is blocked, and where to jump next.</h2>
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Workflow</th>
-                <th>Current load</th>
-                <th>State</th>
-                <th>What it is watching</th>
-                <th>Jump</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sequenceRows.map((row) => (
-                <tr key={row.name}>
-                  <td>{row.name}</td>
-                  <td>{row.triggered}</td>
-                  <td>
-                    <span
-                      className={`status-chip ${
-                        row.state === 'Needs action'
-                          ? 'status-chip-attention'
-                          : row.state === 'Clear' || row.state === 'Idle'
-                            ? 'status-chip-muted'
-                            : ''
-                      }`}
-                    >
-                      {row.state}
-                    </span>
-                  </td>
-                  <td>{row.detail}</td>
-                  <td>
-                    <a className="button-secondary" href={row.href}>
-                      Open
-                    </a>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       <section id="bookings" className="panel panel-stack">
-        <div className="metric-label">Upcoming bookings</div>
+        <div className="metric-label">Appointments</div>
         <h2 className="section-title">Next 14 days.</h2>
         <div className="table-wrap">
           <table className="data-table">
