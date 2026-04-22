@@ -20,7 +20,7 @@ Core runtime flow:
 1. lead or signup reaches the app through a webhook or internal create route
 2. Prisma writes the source-of-truth records in Postgres
 3. BullMQ workers pick up slow or async work like lead processing and message handling
-4. operators work mostly from `/our-leads`, `/clients`, `/clients/[id]`, and `/conversations/[id]`
+4. operators work mostly from `/leads`, `/clients`, `/clients/[id]`, and `/messages`
 5. Telnyx powers SMS and routing, while diagnostics and `/events` show the live operational truth
 
 ## Start here
@@ -94,7 +94,7 @@ Inbound SMS is routed by the destination number so multiple clients can safely s
 - `POST /api/webhooks/lead`
 - `POST /api/internal/leads/import/google-maps`
 
-These feed the outbound `Our Leads` workflow.
+These feed the outbound Leads workflow.
 
 ## Current routes
 - POST /api/webhooks/lead
@@ -115,15 +115,16 @@ These feed the outbound `Our Leads` workflow.
 - `npm test` runs the webhook payload normalization tests for the live website form shapes.
 
 ## Current pages
-- `/`
-- `/our-leads`
-- `/clients`
-- `/clients/[id]`
-- `/clients/intake`
-- `/conversations/[conversationId]`
-- `/bookings`
-- `/events`
-- `/diagnostics`
+- `/` — morning check dashboard
+- `/clients` — paying client list
+- `/clients/[id]` — main client workspace
+- `/clients/new` — lightweight new-client setup flow
+- `/clients/intake` — sold-to-signup bridge
+- `/leads` — outbound prospecting board
+- `/messages` — unified inbox across clients
+- `/conversations/[conversationId]` — full thread detail
+- `/admin/system` — simplified system status
+- `/admin/activity` — activity log
 - `/diagnostics/queues`
 - `/diagnostics/workflows`
 - `/diagnostics/clients/[id]`

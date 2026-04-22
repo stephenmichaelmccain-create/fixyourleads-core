@@ -266,7 +266,7 @@ function buildPageHref({
   }
 
   const query = params.toString();
-  return query ? `/our-leads?${query}` : '/our-leads';
+  return query ? `/leads?${query}` : '/leads';
 }
 
 function statusChipClass(status: ProspectStatus) {
@@ -440,9 +440,9 @@ export default async function OurLeadsPage({
 
   return (
     <LayoutShell
-      title="Our Leads"
-      description="Work the clinic prospect queue in one screen: add new targets, filter the board fast, and open notes and call history without losing the list."
-      section="our-leads"
+      title="Leads"
+      description="Work the clinic prospect queue in one screen: call, log the outcome, and let the next-action list tell you who comes back next."
+      section="leads"
       variant="workspace"
     >
       {updated && (
@@ -713,7 +713,7 @@ export default async function OurLeadsPage({
               </div>
             </div>
 
-            <form action="/our-leads" className="workspace-filter-form">
+            <form action="/leads" className="workspace-filter-form">
               <div className="workspace-filter-row">
                 <div className="field-stack">
                   <label className="key-value-label" htmlFor="our-leads-search">
@@ -773,7 +773,7 @@ export default async function OurLeadsPage({
                 <button type="submit" className="button-secondary">
                   Apply filters
                 </button>
-                <a className="button-ghost" href="/our-leads">
+                <a className="button-ghost" href="/leads">
                   Reset
                 </a>
               </div>

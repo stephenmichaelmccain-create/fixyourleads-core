@@ -1,11 +1,10 @@
-import { LayoutShell } from '@/app/components/LayoutShell';
-import { createCompanyAction } from '@/app/companies/actions';
 import { ProspectStatus } from '@prisma/client';
+import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
-import { isDemoLabel } from '@/lib/demo';
-import { intakeStageDetails, normalizeClinicKey, parseProspectMetadata } from '@/lib/client-intake';
-import { safeLoad } from '@/lib/ui-data';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
+import { intakeStageDetails, normalizeClinicKey, parseProspectMetadata } from '@/lib/client-intake';
+import { isLikelyTestWorkspaceName } from '@/lib/test-workspaces';
+import { safeLoad } from '@/lib/ui-data';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -17,17 +16,35 @@ function startOfTrailingDays(days: number) {
   return value;
 }
 
-function latestDate(values: Array<Date | null | undefined>) {
-  const valid = values.filter((value): value is Date => Boolean(value));
-
-  if (valid.length === 0) {
-    return null;
+function healthState(options: {
+  unreadMessages: number;
+  hasRouting: boolean;
+  hasNotificationEmail: boolean;
+}) {
+  if (!options.hasRouting || !options.hasNotificationEmail) {
+    return {
+      tone: 'error' as const,
+      label: 'At risk',
+      reason: !options.hasRouting ? 'Routing missing' : 'Notification email missing'
+    };
   }
 
-  return new Date(Math.max(...valid.map((value) => value.getTime())));
+  if (options.unreadMessages > 0) {
+    return {
+      tone: 'warn' as const,
+      label: 'Attention',
+      reason: `${options.unreadMessages} unread message${options.unreadMessages === 1 ? '' : 's'}`
+    };
+  }
+
+  return {
+    tone: 'ok' as const,
+    label: 'Healthy',
+    reason: 'Everything running smooth'
+  };
 }
 
-function formatRelativeTime(value: Date | null) {
+function formatRelativeDay(value: Date | null) {
   if (!value) {
     return 'No activity yet';
   }
@@ -54,7 +71,6 @@ export default async function ClientsPage({
   }
 
   const weekStart = startOfTrailingDays(7);
-  const idleThreshold = new Date(Date.now() - 1000 * 60 * 60 * 48);
 
   const clients = await safeLoad(
     () =>
@@ -65,14 +81,18 @@ export default async function ClientsPage({
             select: { number: true }
           },
           leads: {
+            where: {
+              createdAt: { gte: weekStart }
+            },
             select: { createdAt: true },
-            orderBy: { createdAt: 'desc' },
-            take: 1
+            orderBy: { createdAt: 'desc' }
           },
           appointments: {
+            where: {
+              createdAt: { gte: weekStart }
+            },
             select: { createdAt: true, startTime: true },
-            orderBy: [{ createdAt: 'desc' }, { startTime: 'desc' }],
-            take: 1
+            orderBy: [{ createdAt: 'desc' }, { startTime: 'desc' }]
           },
           events: {
             select: { createdAt: true },
@@ -84,32 +104,27 @@ export default async function ClientsPage({
     []
   );
 
-  const clientIds = clients.map((client) => client.id);
-  const [leadsThisWeekRows, bookingsThisWeekRows, soldProspects] = await Promise.all([
-    clientIds.length > 0
+  const liveClients = clients.filter((client) => !isLikelyTestWorkspaceName(client.name));
+  const companyIds = liveClients.map((client) => client.id);
+
+  const [conversationRows, soldProspects] = await Promise.all([
+    companyIds.length > 0
       ? safeLoad(
           () =>
-            db.lead.groupBy({
-              by: ['companyId'],
+            db.conversation.findMany({
               where: {
-                companyId: { in: clientIds },
-                createdAt: { gte: weekStart }
+                companyId: { in: companyIds }
               },
-              _count: { _all: true }
-            }),
-          []
-        )
-      : Promise.resolve([]),
-    clientIds.length > 0
-      ? safeLoad(
-          () =>
-            db.appointment.groupBy({
-              by: ['companyId'],
-              where: {
-                companyId: { in: clientIds },
-                createdAt: { gte: weekStart }
-              },
-              _count: { _all: true }
+              include: {
+                messages: {
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                  select: {
+                    direction: true,
+                    createdAt: true
+                  }
+                }
+              }
             }),
           []
         )
@@ -121,71 +136,91 @@ export default async function ClientsPage({
           select: {
             id: true,
             name: true,
-            notes: true,
-            nextActionAt: true
+            notes: true
           },
-          orderBy: [{ nextActionAt: 'asc' }, { updatedAt: 'desc' }],
-          take: 100
+          orderBy: { updatedAt: 'desc' }
         }),
       []
     )
   ]);
 
-  const leadsThisWeek = new Map(leadsThisWeekRows.map((row) => [row.companyId, row._count._all]));
-  const bookingsThisWeek = new Map(bookingsThisWeekRows.map((row) => [row.companyId, row._count._all]));
-  const companyByKey = new Map(clients.map((client) => [normalizeClinicKey(client.name), client]));
-  const intakeRows = soldProspects.map((prospect) => {
-    const matchedCompany = companyByKey.get(normalizeClinicKey(prospect.name)) || null;
-    const profile = parseProspectMetadata(prospect.notes);
-    const stage = intakeStageDetails({
-      hasWorkspace: Boolean(matchedCompany),
-      hasRouting: matchedCompany ? hasInboundRouting(matchedCompany) : false,
-      hasNotificationEmail: Boolean(matchedCompany?.notificationEmail),
-      hasSignupReceived: Boolean(profile.signup_received_at)
+  const unreadByCompanyId = new Map<string, number>();
+  for (const conversation of conversationRows) {
+    if (conversation.messages[0]?.direction !== 'INBOUND') {
+      continue;
+    }
+
+    unreadByCompanyId.set(conversation.companyId, (unreadByCompanyId.get(conversation.companyId) || 0) + 1);
+  }
+
+  const companyByKey = new Map(liveClients.map((client) => [normalizeClinicKey(client.name), client]));
+  const intakeRows = soldProspects
+    .map((prospect) => {
+      const matchedCompany = companyByKey.get(normalizeClinicKey(prospect.name)) || null;
+      const profile = parseProspectMetadata(prospect.notes);
+
+      return intakeStageDetails({
+        hasWorkspace: Boolean(matchedCompany),
+        hasRouting: matchedCompany ? hasInboundRouting(matchedCompany) : false,
+        hasNotificationEmail: Boolean(matchedCompany?.notificationEmail),
+        hasSignupReceived: Boolean(profile.signup_received_at),
+        hasOnboardingReceived: Boolean(profile.onboarding_received_at)
+      }).stage;
+    })
+    .reduce(
+      (acc, stage) => {
+        acc.total += 1;
+        if (stage === 'waiting_signup') {
+          acc.waiting += 1;
+        } else if (stage === 'setup_pending' || stage === 'workspace_created') {
+          acc.setup += 1;
+        } else if (stage === 'ready') {
+          acc.ready += 1;
+        }
+        return acc;
+      },
+      { total: 0, waiting: 0, setup: 0, ready: 0 }
+    );
+
+  const rows = liveClients
+    .map((client) => {
+      const unreadMessages = unreadByCompanyId.get(client.id) || 0;
+      const health = healthState({
+        unreadMessages,
+        hasRouting: hasInboundRouting(client),
+        hasNotificationEmail: Boolean(client.notificationEmail)
+      });
+      const lastActivityAt = client.events[0]?.createdAt || client.appointments[0]?.createdAt || client.leads[0]?.createdAt || null;
+      const connectedNumbers = allInboundNumbers(client).length;
+
+      return {
+        id: client.id,
+        name: client.name,
+        unreadMessages,
+        health,
+        leadsThisWeek: client.leads.length,
+        appointmentsThisWeek: client.appointments.length,
+        lastActivityAt,
+        connectedNumbers
+      };
+    })
+    .sort((left, right) => {
+      const toneRank = { error: 0, warn: 1, ok: 2 };
+      if (toneRank[left.health.tone] !== toneRank[right.health.tone]) {
+        return toneRank[left.health.tone] - toneRank[right.health.tone];
+      }
+
+      if (left.unreadMessages !== right.unreadMessages) {
+        return right.unreadMessages - left.unreadMessages;
+      }
+
+      return left.name.localeCompare(right.name);
     });
-
-    return { prospect, matchedCompany, stage };
-  });
-  const intakeCounts = {
-    waiting: intakeRows.filter((row) => row.stage.stage === 'waiting_signup').length,
-    setup: intakeRows.filter((row) => row.stage.stage === 'setup_pending' || row.stage.stage === 'workspace_created').length,
-    ready: intakeRows.filter((row) => row.stage.stage === 'ready').length
-  };
-
-  const rows = clients.map((client) => {
-    const missingSetup = [
-      !hasInboundRouting(client) ? 'routing' : null,
-      !client.notificationEmail ? 'email' : null
-    ].filter(Boolean) as string[];
-    const lastActivityAt = latestDate([
-      client.events[0]?.createdAt,
-      client.appointments[0]?.createdAt,
-      client.leads[0]?.createdAt
-    ]);
-    const idle = !lastActivityAt || lastActivityAt < idleThreshold;
-    const tone = missingSetup.length > 0 ? 'error' : idle ? 'warn' : 'ok';
-    const inboundNumbers = allInboundNumbers(client);
-
-    return {
-      id: client.id,
-      name: client.name,
-      tone,
-      leadsThisWeek: leadsThisWeek.get(client.id) || 0,
-      bookingsThisWeek: bookingsThisWeek.get(client.id) || 0,
-      lastActivityAt,
-      setupSummary:
-        missingSetup.length > 0
-          ? `Missing ${missingSetup.join(' + ')}`
-          : idle
-            ? 'No activity in the last 48h'
-            : `${inboundNumbers.length || 0} inbound number${inboundNumbers.length === 1 ? '' : 's'} connected`
-    };
-  });
 
   return (
     <LayoutShell
       title="Clients"
-      description="Paying med spa workspaces, with setup health and weekly performance in one list."
+      description="Paying clinics, sorted by what needs attention first."
       section="clients"
     >
       {notice && (
@@ -194,140 +229,102 @@ export default async function ClientsPage({
             <span className={`status-dot ${notice === 'duplicate_routing' ? 'warn' : 'ok'}`} />
             <strong>
               {notice === 'duplicate_routing'
-                ? 'That inbound number is already assigned to another client.'
+                ? 'That phone number already belongs to another client.'
                 : notice === 'created'
-                  ? 'Client created.'
-                  : 'Client updated.'}
+                  ? 'Client workspace created.'
+                  : 'Client setup updated.'}
             </strong>
-          </div>
-          <div className="text-muted">
-            {notice === 'duplicate_routing'
-              ? 'Every client needs unique Telnyx routing so replies land in the right workspace.'
-              : 'The client workspace is ready for the new Clients navigation.'}
           </div>
         </section>
       )}
 
-      <div className="panel-grid clients-page-grid">
-        <section className="panel panel-stack">
-          <div className="record-header">
-            <div className="panel-stack">
-              <div className="metric-label">Client workspaces</div>
-              <h2 className="section-title">Delivery clients live here.</h2>
-              <p className="page-copy">
-                Each row is a paying client we run lead response and booking for. Open a client to work leads, transcripts, sequences, bookings, and setup in one place.
-              </p>
-            </div>
-            <span className="status-chip status-chip-muted">
-              <strong>Total</strong> {rows.length}
-            </span>
+      <section className="panel panel-stack">
+        <div className="record-header">
+          <div className="panel-stack">
+            <div className="metric-label">Clients</div>
+            <h2 className="section-title">Open the red or yellow rows first.</h2>
+            <p className="page-copy">
+              Red means setup is broken. Yellow means a client is waiting on a human. Green means things are healthy.
+            </p>
           </div>
+          <div className="inline-actions">
+            <a className="button-secondary" href="/clients/intake">
+              Intake queue
+            </a>
+            <a className="button" href="/clients/new">
+              + Add Client
+            </a>
+          </div>
+        </div>
 
-          <section className="context-alert is-compact">
-            <div className="panel-stack">
-              <div className="metric-label">Client intake bridge</div>
-              <div>
-                {intakeRows.length} sold clinic{intakeRows.length === 1 ? '' : 's'} moving from outbound into signup and onboarding
-              </div>
-              <div className="tiny-muted">
-                {intakeCounts.waiting} waiting for signup • {intakeCounts.setup} setup pending • {intakeCounts.ready} ready
-              </div>
+        <section className="context-alert is-compact">
+          <div className="panel-stack">
+            <div className="metric-label">Sold to signup bridge</div>
+            <div>
+              {intakeRows.total} sold clinic{intakeRows.total === 1 ? '' : 's'} in the handoff from sales to client setup
             </div>
-            <div className="inline-actions">
-              <a className="button-secondary" href="/clients/intake">
-                Open intake queue
-              </a>
+            <div className="tiny-muted">
+              {intakeRows.waiting} waiting for signup • {intakeRows.setup} setup pending • {intakeRows.ready} ready
             </div>
-          </section>
-
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Client</th>
-                  <th>Status</th>
-                  <th>Leads this week</th>
-                  <th>Bookings this week</th>
-                  <th>Last activity</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={5}>
-                      <div className="empty-state">No clients yet. Add the first client workspace to get started.</div>
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row) => (
-                    <tr key={row.id} id={`client-${row.id}`}>
-                      <td>
-                        <div className="panel-stack" style={{ gap: 6 }}>
-                          <a className="table-link" href={`/clients/${row.id}`}>
-                            <span className="inline-row">
-                              <strong>{row.name}</strong>
-                              {isDemoLabel(row.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
-                            </span>
-                          </a>
-                          <a className="tiny-muted" href={`/diagnostics/clients/${row.id}`}>
-                            Open health view
-                          </a>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`status-chip ${row.tone === 'error' ? 'status-chip-attention' : row.tone === 'warn' ? 'status-chip-muted' : ''}`}>
-                          <span className={`status-dot ${row.tone === 'error' ? 'error' : row.tone === 'warn' ? 'warn' : 'ok'}`} />
-                          {row.setupSummary}
-                        </span>
-                      </td>
-                      <td>{row.leadsThisWeek}</td>
-                      <td>{row.bookingsThisWeek}</td>
-                      <td>{formatRelativeTime(row.lastActivityAt)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
           </div>
         </section>
 
-        <form action={createCompanyAction} className="panel panel-stack">
-          <div className="metric-label">Add client</div>
-          <h2 className="section-title">Create a new paying client workspace.</h2>
-          <div className="field-stack">
-            <label className="key-value-label" htmlFor="client-name">
-              Client name
-            </label>
-            <input id="client-name" className="text-input" name="name" placeholder="Denver South Hair Clinic" />
-          </div>
-          <div className="field-stack">
-            <label className="key-value-label" htmlFor="client-email">
-              Notification email
-            </label>
-            <input id="client-email" className="text-input" name="notificationEmail" placeholder="appointments@client.com" />
-          </div>
-          <div className="field-stack">
-            <label className="key-value-label" htmlFor="client-routing">
-              Telnyx inbound numbers
-            </label>
-            <textarea
-              id="client-routing"
-              className="text-area"
-              name="telnyxInboundNumber"
-              placeholder="+13125550001&#10;+13125550002"
-              rows={3}
-            />
-          </div>
-          <div className="inline-actions">
-            <button type="submit" className="button" name="nextSurface" value="conversations">
-              Save and open client
-            </button>
-            <button type="submit" className="button-secondary">
-              Save
-            </button>
-          </div>
-        </form>
-      </div>
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Health</th>
+                <th>Client Name</th>
+                <th>Unread Msgs</th>
+                <th>Appts This Week</th>
+                <th>New Leads This Week</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>
+                    <div className="empty-state">No live clients yet. Add the first client workspace to get started.</div>
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      <span
+                        className={`status-chip ${
+                          row.health.tone === 'error'
+                            ? 'status-chip-attention'
+                            : row.health.tone === 'warn'
+                              ? 'status-chip-muted'
+                              : ''
+                        }`}
+                      >
+                        <span className={`status-dot ${row.health.tone}`} />
+                        {row.health.label}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="panel-stack" style={{ gap: 6 }}>
+                        <a className="table-link" href={`/clients/${row.id}`}>
+                          <strong>{row.name}</strong>
+                        </a>
+                        <span className="tiny-muted">
+                          {row.health.reason} • {row.connectedNumbers} number{row.connectedNumbers === 1 ? '' : 's'} •{' '}
+                          {formatRelativeDay(row.lastActivityAt)}
+                        </span>
+                      </div>
+                    </td>
+                    <td>{row.unreadMessages}</td>
+                    <td>{row.appointmentsThisWeek}</td>
+                    <td>{row.leadsThisWeek}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </LayoutShell>
   );
 }

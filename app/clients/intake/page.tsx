@@ -247,8 +247,8 @@ export default async function ClientIntakePage() {
             </p>
           </div>
           <div className="inline-actions">
-            <a className="button-secondary" href="/our-leads">
-              Back to Our Leads
+            <a className="button-secondary" href="/leads">
+              Back to Leads
             </a>
             <a className="button" href="/clients">
               Client workspaces
@@ -350,7 +350,7 @@ export default async function ClientIntakePage() {
                           {row.prospect ? (
                             <a
                               className="button-ghost"
-                              href={`/our-leads?prospectId=${encodeURIComponent(row.prospect.id)}`}
+                              href={`/leads?prospectId=${encodeURIComponent(row.prospect.id)}`}
                             >
                               Open lead
                             </a>

@@ -331,7 +331,7 @@ export default async function EventsPage({
     <LayoutShell
       title="Master Event Log"
       description="A durable operator feed for what the system actually did: lead intake, outreach, inbound replies, booking activity, and worker outcomes."
-      section="diagnostics"
+      section="activity"
     >
       <LiveFeedControls
         snapshotAt={snapshotAt}

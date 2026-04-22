@@ -9,12 +9,6 @@ export default async function LegacyConversationsPage({
     companyId?: string;
   }>;
 }) {
-  const params = (await searchParams) || {};
-  const companyId = params.companyId || '';
-
-  if (companyId) {
-    redirect(`/clients/${companyId}#transcript-panel`);
-  }
-
-  redirect('/clients');
+  await searchParams;
+  redirect('/messages');
 }

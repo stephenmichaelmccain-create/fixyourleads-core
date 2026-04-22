@@ -132,7 +132,7 @@ function buildOurLeadsHref({
   }
 
   const query = params.toString();
-  return query ? `/our-leads?${query}` : '/our-leads';
+  return query ? `/leads?${query}` : '/leads';
 }
 
 export async function createProspectAction(formData: FormData) {
@@ -153,7 +153,7 @@ export async function createProspectAction(formData: FormData) {
   const nextActionRaw = readText(formData, 'nextActionAt');
 
   if (!name) {
-    redirect('/our-leads?error=name_required#add-prospect');
+    redirect('/leads?error=name_required#add-prospect');
   }
 
   const status = Object.values(ProspectStatus).includes(requestedStatus as ProspectStatus)
@@ -166,7 +166,7 @@ export async function createProspectAction(formData: FormData) {
   const nextActionAt = nextActionRaw ? new Date(nextActionRaw) : null;
 
   if (nextActionAt && Number.isNaN(nextActionAt.getTime())) {
-    redirect('/our-leads?error=invalid_next_action#add-prospect');
+    redirect('/leads?error=invalid_next_action#add-prospect');
   }
 
   const existingProspects = await db.prospect.findMany({
@@ -209,7 +209,7 @@ export async function createProspectAction(formData: FormData) {
     }
 
     redirect(
-      `/our-leads?error=duplicate&prospectId=${encodeURIComponent(duplicate.id)}&duplicateReason=${encodeURIComponent(
+      `/leads?error=duplicate&prospectId=${encodeURIComponent(duplicate.id)}&duplicateReason=${encodeURIComponent(
         duplicateReason
       )}#add-prospect`
     );
@@ -239,7 +239,8 @@ export async function createProspectAction(formData: FormData) {
   });
 
   revalidatePath('/our-leads');
-  redirect(`/our-leads?prospectId=${encodeURIComponent(prospect.id)}&added=1`);
+  revalidatePath('/leads');
+  redirect(`/leads?prospectId=${encodeURIComponent(prospect.id)}&added=1`);
 }
 
 export async function updateProspectOutcomeAction(formData: FormData) {
@@ -340,6 +341,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   });
 
   revalidatePath('/our-leads');
+  revalidatePath('/leads');
   redirect(
     buildOurLeadsHref({
       prospectId,
@@ -401,6 +403,7 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
   });
 
   revalidatePath('/our-leads');
+  revalidatePath('/leads');
   redirect(
     buildOurLeadsHref({
       prospectId,

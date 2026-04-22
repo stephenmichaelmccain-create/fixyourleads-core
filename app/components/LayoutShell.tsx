@@ -18,7 +18,7 @@ export async function LayoutShell({
   children: ReactNode;
   companyId?: string;
   companyName?: string;
-  section?: 'home' | 'clients' | 'diagnostics' | 'our-leads';
+  section?: 'home' | 'clients' | 'leads' | 'messages' | 'system' | 'activity' | 'diagnostics' | 'our-leads';
   variant?: 'default' | 'workspace';
 }) {
   const persistedCompany = await getPersistedCompanyContext();
@@ -38,23 +38,18 @@ export async function LayoutShell({
             <h1 className="hero-title">{title}</h1>
             <p className="hero-copy">
               {description ||
-                'Lead response, conversations, booking, and clinic notifications in one operating layer.'}
+                'See what needs attention, work the next conversation, and keep clients moving without extra clutter.'}
             </p>
             <div className="hero-meta">
               <span className="hero-chip">
-                <strong>Mode</strong> Live operations
+                <strong>Mode</strong> Live
               </span>
               <span className="hero-chip">
-                <strong>Focus</strong> Text, voice, booking
+                <strong>Focus</strong> Daily workflow
               </span>
               {activeCompanyName && (
                 <span className="hero-chip">
                   <strong>{usingRememberedCompany ? 'Last workspace' : 'Company'}</strong> {activeCompanyName}
-                </span>
-              )}
-              {activeCompanyId && activeCompanyName && (
-                <span className="hero-chip hero-chip-subtle">
-                  <strong>ID</strong> {activeCompanyId}
                 </span>
               )}
               {activeCompanyId && !activeCompanyName && (
