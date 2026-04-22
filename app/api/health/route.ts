@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getRuntimeHealth } from '@/lib/health';
+import { getRuntimeHealthProbe } from '@/lib/health';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const health = await getRuntimeHealth();
+  const health = await getRuntimeHealthProbe();
 
   return NextResponse.json(
     {

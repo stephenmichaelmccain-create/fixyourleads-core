@@ -36,6 +36,83 @@ type QueueHealth = {
   detail?: string;
 };
 
+function baseDeployment(env: ReturnType<typeof envPresence>) {
+  return {
+    nodeEnv: env.nodeEnv,
+    serviceName: process.env.RAILWAY_SERVICE_NAME || 'fixyourleads-core',
+    environmentName:
+      process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV || 'unknown',
+    deploymentId: process.env.RAILWAY_DEPLOYMENT_ID || null,
+    commitSha: process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || null,
+    uptimeSeconds: Math.round(process.uptime())
+  };
+}
+
+function observabilitySummary(env: ReturnType<typeof envPresence>) {
+  const sentryDsnSet = hasConfiguredEnv('SENTRY_DSN') || hasConfiguredEnv('NEXT_PUBLIC_SENTRY_DSN');
+
+  return {
+    structuredRuntimeLogs: true,
+    sentryDsnSet,
+    sentryEnvironment: process.env.SENTRY_ENVIRONMENT || process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || env.nodeEnv || null
+  };
+}
+
+function webhookVerificationCheck(telnyxWebhookSecurity: ReturnType<typeof getTelnyxWebhookSecurityConfig>): DependencyCheck {
+  if (!telnyxWebhookSecurity.verificationEnabled) {
+    return {
+      status: 'missing_config',
+      detail: `TELNYX_VERIFY_SIGNATURES is disabled; webhook authenticity is not enforced yet. Current timestamp tolerance is ${telnyxWebhookSecurity.timestampToleranceSeconds}s once enabled.`
+    };
+  }
+
+  if (!telnyxWebhookSecurity.publicKeySet) {
+    return {
+      status: 'error',
+      detail: 'TELNYX_VERIFY_SIGNATURES is enabled but TELNYX_PUBLIC_KEY is missing'
+    };
+  }
+
+  return {
+    status: 'ok',
+    detail: `Webhook signature verification is enabled with a ${telnyxWebhookSecurity.timestampToleranceSeconds}s replay window`
+  };
+}
+
+function notificationCheck(notifications: ReturnType<typeof notificationReadiness>): DependencyCheck {
+  return notifications.smtpUserSet && notifications.smtpPasswordSet
+    ? { status: 'ok', detail: 'SMTP notification path configured' }
+    : {
+        status: 'missing_config',
+        detail: 'SMTP_USER and SMTP_PASSWORD are optional, but required for booking email notifications'
+      };
+}
+
+function appBaseUrlCheck(env: ReturnType<typeof envPresence>): DependencyCheck {
+  return env.appBaseUrlSet ? { status: 'ok' } : { status: 'missing_config', detail: 'APP_BASE_URL is missing' };
+}
+
+function telnyxApiKeyCheck(env: ReturnType<typeof envPresence>): DependencyCheck {
+  return env.telnyxApiKeySet ? { status: 'ok' } : { status: 'missing_config', detail: 'TELNYX_API_KEY is missing' };
+}
+
+function telnyxFromNumberCheck(env: ReturnType<typeof envPresence>): DependencyCheck {
+  return env.telnyxFromNumberSet ? { status: 'ok' } : { status: 'missing_config', detail: 'TELNYX_FROM_NUMBER is missing' };
+}
+
+function internalApiKeyCheck(env: ReturnType<typeof envPresence>): DependencyCheck {
+  return env.internalApiKeySet ? { status: 'ok' } : { status: 'missing_config', detail: 'INTERNAL_API_KEY is missing' };
+}
+
+function observabilityCheck(sentryDsnSet: boolean): DependencyCheck {
+  return sentryDsnSet
+    ? { status: 'ok', detail: 'Sentry DSN is configured and structured runtime logs are enabled' }
+    : {
+        status: 'missing_config',
+        detail: 'SENTRY_DSN is optional, but recommended; runtime errors still land in Railway logs as structured JSON'
+      };
+}
+
 function hasConfiguredEnv(name: string) {
   return Boolean(process.env[name]?.trim());
 }
@@ -248,15 +325,7 @@ export async function getRuntimeHealth() {
     getQueueHealth(env.redisUrlSet)
   ]);
 
-  const deployment = {
-    nodeEnv: env.nodeEnv,
-    serviceName: process.env.RAILWAY_SERVICE_NAME || 'fixyourleads-core',
-    environmentName:
-      process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV || 'unknown',
-    deploymentId: process.env.RAILWAY_DEPLOYMENT_ID || null,
-    commitSha: process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || null,
-    uptimeSeconds: Math.round(process.uptime())
-  };
+  const deployment = baseDeployment(env);
 
   const companiesMissingNotification = companyRouting.filter((company) => !company.notificationEmail).length;
   const topRoutingGaps = companyRouting
@@ -319,21 +388,7 @@ export async function getRuntimeHealth() {
 
   const companiesWithRouting = companyRouting.filter((company) => hasInboundRouting(company)).length;
   const companiesMissingRouting = companyRouting.length - companiesWithRouting;
-  const telnyxWebhookVerificationStatus =
-    !telnyxWebhookSecurity.verificationEnabled
-      ? ({
-          status: 'missing_config',
-          detail: `TELNYX_VERIFY_SIGNATURES is disabled; webhook authenticity is not enforced yet. Current timestamp tolerance is ${telnyxWebhookSecurity.timestampToleranceSeconds}s once enabled.`
-        } satisfies DependencyCheck)
-      : telnyxWebhookSecurity.publicKeySet
-        ? ({
-            status: 'ok',
-            detail: `Webhook signature verification is enabled with a ${telnyxWebhookSecurity.timestampToleranceSeconds}s replay window`
-          } satisfies DependencyCheck)
-        : ({
-            status: 'error',
-            detail: 'TELNYX_VERIFY_SIGNATURES is enabled but TELNYX_PUBLIC_KEY is missing'
-          } satisfies DependencyCheck);
+  const telnyxWebhookVerificationStatus = webhookVerificationCheck(telnyxWebhookSecurity);
   const telnyxRoutingStatus =
     companyRouting.length === 0
       ? ({
@@ -439,49 +494,103 @@ export async function getRuntimeHealth() {
     checks: {
       database,
       redis,
-      appBaseUrl: env.appBaseUrlSet
-        ? ({ status: 'ok' } satisfies DependencyCheck)
-        : ({
-            status: 'missing_config',
-            detail: 'APP_BASE_URL is missing'
-          } satisfies DependencyCheck),
-      telnyxApiKey: env.telnyxApiKeySet
-        ? ({ status: 'ok' } satisfies DependencyCheck)
-        : ({
-            status: 'missing_config',
-            detail: 'TELNYX_API_KEY is missing'
-          } satisfies DependencyCheck),
-      telnyxFromNumber: env.telnyxFromNumberSet
-        ? ({ status: 'ok' } satisfies DependencyCheck)
-        : ({
-            status: 'missing_config',
-            detail: 'TELNYX_FROM_NUMBER is missing'
-          } satisfies DependencyCheck),
+      appBaseUrl: appBaseUrlCheck(env),
+      telnyxApiKey: telnyxApiKeyCheck(env),
+      telnyxFromNumber: telnyxFromNumberCheck(env),
       telnyxConnection,
       telnyxWebhookVerification: telnyxWebhookVerificationStatus,
       telnyxCompanyRouting: telnyxRoutingStatus,
-      internalApiKey: env.internalApiKeySet
-        ? ({ status: 'ok' } satisfies DependencyCheck)
-        : ({
-            status: 'missing_config',
-            detail: 'INTERNAL_API_KEY is missing'
-          } satisfies DependencyCheck),
-      observability: sentryDsnSet
-        ? ({
-            status: 'ok',
-            detail: 'Sentry DSN is configured and structured runtime logs are enabled'
-          } satisfies DependencyCheck)
-        : ({
-            status: 'missing_config',
-            detail: 'SENTRY_DSN is optional, but recommended; runtime errors still land in Railway logs as structured JSON'
-          } satisfies DependencyCheck),
-      notifications:
-        notifications.smtpUserSet && notifications.smtpPasswordSet
-          ? ({ status: 'ok', detail: 'SMTP notification path configured' } satisfies DependencyCheck)
-          : ({
-              status: 'missing_config',
-              detail: 'SMTP_USER and SMTP_PASSWORD are optional, but required for booking email notifications'
-            } satisfies DependencyCheck)
+      internalApiKey: internalApiKeyCheck(env),
+      observability: observabilityCheck(sentryDsnSet),
+      notifications: notificationCheck(notifications)
     }
+  };
+}
+
+export async function getRuntimeHealthProbe() {
+  const env = envPresence();
+  const notifications = notificationReadiness();
+  const telnyxWebhookSecurity = getTelnyxWebhookSecurityConfig();
+  const appBaseUrl = process.env.APP_BASE_URL?.trim() || null;
+  const missingRequiredEnv = missingRequiredEnvVars(env);
+  const [database, redis] = await Promise.all([checkDatabase(env.databaseUrlSet), checkRedis(env.redisUrlSet)]);
+  const deployment = baseDeployment(env);
+  const observability = observabilitySummary(env);
+  const checks = {
+    database,
+    redis,
+    appBaseUrl: appBaseUrlCheck(env),
+    telnyxApiKey: telnyxApiKeyCheck(env),
+    telnyxFromNumber: telnyxFromNumberCheck(env),
+    telnyxConnection: env.telnyxApiKeySet
+      ? ({ status: 'ok', detail: 'Skipped in lightweight probe mode' } satisfies DependencyCheck)
+      : telnyxApiKeyCheck(env),
+    telnyxWebhookVerification: webhookVerificationCheck(telnyxWebhookSecurity),
+    telnyxCompanyRouting: {
+      status: 'missing_config',
+      detail: 'Skipped in lightweight probe mode'
+    } satisfies DependencyCheck,
+    internalApiKey: internalApiKeyCheck(env),
+    observability: observabilityCheck(observability.sentryDsnSet),
+    notifications: notificationCheck(notifications)
+  };
+  const ok =
+    missingRequiredEnv.length === 0 &&
+    database.status === 'ok' &&
+    redis.status === 'ok' &&
+    checks.appBaseUrl.status === 'ok' &&
+    checks.telnyxApiKey.status === 'ok' &&
+    checks.telnyxFromNumber.status === 'ok' &&
+    checks.internalApiKey.status === 'ok';
+
+  return {
+    ok,
+    service: 'fixyourleads-core',
+    timestamp: new Date().toISOString(),
+    deployment,
+    observability,
+    env,
+    telnyx: {
+      companiesTotal: 0,
+      companiesWithRouting: 0,
+      companiesMissingRouting: 0,
+      companiesMissingNotification: 0,
+      topRoutingGaps: [],
+      multiNumberCompanies: [],
+      routingConflicts: [],
+      apiStatus: checks.telnyxConnection.status,
+      apiStatusCode: null,
+      apiRequestId: null,
+      apiDetail: checks.telnyxConnection.detail || null,
+      webhookUrl: appBaseUrl ? new URL('/api/webhooks/telnyx', appBaseUrl).toString() : null,
+      signatureVerificationEnabled: telnyxWebhookSecurity.verificationEnabled,
+      publicKeySet: telnyxWebhookSecurity.publicKeySet,
+      signatureMaxAgeSeconds: telnyxWebhookSecurity.timestampToleranceSeconds
+    },
+    volume: {
+      companies: 0,
+      leads: 0,
+      conversations: 0,
+      appointments: 0,
+      messages: 0,
+      events: 0,
+      eventsLast24h: 0,
+      messagesLast24h: 0,
+      upcomingAppointments: 0,
+      leadsLast24h: 0,
+      conversationsLast24h: 0,
+      appointmentsLast24h: 0
+    },
+    leadStatusBreakdown: [],
+    messageDirectionBreakdown: [],
+    recentLeads24h: [],
+    recentMessages24h: [],
+    eventTrends: {
+      topEventsLast24h: []
+    },
+    recentEvents24h: [],
+    queueHealth: [],
+    missingRequiredEnv,
+    checks
   };
 }

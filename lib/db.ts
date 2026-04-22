@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-function withSafeConnectionLimit(url?: string) {
+function withConnectionGuard(url?: string) {
   if (!url || !url.startsWith('postgres')) {
     return url;
   }
@@ -14,22 +14,25 @@ function withSafeConnectionLimit(url?: string) {
       parsed.searchParams.set('connection_limit', '1');
     }
 
+    if (!parsed.searchParams.has('pool_timeout')) {
+      parsed.searchParams.set('pool_timeout', '20');
+    }
     return parsed.toString();
   } catch {
     return url;
   }
 }
 
-const databaseUrl = withSafeConnectionLimit(process.env.DATABASE_URL);
+const guardedDatabaseUrl = withConnectionGuard(process.env.DATABASE_URL);
 
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient(
-    databaseUrl
+    guardedDatabaseUrl
       ? {
           datasources: {
             db: {
-              url: databaseUrl
+              url: guardedDatabaseUrl
             }
           }
         }
