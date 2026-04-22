@@ -126,8 +126,8 @@ export default async function DiagnosticsPage() {
             <a className="button-secondary" href="/diagnostics/workflows">
               Open workflow map
             </a>
-            <a className="button-ghost" href="/events">
-              Open live feed
+            <a className="button-ghost" href="/clients">
+              Open clients
             </a>
           </div>
         </section>

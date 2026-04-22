@@ -159,9 +159,9 @@ const workflows = [
       '/diagnostics/workflows',
       '/api/health',
       '/api/internal/health',
-      '/events',
-      '/conversations',
-      '/bookings'
+      '/clients',
+      '/clients/[id]',
+      '/our-leads'
     ],
     services: [
       'lib/health.ts',
@@ -182,11 +182,8 @@ const workflows = [
 ];
 
 const operatorSurfaces = [
-  { href: '/companies', title: 'Companies', body: 'Client records, inbound routing numbers, and booking notification email addresses.' },
-  { href: '/leads', title: 'Leads', body: 'Lead intake, Google Maps import, status filters, and readiness to work.' },
-  { href: '/conversations', title: 'Conversations', body: 'Live thread review plus manual outbound send and booking actions.' },
-  { href: '/bookings', title: 'Bookings', body: 'Upcoming and past appointment review across companies.' },
-  { href: '/events', title: 'Events', body: 'Audit trail for lead intake, suppression, outreach, and booking history.' },
+  { href: '/clients', title: 'Clients', body: 'Paying client workspaces with setup health, lead tables, transcript rail, sequences, and bookings.' },
+  { href: '/our-leads', title: 'Our Leads', body: 'The Fix Your Leads sales pipeline for med spas we are selling to.' },
   { href: '/diagnostics', title: 'Diagnostics', body: 'Runtime truth, env readiness, connectivity, queue health, and deployment checks.' }
 ];
 

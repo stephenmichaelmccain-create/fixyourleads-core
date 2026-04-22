@@ -48,7 +48,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
 
   if (!lead) {
     return (
-      <LayoutShell title="Lead Detail" description="The requested lead record could not be found." section="leads">
+      <LayoutShell title="Lead Detail" description="The requested lead record could not be found." section="clients">
         <div className="empty-state">Lead not found.</div>
       </LayoutShell>
     );
@@ -60,7 +60,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
       description="Lead records should stay simple: one contact, one owner, one clear next action."
       companyId={lead.companyId}
       companyName={lead.company?.name || undefined}
-      section="leads"
+      section="clients"
     >
       <section className="panel panel-stack">
         <div className="metric-label">Next action</div>

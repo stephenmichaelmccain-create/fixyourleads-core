@@ -10,7 +10,7 @@ function optionalText(value: FormDataEntryValue | null) {
   return text || null;
 }
 
-function companiesPath(values: { notice?: string; targetCompanyId?: string } = {}) {
+function clientsPath(values: { notice?: string; targetCompanyId?: string } = {}) {
   const params = new URLSearchParams();
 
   if (values.notice) {
@@ -22,9 +22,9 @@ function companiesPath(values: { notice?: string; targetCompanyId?: string } = {
   }
 
   const search = params.toString();
-  const base = search ? `/companies?${search}` : '/companies';
+  const base = search ? `/clients?${search}` : '/clients';
 
-  return values.targetCompanyId ? `${base}#company-${values.targetCompanyId}` : base;
+  return values.targetCompanyId ? `${base}#client-${values.targetCompanyId}` : base;
 }
 
 export async function createCompanyAction(formData: FormData) {
@@ -57,7 +57,7 @@ export async function createCompanyAction(formData: FormData) {
     });
 
     if (existingCompany) {
-      redirect(companiesPath({ notice: 'duplicate_routing', targetCompanyId: existingCompany.id }));
+      redirect(clientsPath({ notice: 'duplicate_routing', targetCompanyId: existingCompany.id }));
     }
   }
 
@@ -76,14 +76,15 @@ export async function createCompanyAction(formData: FormData) {
     }
   });
 
-  revalidatePath('/companies');
+  revalidatePath('/clients');
   revalidatePath('/');
+  revalidatePath(`/clients/${company.id}`);
 
   if (nextSurface === 'conversations') {
-    redirect(`/conversations?companyId=${company.id}`);
+    redirect(`/clients/${company.id}`);
   }
 
-  redirect(companiesPath({ notice: 'created', targetCompanyId: company.id }));
+  redirect(clientsPath({ notice: 'created', targetCompanyId: company.id }));
 }
 
 export async function updateCompanyAction(formData: FormData) {
@@ -117,7 +118,7 @@ export async function updateCompanyAction(formData: FormData) {
     });
 
     if (existingCompany) {
-      redirect(companiesPath({ notice: 'duplicate_routing', targetCompanyId: companyId }));
+      redirect(clientsPath({ notice: 'duplicate_routing', targetCompanyId: companyId }));
     }
   }
 
@@ -134,12 +135,13 @@ export async function updateCompanyAction(formData: FormData) {
     }
   });
 
-  revalidatePath('/companies');
+  revalidatePath('/clients');
   revalidatePath('/');
+  revalidatePath(`/clients/${companyId}`);
   revalidatePath(`/leads?companyId=${companyId}`);
   revalidatePath(`/conversations?companyId=${companyId}`);
   revalidatePath(`/bookings?companyId=${companyId}`);
   revalidatePath(`/events?companyId=${companyId}`);
 
-  redirect(companiesPath({ notice: 'updated', targetCompanyId: companyId }));
+  redirect(`/clients/${companyId}?notice=updated#setup`);
 }

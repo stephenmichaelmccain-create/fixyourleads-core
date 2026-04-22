@@ -64,6 +64,21 @@ These are still expected to be filled separately for local runtime:
 
 ## Current confirmed live state
 
+- Primary navigation is now:
+  - `Home`
+  - `Clients`
+  - `Our Leads`
+- `Diagnostics` is a tucked-away utility surface, not part of the primary day-to-day operator flow.
+- New primary routes:
+  - `/clients`
+  - `/clients/[id]`
+  - `/our-leads`
+- Legacy routes are compatibility redirects:
+  - `/companies` -> `/clients`
+  - `/leads` -> `/our-leads` or `/clients/[id]#leads` when scoped
+  - `/conversations` -> `/clients` or `/clients/[id]#transcript-panel`
+  - `/bookings` -> `/clients` or `/clients/[id]#bookings`
+  - `/events` -> `/diagnostics` or `/clients/[id]#sequences`
 - Railway `app`, `worker`, `Postgres`, and `Redis` are online in the
   `adorable-commitment` production environment.
 - The live app URL is reachable:
@@ -80,16 +95,15 @@ These are still expected to be filled separately for local runtime:
   - `APP_BASE_URL`
   - `INTERNAL_API_KEY`
 - The live Prisma schema has been pushed to the production database.
-- The app now includes a `Companies` page to manage client records and
-  notification emails in-app.
+- The app now includes a real `Clients` surface and a dense client workspace page.
 - Company workspaces now track inbound routing readiness in-app through each
   company's Telnyx inbound number.
+- The client workspace now centers the main leads table, right-side transcript
+  panel, sequence table, booking table, and collapsed setup section.
+- The app now includes a separate `Our Leads` route for the FixYourLeads sales
+  pipeline, backed by `prospects` and `call_logs`.
 - Conversation detail pages now support manual outbound texts and booking from
   the UI.
-- A `Bookings` page now exists in the operator surface for appointment review.
-- The `Events` page now acts as a global live operator feed with auto-refresh
-  controls, sync status, newest-first event visibility, and optional narrowing
-  by company.
 - Lead intake now normalizes phone numbers and suppresses duplicate lead
   creation for the same company/contact.
 - Google Maps lead import is now wired through the internal lead intake path

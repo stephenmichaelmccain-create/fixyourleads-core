@@ -115,7 +115,7 @@ export default async function ConversationDetailPage({
 
   if (!conversation) {
     return (
-      <LayoutShell title="Conversation Detail" description="The requested conversation could not be found." section="conversations">
+      <LayoutShell title="Conversation Detail" description="The requested conversation could not be found." section="clients">
         <div className="empty-state">Conversation not found.</div>
       </LayoutShell>
     );
@@ -170,7 +170,7 @@ export default async function ConversationDetailPage({
       description="Review the full thread, send the next message, and book the appointment from the same screen."
       companyId={conversation.companyId}
       companyName={conversation.company?.name || undefined}
-      section="conversations"
+      section="clients"
     >
       {bookingFlash && (
         <div className="panel panel-stack">

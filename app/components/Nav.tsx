@@ -2,7 +2,7 @@ type NavProps = {
   companyId?: string;
   companyName?: string;
   usingRememberedCompany?: boolean;
-  current?: 'home' | 'companies' | 'diagnostics' | 'leads' | 'conversations' | 'bookings' | 'events';
+  current?: 'home' | 'clients' | 'diagnostics' | 'our-leads';
 };
 
 export function Nav({ companyId, companyName, usingRememberedCompany, current }: NavProps) {
@@ -15,11 +15,11 @@ export function Nav({ companyId, companyName, usingRememberedCompany, current }:
         <a className={linkClass('home')} href="/">
           Home
         </a>
-        <a className={linkClass('companies')} href="/companies">
-          Companies
+        <a className={linkClass('clients')} href="/clients">
+          Clients
         </a>
-        <a className={linkClass('leads')} href="/leads">
-          Leads
+        <a className={linkClass('our-leads')} href="/our-leads">
+          Our Leads
         </a>
       </nav>
       <div className="hero-nav-utility">
