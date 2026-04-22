@@ -1,13 +1,13 @@
 ## Now
 - Fix any live blocker first. Current live app is up, so next priority is core operator workflow improvements on `/clients/[id]`.
-- Keep the client workspace as the primary operator surface now that inline reply and quick booking are available without leaving `/clients/[id]`.
-- Tighten message visibility inside the client workspace itself so operators can see delivery/reply state without bouncing out to the full thread page.
+- Keep the client workspace as the primary operator surface now that inline reply, quick booking, and delivery truth are available without leaving `/clients/[id]`.
+- Tighten the remaining message workflow gaps inside the client workspace so operators can act without opening the full conversation route unless they want deeper detail.
 - Keep all changes deploy-safe if they might be merged later. No destructive schema or config changes.
 
 ## Next
 - Extend the safer follow-up heartbeat runner beyond observe-only reporting without auto-sending anything yet.
 - Add the next diagnostics subpage for client-specific queue and recent activity drill-down if the shared queue view stops being enough.
-- Improve conversation workflows further with clearer delivery state and fewer operator clicks.
+- Improve conversation workflows further with even fewer clicks and better thread-level operator controls.
 
 ## Blocked
 - None yet.

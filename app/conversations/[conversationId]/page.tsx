@@ -5,6 +5,7 @@ import { notificationReadiness } from '@/lib/notifications';
 import { bookConversationAction, sendConversationMessageAction } from './actions';
 import { normalizePhone } from '@/lib/phone';
 import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
+import { buildLifecycleByMessageId, lifecycleForMessage } from '@/lib/message-lifecycle';
 
 function formatDateTime(value: Date | string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -123,109 +124,6 @@ function buildSendFlash(searchParams: Record<string, string | string[] | undefin
   };
 }
 
-function readPayloadRecord(payload: unknown) {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    return null;
-  }
-
-  return payload as Record<string, unknown>;
-}
-
-function parseLifecycleAttempt(value: unknown) {
-  if (typeof value === 'number') {
-    return value;
-  }
-
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-}
-
-type MessageLifecycleState = {
-  label: string;
-  tone: 'ok' | 'warn' | 'error' | 'muted';
-  detail: string;
-};
-
-function lifecycleForMessage(message: {
-  direction: 'INBOUND' | 'OUTBOUND';
-  externalId: string | null;
-  createdAt: Date;
-}, lifecycleEvents: Array<{
-  eventType: string;
-  createdAt: Date;
-  payload: Record<string, unknown> | null;
-}>) : MessageLifecycleState {
-  if (message.direction === 'INBOUND') {
-    return {
-      label: 'Received',
-      tone: 'ok',
-      detail: 'Inbound message captured from Telnyx.'
-    };
-  }
-
-  const latestFailure = lifecycleEvents.find((event) => event.eventType === 'telnyx_message_delivery_failed');
-
-  if (latestFailure) {
-    const errors = Array.isArray(latestFailure.payload?.errors) ? latestFailure.payload?.errors : [];
-    const firstError = errors[0] && typeof errors[0] === 'object' && !Array.isArray(errors[0]) ? errors[0] as Record<string, unknown> : null;
-    const errorDetail =
-      (typeof firstError?.detail === 'string' && firstError.detail) ||
-      (typeof firstError?.title === 'string' && firstError.title) ||
-      'Telnyx reported a delivery failure.';
-
-    return {
-      label: 'Delivery failed',
-      tone: 'error',
-      detail: errorDetail
-    };
-  }
-
-  const latestUnconfirmed = lifecycleEvents.find((event) => event.eventType === 'telnyx_message_delivery_unconfirmed');
-
-  if (latestUnconfirmed) {
-    return {
-      label: 'Delivery unconfirmed',
-      tone: 'warn',
-      detail: 'Telnyx could not confirm delivery yet.'
-    };
-  }
-
-  const latestFinalized = lifecycleEvents.find((event) => event.eventType === 'telnyx_message_finalized');
-
-  if (latestFinalized) {
-    const deliveryStatus = typeof latestFinalized.payload?.deliveryStatus === 'string' ? latestFinalized.payload.deliveryStatus : null;
-
-    return {
-      label: 'Delivered',
-      tone: 'ok',
-      detail: deliveryStatus ? `Telnyx finalized this message as ${deliveryStatus}.` : 'Telnyx finalized delivery.'
-    };
-  }
-
-  const latestSent = lifecycleEvents.find((event) => event.eventType === 'telnyx_message_sent');
-  const latestAttempt = lifecycleEvents
-    .map((event) => parseLifecycleAttempt(event.payload?.attempt))
-    .find((value) => typeof value === 'number');
-
-  if (latestSent || message.externalId) {
-    return {
-      label: 'Accepted',
-      tone: 'ok',
-      detail: latestAttempt ? `Accepted by Telnyx on attempt ${latestAttempt}.` : 'Accepted by Telnyx and waiting on delivery updates.'
-    };
-  }
-
-  return {
-    label: 'Logged',
-    tone: 'muted',
-    detail: `Stored in CRM at ${formatDateTime(message.createdAt)}.`
-  };
-}
-
 export default async function ConversationDetailPage({
   params,
   searchParams
@@ -322,24 +220,7 @@ export default async function ConversationDetailPage({
       }),
     []
   );
-  const lifecycleByMessageId = new Map<string, Array<{ eventType: string; createdAt: Date; payload: Record<string, unknown> | null }>>();
-
-  for (const event of conversationLifecycleEvents) {
-    const payload = readPayloadRecord(event.payload);
-    const internalMessageId = typeof payload?.internalMessageId === 'string' ? payload.internalMessageId : null;
-
-    if (!internalMessageId) {
-      continue;
-    }
-
-    const existing = lifecycleByMessageId.get(internalMessageId) || [];
-    existing.push({
-      eventType: event.eventType,
-      createdAt: event.createdAt,
-      payload
-    });
-    lifecycleByMessageId.set(internalMessageId, existing);
-  }
+  const lifecycleByMessageId = buildLifecycleByMessageId(conversationLifecycleEvents);
 
   return (
     <LayoutShell

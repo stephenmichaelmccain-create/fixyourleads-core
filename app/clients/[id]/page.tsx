@@ -4,6 +4,7 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 import { updateCompanyAction } from '@/app/companies/actions';
 import { bookConversationAction, sendConversationMessageAction } from '@/app/conversations/[conversationId]/actions';
 import { db } from '@/lib/db';
+import { buildLifecycleByMessageId, lifecycleForMessage } from '@/lib/message-lifecycle';
 import { safeLoad } from '@/lib/ui-data';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
 import { normalizePhone } from '@/lib/phone';
@@ -538,6 +539,33 @@ export default async function ClientWorkspacePage({
         }
       )
     : '';
+  const selectedConversationLifecycleEvents = selectedConversation
+    ? await safeLoad(
+        () =>
+          db.eventLog.findMany({
+            where: {
+              companyId: selectedConversation.companyId,
+              eventType: {
+                in: [
+                  'telnyx_message_sent',
+                  'telnyx_message_finalized',
+                  'telnyx_message_delivery_failed',
+                  'telnyx_message_delivery_unconfirmed'
+                ]
+              }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+            select: {
+              eventType: true,
+              createdAt: true,
+              payload: true
+            }
+          }),
+        []
+      )
+    : [];
+  const selectedLifecycleByMessageId = buildLifecycleByMessageId(selectedConversationLifecycleEvents);
 
   return (
     <LayoutShell
@@ -823,11 +851,18 @@ export default async function ClientWorkspacePage({
               {(() => {
                 const threadPhone = normalizePhone(selectedConversation.contact?.phone || '');
                 const lastMessage = selectedConversation.messages[selectedConversation.messages.length - 1] || null;
+                const lastLifecycle = lastMessage
+                  ? lifecycleForMessage(lastMessage, selectedLifecycleByMessageId.get(lastMessage.id) || [])
+                  : null;
                 const threadState = !lastMessage
                   ? 'New thread'
                   : lastMessage.direction === 'INBOUND'
                     ? 'Needs reply'
-                    : 'Waiting on contact';
+                    : lastLifecycle?.tone === 'error'
+                      ? 'Delivery issue'
+                      : lastLifecycle?.tone === 'warn'
+                        ? 'Awaiting delivery'
+                        : 'Waiting on contact';
 
                 return (
                   <>
@@ -835,12 +870,44 @@ export default async function ClientWorkspacePage({
                       <div className="panel-stack">
                         <h2 className="section-title">{selectedConversation.contact?.name || 'Conversation'}</h2>
                         <div className="inline-row">
-                          <span className={`status-chip ${threadState === 'Needs reply' ? 'status-chip-attention' : threadState === 'Waiting on contact' ? 'status-chip-muted' : ''}`}>
+                          <span
+                            className={`status-chip ${
+                              threadState === 'Needs reply' || threadState === 'Delivery issue'
+                                ? 'status-chip-attention'
+                                : threadState === 'Waiting on contact' || threadState === 'Awaiting delivery'
+                                  ? 'status-chip-muted'
+                                  : ''
+                            }`}
+                          >
                             <strong>Queue</strong> {threadState}
                           </span>
                           <span className="status-chip status-chip-muted">
                             <strong>Messages</strong> {selectedConversation.messages.length}
                           </span>
+                          {lastLifecycle ? (
+                            <span
+                              className={`status-chip ${
+                                lastLifecycle.tone === 'error'
+                                  ? 'status-chip-attention'
+                                  : lastLifecycle.tone === 'warn' || lastLifecycle.tone === 'muted'
+                                    ? 'status-chip-muted'
+                                    : ''
+                              }`}
+                            >
+                              <span
+                                className={`status-dot ${
+                                  lastLifecycle.tone === 'error'
+                                    ? 'error'
+                                    : lastLifecycle.tone === 'warn'
+                                      ? 'warn'
+                                      : lastLifecycle.tone === 'muted'
+                                        ? 'warn'
+                                        : 'ok'
+                                }`}
+                              />
+                              {lastLifecycle.label}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                       <div className="inline-actions">
@@ -932,16 +999,48 @@ export default async function ClientWorkspacePage({
                 {selectedConversation.messages.length === 0 ? (
                   <div className="empty-state">This thread has no messages yet.</div>
                 ) : (
-                  selectedConversation.messages.map((message) => (
-                    <div key={message.id} className={`message-row${message.direction === 'OUTBOUND' ? ' outbound' : ''}`}>
-                      <div className={`message-bubble${message.direction === 'OUTBOUND' ? ' outbound' : ''}`}>
-                        <div className="message-meta">
-                          {message.direction} • {formatCompactDateTime(message.createdAt)}
+                  selectedConversation.messages.map((message) => {
+                    const lifecycle = lifecycleForMessage(
+                      message,
+                      selectedLifecycleByMessageId.get(message.id) || []
+                    );
+
+                    return (
+                      <div key={message.id} className={`message-row${message.direction === 'OUTBOUND' ? ' outbound' : ''}`}>
+                        <div className={`message-bubble${message.direction === 'OUTBOUND' ? ' outbound' : ''}`}>
+                          <div className="message-meta" style={{ justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                            <span>
+                              {message.direction} • {formatCompactDateTime(message.createdAt)}
+                            </span>
+                            <span
+                              className={`status-chip ${
+                                lifecycle.tone === 'error'
+                                  ? 'status-chip-attention'
+                                  : lifecycle.tone === 'warn' || lifecycle.tone === 'muted'
+                                    ? 'status-chip-muted'
+                                    : ''
+                              }`}
+                            >
+                              <span
+                                className={`status-dot ${
+                                  lifecycle.tone === 'error'
+                                    ? 'error'
+                                    : lifecycle.tone === 'warn'
+                                      ? 'warn'
+                                      : lifecycle.tone === 'muted'
+                                        ? 'warn'
+                                        : 'ok'
+                                }`}
+                              />
+                              {lifecycle.label}
+                            </span>
+                          </div>
+                          <div className="pre-wrap">{message.content}</div>
+                          <div className="tiny-muted">{lifecycle.detail}</div>
                         </div>
-                        <div className="pre-wrap">{message.content}</div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </>
