@@ -269,17 +269,23 @@ export default async function EventsPage({
       )
     : null;
 
-  const events = companyId
-    ? await safeLoad(
-        () =>
-          db.eventLog.findMany({
-            where: { companyId },
-            orderBy: { createdAt: 'desc' },
-            take: 200
-          }),
-        []
-      )
-    : [];
+  const events = await safeLoad(
+    () =>
+      db.eventLog.findMany({
+        where: companyId ? { companyId } : undefined,
+        include: {
+          company: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: companyId ? 200 : 250
+      }),
+    []
+  );
   const filteredEvents =
     selectedCategory === 'all'
       ? events
@@ -305,10 +311,20 @@ export default async function EventsPage({
     { key: 'suppression', label: 'Suppression', count: categoryCounts.suppression },
     { key: 'system', label: 'System', count: categoryCounts.system }
   ];
-  const categoryHref = (category: EventCategory) =>
-    category === 'all'
-      ? `/events?companyId=${encodeURIComponent(companyId)}`
-      : `/events?companyId=${encodeURIComponent(companyId)}&eventCategory=${encodeURIComponent(category)}`;
+  const categoryHref = (category: EventCategory) => {
+    const params = new URLSearchParams();
+
+    if (companyId) {
+      params.set('companyId', companyId);
+    }
+
+    if (category !== 'all') {
+      params.set('eventCategory', category);
+    }
+
+    const query = params.toString();
+    return query ? `/events?${query}` : '/events';
+  };
   const snapshotAt = new Date().toISOString();
   const latestVisibleEvent = filteredEvents[0] || null;
   const selectedCategoryLabel = categories.find((category) => category.key === selectedCategory)?.label || 'All events';
@@ -323,9 +339,7 @@ export default async function EventsPage({
     >
       <CompanySelectorBar action="/events" initialCompanyId={companyId} />
 
-      {!companyId && <div className="empty-state">Choose a company by name to load the audit trail.</div>}
-
-      {companyId && (
+      {events.length > 0 && (
         <LiveFeedControls
           snapshotAt={snapshotAt}
           categoryLabel={selectedCategoryLabel}
@@ -336,7 +350,17 @@ export default async function EventsPage({
         />
       )}
 
-      {companyId && events.length > 0 && (
+      {!companyId && events.length > 0 && (
+        <section className="panel panel-stack">
+          <div className="metric-label">All workspaces</div>
+          <h2 className="section-title">You are watching the full system feed.</h2>
+          <p className="text-muted">
+            Leave it broad when you want to watch everything moving, or pick a company above when you want one clinic queue only.
+          </p>
+        </section>
+      )}
+
+      {events.length > 0 && (
         <section className="panel panel-stack">
           <div className="metric-label">Event filters</div>
           <div className="record-links">
@@ -352,6 +376,27 @@ export default async function EventsPage({
           </div>
           <div className="text-muted">
             Start with messaging and bookings when you need to answer what actually happened in a live workspace.
+          </div>
+        </section>
+      )}
+
+      {!companyId && events.length === 0 && (
+        <section className="panel panel-stack">
+          <div className="metric-label">No activity yet</div>
+          <h2 className="section-title">No logged activity has landed across workspaces yet.</h2>
+          <p className="text-muted">
+            Events will appear here as soon as leads are created, messages move, suppressions fire, or bookings are made.
+          </p>
+          <div className="action-cluster">
+            <a className="button" href="/companies">
+              Open companies
+            </a>
+            <a className="button-secondary" href="/leads">
+              Open leads
+            </a>
+            <a className="button-ghost" href="/diagnostics">
+              Open diagnostics
+            </a>
           </div>
         </section>
       )}
@@ -379,15 +424,17 @@ export default async function EventsPage({
         </section>
       )}
 
-      {companyId && events.length > 0 && filteredEvents.length === 0 && (
-        <div className="empty-state">No {selectedCategory} events yet for this workspace.</div>
+      {events.length > 0 && filteredEvents.length === 0 && (
+        <div className="empty-state">
+          {companyId ? `No ${selectedCategory} events yet for this workspace.` : `No ${selectedCategory} events yet across workspaces.`}
+        </div>
       )}
 
       <div className="record-grid">
         {filteredEvents.map((event, index) => {
           const payload = typeof event.payload === 'object' && event.payload && !Array.isArray(event.payload) ? event.payload as Record<string, unknown> : {};
           const category = getEventCategory(event.eventType);
-          const actions = buildEventActionLinks(companyId, event.eventType, category, payload);
+          const actions = buildEventActionLinks(event.companyId, event.eventType, category, payload);
           const contextFacts = buildEventContextFacts(payload);
 
           return (
@@ -399,9 +446,16 @@ export default async function EventsPage({
                 <div className="record-subtitle">{getEventSummary(event.eventType, payload)}</div>
               </div>
               <div className="panel-stack">
-                <span className={`status-chip ${category === 'messaging' || category === 'booking' ? '' : 'status-chip-muted'}`}>
-                  <strong>{category}</strong>
-                </span>
+                <div className="workspace-readiness">
+                  {!companyId && event.company?.name ? (
+                    <span className="status-chip status-chip-muted">
+                      <strong>Company</strong> {event.company.name}
+                    </span>
+                  ) : null}
+                  <span className={`status-chip ${category === 'messaging' || category === 'booking' ? '' : 'status-chip-muted'}`}>
+                    <strong>{category}</strong>
+                  </span>
+                </div>
                 <div className="tiny-muted">{new Date(event.createdAt).toLocaleString()}</div>
               </div>
             </div>

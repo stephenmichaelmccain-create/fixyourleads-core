@@ -87,8 +87,9 @@ These are still expected to be filled separately for local runtime:
 - Conversation detail pages now support manual outbound texts and booking from
   the UI.
 - A `Bookings` page now exists in the operator surface for appointment review.
-- The `Events` page now acts as a live operator feed with auto-refresh controls,
-  sync status, and newest-first event visibility.
+- The `Events` page now acts as a global live operator feed with auto-refresh
+  controls, sync status, newest-first event visibility, and optional narrowing
+  by company.
 - Lead intake now normalizes phone numbers and suppresses duplicate lead
   creation for the same company/contact.
 - Google Maps lead import is now wired through the internal lead intake path

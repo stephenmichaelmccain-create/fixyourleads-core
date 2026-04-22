@@ -127,7 +127,7 @@ export default async function DiagnosticsPage() {
               Open workflow map
             </a>
             <a className="button-ghost" href="/events">
-              Audit trail
+              Open live feed
             </a>
           </div>
         </section>

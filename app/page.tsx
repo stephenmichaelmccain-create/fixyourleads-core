@@ -79,6 +79,12 @@ export default async function HomePage() {
       eyebrow: 'Booked revenue',
       title: 'Keep appointments visible once follow-up converts.',
       body: 'Track upcoming bookings, keep them tied to the right clinic, and catch notification gaps fast.'
+    },
+    {
+      href: '/events',
+      eyebrow: 'Live operator feed',
+      title: 'Watch activity as it lands.',
+      body: 'See replies, booking events, dedupe actions, and delivery outcomes update in one live feed.'
     }
   ];
 
@@ -101,6 +107,9 @@ export default async function HomePage() {
             </a>
             <a className="button-secondary" href={withCompanyContext('/conversations', persistedCompany?.companyId)}>
               {persistedCompany?.companyName ? `Resume ${persistedCompany.companyName}` : 'Work conversations'}
+            </a>
+            <a className="button-ghost" href="/events">
+              Watch live feed
             </a>
           </div>
         </section>
