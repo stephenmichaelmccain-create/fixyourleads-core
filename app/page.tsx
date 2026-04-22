@@ -1,6 +1,7 @@
 import { LayoutShell } from './components/LayoutShell';
 import { ProspectStatus } from '@prisma/client';
 import { db } from '@/lib/db';
+import { intakeStageDetails, normalizeClinicKey } from '@/lib/client-intake';
 import { isDemoLabel } from '@/lib/demo';
 import { safeLoad } from '@/lib/ui-data';
 import { hasInboundRouting } from '@/lib/inbound-numbers';
@@ -52,7 +53,7 @@ function latestDate(values: Array<Date | null | undefined>) {
 export default async function HomePage() {
   const weekStart = startOfTrailingDays(7);
   const idleThreshold = new Date(Date.now() - 1000 * 60 * 60 * 48);
-  const [clients, leadsThisWeek, bookingsThisWeek, activeProspects, callsThisWeek, demosBookedThisWeek] = await Promise.all([
+  const [clients, leadsThisWeek, bookingsThisWeek, activeProspects, callsThisWeek, demosBookedThisWeek, soldProspects] = await Promise.all([
     safeLoad(
       () =>
         db.company.findMany({
@@ -143,8 +144,43 @@ export default async function HomePage() {
           }
         }),
       0
+    ),
+    safeLoad(
+      () =>
+        db.prospect.findMany({
+          where: {
+            status: ProspectStatus.CLOSED
+          },
+          select: {
+            id: true,
+            name: true
+          }
+        }),
+      []
     )
   ]);
+
+  const companyByKey = new Map(clients.map((client) => [normalizeClinicKey(client.name), client]));
+  const intakeCounts = soldProspects.reduce(
+    (acc, prospect) => {
+      const matchedCompany = companyByKey.get(normalizeClinicKey(prospect.name)) || null;
+      const stage = intakeStageDetails({
+        hasWorkspace: Boolean(matchedCompany),
+        hasRouting: matchedCompany ? hasInboundRouting(matchedCompany) : false,
+        hasNotificationEmail: Boolean(matchedCompany?.notificationEmail)
+      });
+      acc.total += 1;
+      if (stage.stage === 'waiting_signup') {
+        acc.waiting += 1;
+      } else if (stage.stage === 'setup_pending') {
+        acc.setup += 1;
+      } else if (stage.stage === 'ready') {
+        acc.ready += 1;
+      }
+      return acc;
+    },
+    { total: 0, waiting: 0, setup: 0, ready: 0 }
+  );
 
   const needsAttention = clients
     .map((client) => {
@@ -219,6 +255,13 @@ export default async function HomePage() {
           <div className="metric-value">{demosBookedThisWeek}</div>
           <div className="metric-copy">Prospects currently marked as demo-booked in our pipeline.</div>
         </section>
+        <section className="metric-card">
+          <div className="metric-label">Sold waiting intake</div>
+          <div className="metric-value">{intakeCounts.total}</div>
+          <div className="metric-copy">
+            {intakeCounts.waiting} waiting for signup • {intakeCounts.setup} setup pending • {intakeCounts.ready} ready
+          </div>
+        </section>
       </div>
 
       <div className="panel-grid">
@@ -234,6 +277,9 @@ export default async function HomePage() {
             </a>
             <a className="button-secondary" href="/our-leads">
               Open our leads
+            </a>
+            <a className="button-secondary" href="/clients/intake">
+              Client intake
             </a>
             <a className="button-ghost" href="/diagnostics">
               Diagnostics

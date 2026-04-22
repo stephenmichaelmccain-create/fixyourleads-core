@@ -1,7 +1,9 @@
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { createCompanyAction } from '@/app/companies/actions';
+import { ProspectStatus } from '@prisma/client';
 import { db } from '@/lib/db';
 import { isDemoLabel } from '@/lib/demo';
+import { intakeStageDetails, normalizeClinicKey } from '@/lib/client-intake';
 import { safeLoad } from '@/lib/ui-data';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
 import { redirect } from 'next/navigation';
@@ -83,7 +85,7 @@ export default async function ClientsPage({
   );
 
   const clientIds = clients.map((client) => client.id);
-  const [leadsThisWeekRows, bookingsThisWeekRows] = await Promise.all([
+  const [leadsThisWeekRows, bookingsThisWeekRows, soldProspects] = await Promise.all([
     clientIds.length > 0
       ? safeLoad(
           () =>
@@ -111,11 +113,41 @@ export default async function ClientsPage({
             }),
           []
         )
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    safeLoad(
+      () =>
+        db.prospect.findMany({
+          where: { status: ProspectStatus.CLOSED },
+          select: {
+            id: true,
+            name: true,
+            nextActionAt: true
+          },
+          orderBy: [{ nextActionAt: 'asc' }, { updatedAt: 'desc' }],
+          take: 100
+        }),
+      []
+    )
   ]);
 
   const leadsThisWeek = new Map(leadsThisWeekRows.map((row) => [row.companyId, row._count._all]));
   const bookingsThisWeek = new Map(bookingsThisWeekRows.map((row) => [row.companyId, row._count._all]));
+  const companyByKey = new Map(clients.map((client) => [normalizeClinicKey(client.name), client]));
+  const intakeRows = soldProspects.map((prospect) => {
+    const matchedCompany = companyByKey.get(normalizeClinicKey(prospect.name)) || null;
+    const stage = intakeStageDetails({
+      hasWorkspace: Boolean(matchedCompany),
+      hasRouting: matchedCompany ? hasInboundRouting(matchedCompany) : false,
+      hasNotificationEmail: Boolean(matchedCompany?.notificationEmail)
+    });
+
+    return { prospect, matchedCompany, stage };
+  });
+  const intakeCounts = {
+    waiting: intakeRows.filter((row) => row.stage.stage === 'waiting_signup').length,
+    setup: intakeRows.filter((row) => row.stage.stage === 'setup_pending').length,
+    ready: intakeRows.filter((row) => row.stage.stage === 'ready').length
+  };
 
   const rows = clients.map((client) => {
     const missingSetup = [
@@ -187,6 +219,23 @@ export default async function ClientsPage({
               <strong>Total</strong> {rows.length}
             </span>
           </div>
+
+          <section className="context-alert is-compact">
+            <div className="panel-stack">
+              <div className="metric-label">Client intake bridge</div>
+              <div>
+                {intakeRows.length} sold clinic{intakeRows.length === 1 ? '' : 's'} moving from outbound into signup and onboarding
+              </div>
+              <div className="tiny-muted">
+                {intakeCounts.waiting} waiting for signup • {intakeCounts.setup} setup pending • {intakeCounts.ready} ready
+              </div>
+            </div>
+            <div className="inline-actions">
+              <a className="button-secondary" href="/clients/intake">
+                Open intake queue
+              </a>
+            </div>
+          </section>
 
           <div className="table-wrap">
             <table className="data-table">
