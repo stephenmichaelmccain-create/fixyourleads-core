@@ -6,9 +6,13 @@ import { bookConversationAction, sendConversationMessageAction } from '@/app/con
 import { LeadStatusButton } from '@/app/leads/LeadStatusButton';
 import { db } from '@/lib/db';
 import { isDemoLabel } from '@/lib/demo';
-import { buildLifecycleByMessageId, lifecycleForMessage } from '@/lib/message-lifecycle';
+import {
+  buildConversationRoutingObservation,
+  buildLifecycleByMessageId,
+  lifecycleForMessage
+} from '@/lib/message-lifecycle';
 import { safeLoad } from '@/lib/ui-data';
-import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
+import { allInboundNumbers, companyPrimaryInboundNumber, hasInboundRouting } from '@/lib/inbound-numbers';
 import { normalizePhone } from '@/lib/phone';
 
 export const dynamic = 'force-dynamic';
@@ -913,6 +917,24 @@ export default async function ClientWorkspacePage({
       )
     : [];
   const selectedLifecycleByMessageId = buildLifecycleByMessageId(selectedConversationLifecycleEvents);
+  const selectedRoutingObservation = selectedConversation
+    ? buildConversationRoutingObservation(selectedConversationLifecycleEvents, selectedConversation.id)
+    : null;
+  const sharedTelnyxSender = process.env.TELNYX_FROM_NUMBER?.trim() || null;
+  const primaryRoutingNumber = companyPrimaryInboundNumber(company);
+  const assignedRoutingNumbers = allInboundNumbers(company);
+  const activeSenderNumber = primaryRoutingNumber || sharedTelnyxSender;
+  const telnyxMode = primaryRoutingNumber
+    ? 'dedicated'
+    : sharedTelnyxSender
+      ? 'shared'
+      : 'missing';
+  const telnyxTrustCopy =
+    telnyxMode === 'dedicated'
+      ? 'Replies should route back to this client cleanly.'
+      : telnyxMode === 'shared'
+        ? 'Outbound SMS is available, but replies are still on the shared fallback sender.'
+        : 'Do not trust live SMS here until a shared sender or dedicated inbound number is configured.';
 
   return (
     <LayoutShell
@@ -1450,6 +1472,61 @@ export default async function ClientWorkspacePage({
                         <span className="tiny-muted">{selectedConversation.id}</span>
                       </div>
                     </div>
+
+                    <section className="panel panel-stack">
+                      <div className="record-header">
+                        <div className="panel-stack">
+                          <div className="metric-label">Telnyx sender path</div>
+                          <div className="inline-row">
+                            <span
+                              className={`status-chip ${
+                                selectedRoutingObservation?.outboundNumber || selectedRoutingObservation?.inboundNumber
+                                  ? ''
+                                  : assignedRoutingNumbers.length > 1 || telnyxMode === 'shared'
+                                    ? 'status-chip-muted'
+                                    : 'status-chip-attention'
+                              }`}
+                            >
+                              <strong>Reply routing</strong>{' '}
+                              {selectedRoutingObservation?.inboundNumber || selectedRoutingObservation?.outboundNumber
+                                ? 'observed'
+                                : assignedRoutingNumbers.length > 1
+                                  ? 'client-safe, exact line not observed yet'
+                                  : telnyxMode === 'shared'
+                                    ? 'shared fallback'
+                                    : activeSenderNumber
+                                      ? 'single sender context is clear'
+                                      : 'sender missing'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="tiny-muted">{telnyxTrustCopy}</div>
+                      </div>
+
+                      <div className="key-value-grid">
+                        <div className="key-value-card">
+                          <span className="key-value-label">Active sender number</span>
+                          {activeSenderNumber || 'No sender configured'}
+                        </div>
+                        <div className="key-value-card">
+                          <span className="key-value-label">Observed outbound sender</span>
+                          {selectedRoutingObservation?.outboundNumber || 'No outbound thread event observed yet'}
+                        </div>
+                        <div className="key-value-card">
+                          <span className="key-value-label">Observed inbound line</span>
+                          {selectedRoutingObservation?.inboundNumber || 'No inbound reply captured on this thread yet'}
+                        </div>
+                      </div>
+
+                      <div className="panel-stack" style={{ gap: 6 }}>
+                        <span className="key-value-label">Assigned client numbers</span>
+                        <span className="tiny-muted">
+                          {assignedRoutingNumbers.length > 0
+                            ? assignedRoutingNumbers.join(', ')
+                            : 'No dedicated clinic numbers yet; using shared fallback sender'}
+                        </span>
+                      </div>
+                    </section>
 
                     <div className="client-panel-actions-grid">
                       <form action={sendConversationMessageAction} className="panel panel-stack">
