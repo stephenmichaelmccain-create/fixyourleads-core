@@ -6,10 +6,23 @@ import { LeadStatus } from '@prisma/client';
 import { db } from '@/lib/db';
 import { createLeadFlow, importGoogleMapsLeads } from '@/services/leads';
 
+function sanitizeReturnTo(value: string | null | undefined) {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) {
+    return null;
+  }
+
+  if (value.startsWith('/clients/') || value.startsWith('/leads/')) {
+    return value;
+  }
+
+  return null;
+}
+
 export async function updateLeadStatusAction(formData: FormData) {
   const leadId = String(formData.get('leadId') || '');
   const companyId = String(formData.get('companyId') || '');
   const status = String(formData.get('status') || '');
+  const returnTo = sanitizeReturnTo(String(formData.get('returnTo') || '').trim());
 
   if (!leadId || !companyId || !status) {
     throw new Error('leadId_companyId_status_required');
@@ -26,6 +39,13 @@ export async function updateLeadStatusAction(formData: FormData) {
 
   revalidatePath(`/leads?companyId=${companyId}`);
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath(`/clients/${companyId}`);
+
+  if (returnTo) {
+    const url = new URL(returnTo, 'http://localhost');
+    url.searchParams.set('statusUpdated', status);
+    redirect(url.searchParams.toString() ? `${url.pathname}?${url.searchParams.toString()}` : url.pathname);
+  }
 }
 
 export async function importGoogleMapsLeadsAction(formData: FormData) {

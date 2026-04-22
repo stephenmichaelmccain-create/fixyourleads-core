@@ -3,6 +3,7 @@ import { LeadStatus } from '@prisma/client';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { updateCompanyAction } from '@/app/companies/actions';
 import { bookConversationAction, sendConversationMessageAction } from '@/app/conversations/[conversationId]/actions';
+import { LeadStatusButton } from '@/app/leads/LeadStatusButton';
 import { db } from '@/lib/db';
 import { buildLifecycleByMessageId, lifecycleForMessage } from '@/lib/message-lifecycle';
 import { safeLoad } from '@/lib/ui-data';
@@ -194,6 +195,18 @@ function buildSendFlash(searchParams: { send?: string; detail?: string }) {
   };
 }
 
+function buildLeadStatusFlash(searchParams: { statusUpdated?: string }) {
+  if (!searchParams.statusUpdated) {
+    return null;
+  }
+
+  return {
+    tone: searchParams.statusUpdated === 'SUPPRESSED' ? 'warn' : 'ok',
+    title: 'Lead status updated',
+    body: `Lead moved to ${formatStatusLabel(searchParams.statusUpdated)}.`
+  };
+}
+
 function sequenceState(status: string) {
   if (status === 'NEW') {
     return 'Speed-to-Lead step 0 of 3';
@@ -274,6 +287,7 @@ export default async function ClientWorkspacePage({
     notificationDetail?: string;
     confirmation?: string;
     confirmationDetail?: string;
+    statusUpdated?: string;
   }>;
 }) {
   const { id } = await params;
@@ -292,6 +306,7 @@ export default async function ClientWorkspacePage({
   const notice = query.notice || '';
   const sendFlash = buildSendFlash(query);
   const bookingFlash = buildBookingFlash(query);
+  const leadStatusFlash = buildLeadStatusFlash(query);
   const windowStart = startOfTrailingDays(windowDays);
 
   const company = await safeLoad(
@@ -674,6 +689,16 @@ export default async function ClientWorkspacePage({
             <strong>{bookingFlash.title}</strong>
           </div>
           <div className="text-muted">{bookingFlash.body}</div>
+        </section>
+      )}
+
+      {leadStatusFlash && (
+        <section className="panel panel-stack">
+          <div className="inline-row">
+            <span className={`status-dot ${leadStatusFlash.tone}`} />
+            <strong>{leadStatusFlash.title}</strong>
+          </div>
+          <div className="text-muted">{leadStatusFlash.body}</div>
         </section>
       )}
 
@@ -1094,6 +1119,42 @@ export default async function ClientWorkspacePage({
                           Book and notify
                         </button>
                       </form>
+
+                      {selectedLead ? (
+                        <section className="panel panel-stack">
+                          <div className="metric-label">Quick status</div>
+                          <div className="inline-actions inline-actions-wrap">
+                            <LeadStatusButton
+                              leadId={selectedLead.id}
+                              companyId={selectedLead.companyId}
+                              status="CONTACTED"
+                              label="Mark contacted"
+                              returnTo={selectedThreadHref}
+                            />
+                            <LeadStatusButton
+                              leadId={selectedLead.id}
+                              companyId={selectedLead.companyId}
+                              status="REPLIED"
+                              label="Mark replied"
+                              returnTo={selectedThreadHref}
+                            />
+                            <LeadStatusButton
+                              leadId={selectedLead.id}
+                              companyId={selectedLead.companyId}
+                              status="BOOKED"
+                              label="Mark booked"
+                              returnTo={selectedThreadHref}
+                            />
+                            <LeadStatusButton
+                              leadId={selectedLead.id}
+                              companyId={selectedLead.companyId}
+                              status="SUPPRESSED"
+                              label="Suppress"
+                              returnTo={selectedThreadHref}
+                            />
+                          </div>
+                        </section>
+                      ) : null}
                     </div>
 
                   </>
@@ -1195,6 +1256,39 @@ export default async function ClientWorkspacePage({
                   Create thread and send
                 </button>
               </form>
+              <section className="panel panel-stack">
+                <div className="metric-label">Quick status</div>
+                <div className="inline-actions inline-actions-wrap">
+                  <LeadStatusButton
+                    leadId={selectedLead.id}
+                    companyId={selectedLead.companyId}
+                    status="CONTACTED"
+                    label="Mark contacted"
+                    returnTo={selectedLeadHref}
+                  />
+                  <LeadStatusButton
+                    leadId={selectedLead.id}
+                    companyId={selectedLead.companyId}
+                    status="REPLIED"
+                    label="Mark replied"
+                    returnTo={selectedLeadHref}
+                  />
+                  <LeadStatusButton
+                    leadId={selectedLead.id}
+                    companyId={selectedLead.companyId}
+                    status="BOOKED"
+                    label="Mark booked"
+                    returnTo={selectedLeadHref}
+                  />
+                  <LeadStatusButton
+                    leadId={selectedLead.id}
+                    companyId={selectedLead.companyId}
+                    status="SUPPRESSED"
+                    label="Suppress"
+                    returnTo={selectedLeadHref}
+                  />
+                </div>
+              </section>
               <div className="empty-state">
                 No conversation thread exists for this lead yet. When Telnyx creates one, it will open here.
               </div>

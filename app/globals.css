@@ -1187,6 +1187,10 @@ select {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.inline-actions-wrap {
+  flex-wrap: wrap;
+}
+
 .sticky-panel {
   position: sticky;
   top: 18px;

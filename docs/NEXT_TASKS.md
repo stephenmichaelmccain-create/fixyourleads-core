@@ -1,7 +1,7 @@
 ## Now
 - Fix any live blocker first. Current live app is up, so next priority is core operator workflow improvements on `/clients/[id]`.
 - Keep the client workspace as the primary operator surface now that operators can send, book, and even start a first thread without leaving `/clients/[id]`.
-- Tighten the remaining operator-control gaps inside the client workspace now that the leads table also shows thread state at a glance.
+- Tighten the remaining operator-control gaps inside the client workspace now that operators can also change lead status from the client panel without route hopping.
 - Keep all changes deploy-safe if they might be merged later. No destructive schema or config changes.
 
 ## Next
