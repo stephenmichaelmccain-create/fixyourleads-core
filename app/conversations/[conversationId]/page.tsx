@@ -3,6 +3,7 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 import { safeLoad } from '@/lib/ui-data';
 import { notificationReadiness } from '@/lib/notifications';
 import { bookConversationAction, sendConversationMessageAction } from './actions';
+import { LeadStatusButton } from '@/app/leads/LeadStatusButton';
 import { normalizePhone } from '@/lib/phone';
 import { allInboundNumbers, companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 import { buildLifecycleByMessageId, lifecycleForMessage } from '@/lib/message-lifecycle';
@@ -276,6 +277,7 @@ export default async function ConversationDetailPage({
     []
   );
   const lifecycleByMessageId = buildLifecycleByMessageId(conversationLifecycleEvents);
+  const returnTo = `/conversations/${activeConversation.id}`;
   const lastLifecycle = lastMessage
     ? lifecycleForMessage(lastMessage, lifecycleByMessageId.get(lastMessage.id) || [])
     : null;
@@ -578,6 +580,43 @@ export default async function ConversationDetailPage({
               Book and notify
             </button>
           </form>
+
+          {associatedLead ? (
+            <section className="panel panel-stack">
+              <div className="metric-label">Lead status</div>
+              <h2 className="form-title">Move the lead without leaving the thread</h2>
+              <div className="inline-actions inline-actions-wrap">
+                <LeadStatusButton
+                  leadId={associatedLead.id}
+                  companyId={activeConversation.companyId}
+                  status="CONTACTED"
+                  label="Mark contacted"
+                  returnTo={returnTo}
+                />
+                <LeadStatusButton
+                  leadId={associatedLead.id}
+                  companyId={activeConversation.companyId}
+                  status="REPLIED"
+                  label="Mark replied"
+                  returnTo={returnTo}
+                />
+                <LeadStatusButton
+                  leadId={associatedLead.id}
+                  companyId={activeConversation.companyId}
+                  status="BOOKED"
+                  label="Mark booked"
+                  returnTo={returnTo}
+                />
+                <LeadStatusButton
+                  leadId={associatedLead.id}
+                  companyId={activeConversation.companyId}
+                  status="SUPPRESSED"
+                  label="Suppress"
+                  returnTo={returnTo}
+                />
+              </div>
+            </section>
+          ) : null}
 
           <section className="panel panel-stack">
             <div className="metric-label">Appointment history</div>
