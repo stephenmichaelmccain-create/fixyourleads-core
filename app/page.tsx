@@ -140,28 +140,28 @@ export default async function HomePage() {
       description="Five-minute morning check."
       section="home"
     >
-      <section className={`panel home-summary-bar${allClear ? ' is-clear' : ' is-attention'}`}>
-        <div className="home-summary-status">
+      <section className="home-inline-bar">
+        <div className="home-inline-status">
           <span className={`status-dot ${allClear ? 'ok' : 'warn'}`} />
           <strong>{allClear ? 'Everything is running.' : 'Something needs attention.'}</strong>
         </div>
 
-        <div className="home-summary-metrics">
-          <div className="home-summary-metric">
+        <div className="home-inline-metrics">
+          <span className="home-inline-pill">
             <span className="metric-label">Unread client messages</span>
             <strong>{unreadClientMessages}</strong>
-          </div>
-          <div className="home-summary-metric">
+          </span>
+          <span className="home-inline-pill">
             <span className="metric-label">Appointments today</span>
             <strong>{appointmentsToday}</strong>
-          </div>
-          <div className="home-summary-metric">
+          </span>
+          <span className="home-inline-pill">
             <span className="metric-label">Clients needing attention</span>
             <strong>{clientsNeedingAttention}</strong>
-          </div>
+          </span>
         </div>
 
-        <div className="home-summary-recap">
+        <div className="home-inline-recap">
           Yesterday: {formatPlural(newLeadsYesterday, 'new lead')}, {formatPlural(appointmentsYesterday, 'appointment')},{' '}
           {formatPlural(messagesYesterday, 'message')}.
         </div>
