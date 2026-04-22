@@ -30,6 +30,31 @@ const allowedOrigins = new Set(
     .filter(Boolean)
 );
 
+function logWebsiteWebhook(
+  level: 'info' | 'warn' | 'error',
+  event: string,
+  detail: Record<string, unknown>
+) {
+  const entry = JSON.stringify({
+    level,
+    event,
+    source: 'website-intake-webhook',
+    ...detail
+  });
+
+  if (level === 'error') {
+    console.error(entry);
+    return;
+  }
+
+  if (level === 'warn') {
+    console.warn(entry);
+    return;
+  }
+
+  console.info(entry);
+}
+
 function matchProspectByPriority(
   prospects: Array<{
     id: string;
@@ -185,16 +210,32 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   let payload: IntakePayloadRecord | null = null;
+  const contentType = String(request.headers.get('content-type') || '').toLowerCase();
 
   try {
     payload = await readPayload(request);
   } catch {
+    logWebsiteWebhook('warn', 'invalid_payload_read', {
+      contentType,
+      payloadPresent: false
+    });
     return NextResponse.json({ error: 'invalid_payload' }, { status: 400, headers: corsHeaders(request) });
   }
 
-  const parsed = intakeSchema.safeParse(normalizeIntakePayload(payload || {}));
+  const normalizedPayload = normalizeIntakePayload(payload || {});
+  const payloadKeys = Object.keys(payload || {}).sort();
+  const parsed = intakeSchema.safeParse(normalizedPayload);
 
   if (!parsed.success) {
+    logWebsiteWebhook('warn', 'invalid_payload_schema', {
+      contentType,
+      payloadKeys,
+      clinicNamePresent: Boolean(normalizedPayload.clinicName),
+      emailPresent: Boolean(normalizedPayload.notificationEmail),
+      phonePresent: Boolean(normalizedPayload.phone),
+      websitePresent: Boolean(normalizedPayload.website),
+      source: normalizedPayload.source || null
+    });
     return NextResponse.json({ error: 'invalid_payload' }, { status: 400, headers: corsHeaders(request) });
   }
 
@@ -293,6 +334,16 @@ export async function POST(request: NextRequest) {
   revalidatePath('/');
   revalidatePath('/clients');
   revalidatePath('/clients/intake');
+
+  logWebsiteWebhook('info', 'accepted', {
+    contentType,
+    payloadKeys,
+    companyId: company.id,
+    matchedExistingCompany: Boolean(matchedCompany),
+    matchedProspect: Boolean(matchedProspect),
+    source: parsed.data.source || 'website',
+    clinicName: parsed.data.clinicName
+  });
 
   return NextResponse.json(
     {

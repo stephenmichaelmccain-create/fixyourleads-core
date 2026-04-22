@@ -30,6 +30,31 @@ const allowedOrigins = new Set(
     .filter(Boolean)
 );
 
+function logWebsiteWebhook(
+  level: 'info' | 'warn' | 'error',
+  event: string,
+  detail: Record<string, unknown>
+) {
+  const entry = JSON.stringify({
+    level,
+    event,
+    source: 'website-onboarding-webhook',
+    ...detail
+  });
+
+  if (level === 'error') {
+    console.error(entry);
+    return;
+  }
+
+  if (level === 'warn') {
+    console.warn(entry);
+    return;
+  }
+
+  console.info(entry);
+}
+
 function corsHeaders(request: NextRequest) {
   const origin = request.headers.get('origin');
   const headers: Record<string, string> = {
@@ -165,16 +190,36 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   let payload: OnboardingPayloadRecord | null = null;
+  const contentType = String(request.headers.get('content-type') || '').toLowerCase();
 
   try {
     payload = await readPayload(request);
   } catch {
+    logWebsiteWebhook('warn', 'invalid_payload_read', {
+      contentType,
+      payloadPresent: false
+    });
     return NextResponse.json({ error: 'invalid_payload' }, { status: 400, headers: corsHeaders(request) });
   }
 
-  const parsed = onboardingSchema.safeParse(normalizeOnboardingPayload(payload || {}));
+  const normalizedPayload = normalizeOnboardingPayload(payload || {});
+  const payloadKeys = Object.keys(payload || {}).sort();
+  const parsed = onboardingSchema.safeParse(normalizedPayload);
 
   if (!parsed.success) {
+    logWebsiteWebhook('warn', 'invalid_payload_schema', {
+      contentType,
+      payloadKeys,
+      clinicNamePresent: Boolean(normalizedPayload.clinicName),
+      emailPresent: Boolean(normalizedPayload.notificationEmail),
+      phonePresent: Boolean(normalizedPayload.phone),
+      websitePresent: Boolean(normalizedPayload.website),
+      source: normalizedPayload.source || null,
+      businessTypePresent: Boolean(normalizedPayload.businessType),
+      campaignUseCasePresent: Boolean(normalizedPayload.campaignUseCase),
+      telnyxBrandNamePresent: Boolean(normalizedPayload.telnyxBrandName),
+      taxIdLast4Present: Boolean(normalizedPayload.taxIdLast4)
+    });
     return NextResponse.json({ error: 'invalid_payload' }, { status: 400, headers: corsHeaders(request) });
   }
 
@@ -247,6 +292,19 @@ export async function POST(request: NextRequest) {
   revalidatePath('/');
   revalidatePath('/clients');
   revalidatePath('/clients/intake');
+
+  logWebsiteWebhook('info', 'accepted', {
+    contentType,
+    payloadKeys,
+    companyId: company.id,
+    matchedExistingCompany: Boolean(matchedCompany),
+    source: parsed.data.source || 'website_onboarding',
+    clinicName: parsed.data.clinicName,
+    businessTypePresent: Boolean(parsed.data.businessType),
+    campaignUseCasePresent: Boolean(parsed.data.campaignUseCase),
+    telnyxBrandNamePresent: Boolean(parsed.data.telnyxBrandName),
+    taxIdLast4Present: Boolean(parsed.data.taxIdLast4)
+  });
 
   return NextResponse.json(
     {
