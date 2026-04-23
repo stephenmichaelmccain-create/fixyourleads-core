@@ -81,7 +81,7 @@ const workflowCards = [
   },
   {
     title: 'Messaging and booking',
-    body: 'Inbound Telnyx replies route into message workers, then booking jobs create appointments and notifications.',
+    body: 'Telnyx handles message delivery and events, while the app routes replies into workflow state, booking jobs, and operator history.',
     route: '/api/webhooks/telnyx',
     routeSecondary: 'workers/booking.ts',
     records: 'Message · Appointment · EventLog',
@@ -173,7 +173,7 @@ export default async function AdminSystemPage() {
         <div className="record-header">
           <div className="panel-stack">
             <div className="metric-label">Workflow map</div>
-            <h2 className="section-title">The short version of how the app is wired right now.</h2>
+            <h2 className="section-title">The short version of how the app and providers divide responsibility.</h2>
           </div>
           <a className="button-secondary" href="/diagnostics/workflows">
             Open full map

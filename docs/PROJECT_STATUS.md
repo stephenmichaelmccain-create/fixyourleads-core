@@ -1,8 +1,8 @@
 # FixYourLeads Project Status
 
-2026-04-22: Simplified the live app around one vocabulary (`Clients`, `Leads`, `Messages`, `System Status`, `Activity Log`), tightened the home screen and client workspace UI, and cleaned up stale route/docs wording that was still leaking old labels like `Companies`, `Our Leads`, and `Diagnostics`.
+2026-04-23: Clarified the product boundary so Telnyx owns communications execution while the app owns contact source of truth, workflow state, dedupe, and operator visibility.
 
-Last updated: 2026-04-22
+Last updated: 2026-04-23
 
 ## Purpose
 
@@ -14,7 +14,7 @@ outreach, messaging, and booking workflows.
 - Next.js app/router app
 - Prisma + Postgres
 - Redis + BullMQ
-- Telnyx for messaging
+- Telnyx for messaging and voice execution
 - Railway for app, worker, database, and Redis hosting
 
 ## Repo and deploy anchors
@@ -147,12 +147,30 @@ The product should stay narrow:
 This should remain a code-first app. Codex helps build it, but the runtime
 system should not depend on Codex or agents.
 
+## Architecture boundary
+
+Telnyx should own the communications execution layer:
+
+- outbound SMS and call delivery
+- inbound telecom events
+- messaging profiles, routing numbers, and scheduling features
+- compliance, number behavior, and voice runtime
+
+The app should own the workflow layer:
+
+- clinic, contact, and conversation source of truth
+- dedupe and suppression
+- workflow ownership and booking state
+- operator UI, history, diagnostics, and reporting
+
 ## Current likely bottlenecks
 
 - inbound and outbound Telnyx flows still need full live end-to-end validation
+- workflow ownership rules are still implied by events and UI state more than explicitly modeled
 - booking notification email still needs SMTP credentials configured
 - worker behavior is online but not fully exercised with real jobs
 - Sentry is prepared as an optional next step, but no DSN is configured yet
+- native Telnyx features need to be integrated intentionally so we do not rebuild scheduling or runtime behavior unnecessarily
 
 ## Minimum production focus
 
@@ -161,11 +179,12 @@ See `docs/MINIMUM_PRODUCTION_WORKFLOW.md`.
 The next real build target is:
 
 1. lead import and dedupe
-2. first outbound SMS flow
-3. inbound SMS webhook handling
-4. booking creation
+2. first outbound SMS flow through Telnyx
+3. inbound SMS webhook handling plus contact/conversation routing
+4. booking creation plus confirmation state
 5. client notification email
-6. voice workflow on top of the same records
+6. workflow ownership rules across lead, reply, booked, suppressed, and follow-up states
+7. voice workflow on top of the same records through Telnyx
 
 ## GitHub policy
 

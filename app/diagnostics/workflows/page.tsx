@@ -3,11 +3,11 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 const systemLayers = [
   {
     name: 'Next.js app',
-    role: 'Operator UI, internal APIs, public webhooks, and runtime diagnostics.'
+    role: 'Contact and workflow brain: operator UI, internal APIs, public webhooks, and runtime diagnostics.'
   },
   {
     name: 'Worker processes',
-    role: 'BullMQ workers that handle new lead outreach, inbound message interpretation, and booking jobs.'
+    role: 'BullMQ workers that apply business rules after intake, outreach, inbound replies, and booking events.'
   },
   {
     name: 'Postgres',
@@ -19,7 +19,7 @@ const systemLayers = [
   },
   {
     name: 'Telnyx',
-    role: 'Sends outbound SMS, receives inbound webhooks, and drives confirmation messages.'
+    role: 'Communications execution layer for SMS, voice, delivery events, scheduling, and number routing.'
   },
   {
     name: 'Google Maps API',
@@ -62,7 +62,7 @@ const workflows = [
   },
   {
     title: 'Outbound outreach',
-    summary: 'This is how the system starts or continues contact with a clinic by text, either manually from the UI or automatically from the lead queue.',
+    summary: 'This is how the system starts or continues contact with a clinic by text. The app decides workflow ownership and sender context, then Telnyx executes the message.',
     trigger: 'Conversation operator send action or queued new lead outreach.',
     paths: [
       '/api/internal/messages/send',
@@ -79,12 +79,12 @@ const workflows = [
       'Pick the company sender number from the clinic routing setup.',
       'Send the message through Telnyx.',
       'Persist the outbound message on the conversation.',
-      'Move lead status to contacted and log the event.'
+      'Move lead status to contacted, keep the workflow owner current, and log the event.'
     ]
   },
   {
     title: 'Inbound reply routing',
-    summary: 'Every incoming Telnyx webhook lands here first. The app validates it, finds the right clinic by inbound number, stores the message, and hands the text to the worker layer.',
+    summary: 'Every incoming Telnyx webhook lands here first. Telnyx delivers the event; the app validates it, finds the right clinic by inbound number, stores the message, and hands the text to the worker layer.',
     trigger: 'Telnyx message webhook.',
     paths: [
       '/api/webhooks/telnyx'
@@ -100,14 +100,14 @@ const workflows = [
     stages: [
       'Verify webhook signature when strict mode is enabled.',
       'Reject duplicates with a company-scoped idempotency key.',
-      'Resolve the clinic from the inbound number.',
+      'Resolve the clinic, contact, and conversation owner from the inbound number.',
       'Store the inbound message and mark the lead as replied.',
       'Queue the message text for interpretation.'
     ]
   },
   {
     title: 'Reply interpretation and suppression',
-    summary: 'The message worker decides whether an inbound reply means stop, restart, help, or booking intent.',
+    summary: 'This is app-side business logic. The message worker decides whether an inbound reply means stop, restart, help, booking intent, or a workflow state change.',
     trigger: 'Queued inbound message from the Telnyx webhook.',
     paths: [
       'workers/handle_incoming_message.ts'
@@ -128,7 +128,7 @@ const workflows = [
   },
   {
     title: 'Booking creation and confirmation',
-    summary: 'This flow creates the appointment, marks the lead as booked, sends the confirmation text, and optionally emails the clinic or client.',
+    summary: 'This flow creates the appointment, marks the lead as booked, asks Telnyx to send the confirmation text, and optionally emails the clinic or client.',
     trigger: 'Operator booking action or booking worker job.',
     paths: [
       '/api/internal/bookings/create',
@@ -147,12 +147,13 @@ const workflows = [
       'Prevent duplicate bookings for the same contact and slot.',
       'Create the appointment and mark the lead as booked.',
       'Send a confirmation text from the clinic routing number.',
-      'Send the booking notification email when SMTP is configured.'
+      'Send the booking notification email when SMTP is configured.',
+      'Keep booking state and audit history in the app.'
     ]
   },
   {
     title: 'Operations, audit, and health',
-    summary: 'This is the operator truth surface for live deployments. It shows whether the stack is wired, how much data has moved, and what the latest events look like.',
+    summary: 'This is the operator truth surface for live deployments. It shows whether the stack is wired, which provider owns which responsibility, and what the latest workflow events look like.',
     trigger: 'Operator checks, Railway health checks, or internal admin reads.',
     paths: [
       '/diagnostics',
@@ -196,15 +197,15 @@ export default function WorkflowDiagnosticsPage() {
   return (
     <LayoutShell
       title="Workflow Map"
-      description="See how the live system is wired: which routes fire, which workers pick up the job, which providers are involved, and where each workflow writes data."
+      description="See how the live system is wired: which routes fire, which workers pick up the job, which providers execute communications, and where each workflow writes data."
       section="diagnostics"
     >
       <section className="panel panel-stack panel-dark">
         <div className="metric-label">System view</div>
         <h2 className="section-title section-title-large">What is actually running</h2>
         <p className="page-copy page-copy-inverse">
-          This page is the technical map for the live product. It shows the real paths already in the repo so Stephen can trace how a lead moves
-          from import to outreach to booking.
+          This page is the technical map for the live product. Telnyx executes communications, while the app keeps contact ownership, workflow
+          state, and operator truth. The paths below show how a lead moves from intake to outreach to booking.
         </p>
         <div className="workflow-chip-grid">
           {systemLayers.map((layer) => (

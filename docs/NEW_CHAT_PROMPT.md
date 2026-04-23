@@ -24,6 +24,7 @@ Rules:
 - do not print secret values
 - report confirmed facts separately from guesses
 - prefer product progress over infra churn
+- prefer native Telnyx features for transport, scheduling, routing, and voice before proposing custom app-side rebuilds
 - keep updates short and delta-only
 - use GitHub as the stable backup for repo-safe changes
 
@@ -102,7 +103,8 @@ Current product target:
 - lightweight multi-tenant CRM for clinic outreach
 - lead sourcing from Google Maps and similar sources
 - dedupe/suppression so the same clinic is not contacted twice
-- Telnyx for SMS and voice
+- Telnyx for communications execution
+- the app as the workflow brain and source of truth
 - appointment booking
 - client notifications from fixyourleadsadmin@gmail.com
 - no bloated generic CRM features

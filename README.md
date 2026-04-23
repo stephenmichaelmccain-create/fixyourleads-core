@@ -1,6 +1,6 @@
 # FixYourLeads Core
 
-Production application for clinic lead intake, outreach, messaging, and booking.
+Production application for clinic lead intake, workflow orchestration, messaging, and booking.
 
 ## Product model
 
@@ -21,7 +21,23 @@ Core runtime flow:
 2. Prisma writes the source-of-truth records in Postgres
 3. BullMQ workers pick up slow or async work like lead processing and message handling
 4. operators work mostly from `/leads`, `/clients`, `/clients/[id]`, and `/messages`
-5. Telnyx powers SMS and routing, while `System Status` and `Activity Log` show the live operational truth
+5. Telnyx executes messaging and calling, while the app decides workflow state and `System Status` plus `Activity Log` show the live operational truth
+
+## Execution boundary
+
+Use Telnyx for the communications layer:
+
+- message and call execution
+- delivery and inbound events
+- number routing and messaging profiles
+- telecom compliance and scheduling features
+
+Use this app for the workflow layer:
+
+- contact and clinic source of truth
+- dedupe and suppression
+- workflow ownership and booking state
+- operator controls, history, and reporting
 
 ## Start here
 - `docs/PROJECT_STATUS.md` for the current handoff and deploy state
@@ -32,7 +48,7 @@ Core runtime flow:
 - Next.js
 - Postgres + Prisma
 - Redis + BullMQ
-- Telnyx
+- Telnyx for communications execution
 - SMTP/Gmail-compatible booking notifications
 
 ## Required env
@@ -88,7 +104,7 @@ These public website-facing routes accept browser or form-platform submissions a
 ### Telnyx
 - `POST /api/webhooks/telnyx`
 
-Inbound SMS is routed by the destination number so multiple clients can safely share one Telnyx account while keeping number ownership isolated per client.
+Inbound SMS and delivery events are routed by destination number so multiple clients can safely share one Telnyx account while keeping number ownership isolated per client. The app uses those events to attach messages to the right contact, conversation, and workflow state.
 
 ### Lead sourcing
 - `POST /api/webhooks/lead`
@@ -115,7 +131,7 @@ These feed the outbound Leads workflow.
 - `npm test` runs the webhook payload normalization tests for the live website form shapes.
 
 ## Current pages
-- `/` — morning check dashboard
+- `/` — activity-style operator landing
 - `/clients` — paying client list
 - `/clients/[id]` — main client workspace
 - `/clients/new` — lightweight new-client setup flow
