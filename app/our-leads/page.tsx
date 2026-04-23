@@ -2,8 +2,14 @@ import { ProspectStatus } from '@prisma/client';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { isDemoLabel } from '@/lib/demo';
+import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoad } from '@/lib/ui-data';
-import { createProspectAction, scheduleProspectCallbackAction, updateProspectOutcomeAction } from './actions';
+import {
+  createProspectAction,
+  scheduleProspectCallbackAction,
+  updateProspectDetailsAction,
+  updateProspectOutcomeAction
+} from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,65 +91,27 @@ function websiteHref(website?: string | null) {
   return /^https?:\/\//i.test(website) ? website : `https://${website}`;
 }
 
-const PROSPECT_META_PREFIX = 'fyl:';
+function websiteLabel(website?: string | null) {
+  const href = websiteHref(website);
 
-type ProspectProfile = {
-  clinicType?: string;
-  zipCode?: string;
-  predictedRevenue?: string;
-  source?: string;
-  importBatch?: string;
-  sourceRecord?: string;
-  logoUrl?: string;
-};
-
-function parseProspectNotes(notes?: string | null) {
-  const profile: ProspectProfile = {};
-  const plainLines: string[] = [];
-
-  for (const line of String(notes || '').split('\n')) {
-    const trimmed = line.trim();
-
-    if (!trimmed) {
-      plainLines.push('');
-      continue;
-    }
-
-    if (!trimmed.startsWith(PROSPECT_META_PREFIX)) {
-      plainLines.push(line);
-      continue;
-    }
-
-    const metadata = trimmed.slice(PROSPECT_META_PREFIX.length);
-    const [rawKey, ...valueParts] = metadata.split('=');
-    const key = rawKey?.trim();
-    const value = valueParts.join('=').trim();
-
-    if (!key || !value) {
-      continue;
-    }
-
-    if (key === 'clinic_type') {
-      profile.clinicType = value;
-    } else if (key === 'zip_code') {
-      profile.zipCode = value;
-    } else if (key === 'predicted_revenue') {
-      profile.predictedRevenue = value;
-    } else if (key === 'source') {
-      profile.source = value;
-    } else if (key === 'import_batch') {
-      profile.importBatch = value;
-    } else if (key === 'source_record') {
-      profile.sourceRecord = value;
-    } else if (key === 'logo_url') {
-      profile.logoUrl = value;
-    }
+  if (!href) {
+    return 'Not set';
   }
 
-  return {
-    profile,
-    plainNotes: plainLines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
-  };
+  try {
+    return new URL(href).hostname.replace(/^www\./i, '');
+  } catch {
+    return href.replace(/^https?:\/\//i, '').split('/')[0];
+  }
+}
+
+function formatDateTimeInput(date?: Date | null) {
+  if (!date) {
+    return '';
+  }
+
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
 }
 
 function normalizeSearch(value: string) {
@@ -447,6 +415,8 @@ export default async function OurLeadsPage({
                           ? 'Marked booked'
                           : updated === 'sold'
                             ? 'Marked sold'
+                            : updated === 'details'
+                              ? 'Lead details saved'
                             : 'Lead updated'}
             </span>
           ) : null}
@@ -460,6 +430,12 @@ export default async function OurLeadsPage({
             <span className="inline-row">
               <span className="status-dot error" />
               {errorMessage}
+            </span>
+          ) : null}
+          {updated === 'invalid_details' ? (
+            <span className="inline-row">
+              <span className="status-dot error" />
+              Follow-up date must be a valid date and time.
             </span>
           ) : null}
         </section>
@@ -644,7 +620,9 @@ export default async function OurLeadsPage({
                           <td>
                             <div className="record-stack">
                               <span>{prospect.phone || 'No phone'}</span>
-                              <span className="tiny-muted">{prospect.ownerName || prospect.website || 'No contact info'}</span>
+                              <span className="tiny-muted">
+                                {[prospect.ownerName, prospect.website ? websiteLabel(prospect.website) : null].filter(Boolean).join(' · ') || 'No contact info'}
+                              </span>
                             </div>
                           </td>
                           <td>
@@ -710,15 +688,38 @@ export default async function OurLeadsPage({
               </div>
             ) : (
               <>
+                <div className="lead-brand-row">
+                  {selectedProspectView.profile.logoUrl ? (
+                    <img
+                      src={selectedProspectView.profile.logoUrl}
+                      alt={`${selectedProspectView.name} logo`}
+                      className="lead-logo"
+                    />
+                  ) : (
+                    <div className="lead-logo lead-logo-fallback">{selectedProspectView.name.charAt(0).toUpperCase()}</div>
+                  )}
+                  <div className="record-stack">
+                    <span className="metric-label">Website</span>
+                    <div className="inline-row inline-actions-wrap">
+                      <strong>{websiteLabel(selectedProspectView.website)}</strong>
+                      {selectedProspectView.website ? (
+                        <a
+                          className="button-secondary button-secondary-strong"
+                          href={websiteHref(selectedProspectView.website)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open website
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="inline-actions inline-actions-wrap">
                   {selectedProspectView.phone ? (
                     <a className="button" href={`tel:${selectedProspectView.phone}`}>
                       Call now
-                    </a>
-                  ) : null}
-                  {selectedProspectView.website ? (
-                    <a className="button-secondary" href={websiteHref(selectedProspectView.website)} target="_blank" rel="noreferrer">
-                      Open website
                     </a>
                   ) : null}
                 </div>
@@ -792,21 +793,50 @@ export default async function OurLeadsPage({
                   </div>
                   <div className="key-value-card">
                     <span className="key-value-label">Website</span>
-                    {selectedProspectView.website || 'Not set'}
+                    {websiteLabel(selectedProspectView.website)}
                   </div>
                 </div>
 
-                <details className="routing-details" open={Boolean(selectedProspectView.plainNotes)}>
-                  <summary className="routing-summary">
-                    <span className="metric-label">Notes</span>
-                    <span className="tiny-muted">{selectedProspectView.plainNotes ? 'Open' : 'None'}</span>
-                  </summary>
-                  {selectedProspectView.plainNotes ? (
-                    <div className="key-value-card pre-wrap">{selectedProspectView.plainNotes}</div>
-                  ) : (
-                    <div className="empty-state">No notes yet.</div>
-                  )}
-                </details>
+                <form action={updateProspectDetailsAction} className="panel panel-stack">
+                  <div className="inline-row justify-between">
+                    <div className="metric-label">Lead notes and follow-up</div>
+                    <div className="tiny-muted">Tracked on this lead</div>
+                  </div>
+                  <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                  <input type="hidden" name="q" value={searchQuery} />
+                  <input type="hidden" name="status" value={selectedStatus} />
+                  <input type="hidden" name="city" value={selectedCity} />
+                  <input type="hidden" name="nextActionDue" value={selectedDue} />
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="lead-next-action-at">
+                      Follow-up date
+                    </label>
+                    <input
+                      id="lead-next-action-at"
+                      name="nextActionAt"
+                      type="datetime-local"
+                      className="text-input"
+                      defaultValue={formatDateTimeInput(selectedProspectView.nextActionAt)}
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="lead-notes-editor">
+                      Notes
+                    </label>
+                    <textarea
+                      id="lead-notes-editor"
+                      name="notes"
+                      className="text-area"
+                      defaultValue={selectedProspectView.plainNotes}
+                      placeholder="Anything the next caller should know."
+                    />
+                  </div>
+                  <div className="inline-actions">
+                    <button type="submit" className="button-secondary button-secondary-strong">
+                      Save changes
+                    </button>
+                  </div>
+                </form>
 
                 <details className="routing-details" open={selectedProspectView.callLogs.length > 0}>
                   <summary className="routing-summary">

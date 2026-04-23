@@ -1,11 +1,8 @@
 type NavProps = {
-  companyId?: string;
-  companyName?: string;
-  usingRememberedCompany?: boolean;
   current?: 'home' | 'clients' | 'leads' | 'messages' | 'system' | 'activity' | 'diagnostics' | 'our-leads';
 };
 
-export function Nav({ companyId, companyName, usingRememberedCompany, current }: NavProps) {
+export function Nav({ current }: NavProps) {
   const linkClass = (name: NavProps['current']) =>
     `nav-link${current === name ? ' is-active' : ''}`;
 
@@ -39,9 +36,6 @@ export function Nav({ companyId, companyName, usingRememberedCompany, current }:
             Activity
           </a>
         </div>
-        {usingRememberedCompany && companyName && (
-          <span className="nav-utility-link nav-utility-context">{companyName}</span>
-        )}
       </div>
     </div>
   );

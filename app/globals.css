@@ -3,9 +3,9 @@
   --fyl-dark: #141416;
   --fyl-white: #ffffff;
   --fyl-smoke: #f5f5f7;
-  --fyl-soft: #f4f2f8;
-  --fyl-line: #e5e5e7;
-  --fyl-line-strong: #d2d2d8;
+  --fyl-soft: #f6f1ff;
+  --fyl-line: #e7dcff;
+  --fyl-line-strong: #c9b4ff;
   --fyl-muted: #6b6b73;
   --fyl-accent: #b632ff;
   --fyl-accent-strong: #7c3aed;
@@ -27,6 +27,10 @@ body {
 
 body {
   font-family: var(--font-body), sans-serif;
+  background:
+    radial-gradient(circle at top center, rgba(182, 50, 255, 0.12), transparent 24%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.08), transparent 18%),
+    var(--fyl-smoke);
 }
 
 a {
@@ -54,9 +58,10 @@ select {
   min-height: 56px;
   padding: 10px 14px;
   border-radius: 16px;
-  border: 1px solid var(--fyl-line);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 8px 20px rgba(12, 12, 18, 0.05);
+  border: 1px solid rgba(176, 137, 244, 0.24);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 243, 255, 0.96));
+  box-shadow: 0 12px 28px rgba(52, 16, 88, 0.12);
 }
 
 .app-header-brand {
@@ -81,6 +86,7 @@ select {
   height: 40px;
   flex: 0 0 auto;
   border-radius: 12px;
+  background: linear-gradient(135deg, rgba(182, 50, 255, 0.14), rgba(124, 58, 237, 0.08));
 }
 
 .brand-mark-svg {
@@ -164,7 +170,7 @@ select {
 
 .nav-utility-link:hover,
 .nav-utility-link.is-active {
-  color: var(--fyl-black);
+  color: var(--fyl-accent-strong);
 }
 
 .nav-utility-context {
@@ -186,17 +192,18 @@ select {
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
-  transition: background-color 160ms ease, color 160ms ease;
+  transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
 
 .nav-link:hover {
-  background: rgba(124, 58, 237, 0.08);
-  color: var(--fyl-black);
+  background: rgba(124, 58, 237, 0.09);
+  color: #5f2bc8;
 }
 
 .nav-link.is-active {
-  background: rgba(124, 58, 237, 0.1);
+  background: linear-gradient(180deg, rgba(182, 50, 255, 0.14), rgba(124, 58, 237, 0.08));
   color: #5f2bc8;
+  box-shadow: inset 0 0 0 1px rgba(176, 137, 244, 0.24);
 }
 
 .shell-body {
@@ -234,6 +241,7 @@ select {
   font-size: 1.95rem;
   font-weight: 600;
   letter-spacing: -0.02em;
+  color: #2b0a45;
 }
 
 .page-copy {
@@ -250,8 +258,9 @@ select {
   flex-wrap: wrap;
   padding: 12px 14px;
   border-radius: 14px;
-  border: 1px solid rgba(176, 137, 244, 0.16);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 245, 255, 0.98));
+  border: 1px solid rgba(176, 137, 244, 0.24);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 241, 255, 0.98));
   box-shadow: none;
 }
 
@@ -276,8 +285,8 @@ select {
   min-width: 0;
   padding: 8px 10px;
   border-radius: 12px;
-  border: 1px solid rgba(176, 137, 244, 0.14);
-  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(176, 137, 244, 0.18);
+  background: rgba(250, 244, 255, 0.92);
 }
 
 .home-inline-pill strong {
@@ -329,11 +338,12 @@ select {
 .record-card,
 .timeline-card,
 .message-thread {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 245, 255, 0.98));
-  border: 1px solid rgba(176, 137, 244, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 241, 255, 0.99));
+  border: 1px solid rgba(176, 137, 244, 0.2);
   border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 12px 32px rgba(52, 16, 88, 0.05);
+  box-shadow: 0 12px 32px rgba(52, 16, 88, 0.06);
 }
 
 .panel-success {
@@ -496,8 +506,15 @@ select {
 
 .button-secondary {
   border: 1px solid rgba(176, 137, 244, 0.28);
-  background: var(--fyl-white);
-  color: var(--fyl-black);
+  background: rgba(250, 244, 255, 0.92);
+  color: #35125a;
+}
+
+.button-secondary-strong {
+  border-color: rgba(124, 58, 237, 0.32);
+  background: linear-gradient(180deg, rgba(240, 229, 255, 0.98), rgba(233, 219, 255, 0.98));
+  color: #4b1793;
+  box-shadow: 0 8px 18px rgba(124, 58, 237, 0.12);
 }
 
 .button-secondary.is-current-view,
@@ -509,7 +526,7 @@ select {
 .button-ghost {
   border: 1px solid transparent;
   background: transparent;
-  color: var(--fyl-muted);
+  color: #6b33c8;
 }
 
 .button-danger {
@@ -529,8 +546,8 @@ select {
 .empty-state {
   padding: 20px;
   border-radius: 12px;
-  border: 1px dashed rgba(176, 137, 244, 0.32);
-  background: linear-gradient(180deg, rgba(248, 242, 255, 0.98), rgba(242, 232, 255, 0.98));
+  border: 1px dashed rgba(176, 137, 244, 0.36);
+  background: linear-gradient(180deg, rgba(249, 242, 255, 0.98), rgba(244, 234, 255, 0.98));
   color: var(--fyl-muted);
 }
 
@@ -543,8 +560,37 @@ select {
 .key-value-card {
   padding: 14px;
   border-radius: 12px;
-  border: 1px solid rgba(176, 137, 244, 0.16);
-  background: linear-gradient(180deg, rgba(248, 243, 255, 0.98), rgba(242, 233, 255, 0.98));
+  border: 1px solid rgba(176, 137, 244, 0.2);
+  background: linear-gradient(180deg, rgba(249, 243, 255, 0.99), rgba(244, 236, 255, 0.99));
+}
+
+.lead-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(176, 137, 244, 0.22);
+  background: linear-gradient(180deg, rgba(250, 244, 255, 0.98), rgba(244, 236, 255, 0.98));
+}
+
+.lead-logo {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  border: 1px solid rgba(176, 137, 244, 0.2);
+  background: rgba(255, 255, 255, 0.92);
+  object-fit: cover;
+}
+
+.lead-logo-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #5f2bc8;
+  background: linear-gradient(135deg, rgba(182, 50, 255, 0.16), rgba(124, 58, 237, 0.08));
 }
 
 .key-value-label {
@@ -802,9 +848,9 @@ select {
   min-height: 38px;
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid var(--fyl-line);
-  background: var(--fyl-soft);
-  color: var(--fyl-black);
+  border: 1px solid rgba(176, 137, 244, 0.24);
+  background: rgba(248, 241, 255, 0.94);
+  color: #35125a;
   font-size: 13px;
   text-decoration: none;
 }
@@ -1435,8 +1481,8 @@ select {
 .table-wrap {
   overflow-x: auto;
   border-radius: 22px;
-  border: 1px solid rgba(176, 137, 244, 0.16);
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(176, 137, 244, 0.18);
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .data-table {
@@ -1459,11 +1505,11 @@ select {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: rgba(248, 243, 255, 0.9);
+  background: rgba(246, 239, 255, 0.96);
 }
 
 .data-table tbody tr:hover {
-  background: rgba(244, 236, 255, 0.54);
+  background: rgba(241, 229, 255, 0.56);
 }
 
 .data-table tbody tr:last-child td {

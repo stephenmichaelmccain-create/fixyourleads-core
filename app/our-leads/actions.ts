@@ -5,9 +5,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { normalizePhone } from '@/lib/phone';
+import { buildProspectNotes, parseProspectNotes } from '@/lib/prospect-metadata';
 
 const INTERNAL_COMPANY_ID = 'fixyourleads';
-const PROSPECT_META_PREFIX = 'fyl:';
 
 function normalizeWebsiteHost(website: string) {
   const trimmed = String(website || '').trim();
@@ -31,41 +31,6 @@ function normalizeWebsiteHost(website: string) {
 
 function readText(formData: FormData, key: string) {
   return String(formData.get(key) || '').trim();
-}
-
-function buildProspectNotes({
-  plainNotes,
-  clinicType,
-  zipCode,
-  predictedRevenue,
-  sourceLabel,
-  importBatch,
-  sourceRecord,
-  logoUrl
-}: {
-  plainNotes?: string | null;
-  clinicType?: string | null;
-  zipCode?: string | null;
-  predictedRevenue?: string | null;
-  sourceLabel?: string | null;
-  importBatch?: string | null;
-  sourceRecord?: string | null;
-  logoUrl?: string | null;
-}) {
-  const metadataEntries = [
-    ['clinic_type', clinicType],
-    ['zip_code', zipCode],
-    ['predicted_revenue', predictedRevenue],
-    ['source', sourceLabel],
-    ['import_batch', importBatch],
-    ['source_record', sourceRecord],
-    ['logo_url', logoUrl]
-  ].filter((entry): entry is [string, string] => Boolean(entry[1] && String(entry[1]).trim()));
-
-  const metadataLines = metadataEntries.map(([key, value]) => `${PROSPECT_META_PREFIX}${key}=${String(value).trim()}`);
-  const cleanNotes = String(plainNotes || '').trim();
-
-  return [...metadataLines, cleanNotes].filter(Boolean).join('\n');
 }
 
 function addDaysFromNow(days: number, hour: number) {
@@ -412,6 +377,101 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
       city,
       nextActionDue,
       updated: 'callback'
+    })
+  );
+}
+
+export async function updateProspectDetailsAction(formData: FormData) {
+  const prospectId = readText(formData, 'prospectId');
+  const q = readText(formData, 'q');
+  const status = readText(formData, 'status');
+  const city = readText(formData, 'city');
+  const nextActionDue = readText(formData, 'nextActionDue');
+  const notes = readText(formData, 'notes');
+  const nextActionRaw = readText(formData, 'nextActionAt');
+
+  if (!prospectId) {
+    redirect(buildOurLeadsHref({ q, status, city, nextActionDue }));
+  }
+
+  const nextActionAt = nextActionRaw ? new Date(nextActionRaw) : null;
+
+  if (nextActionAt && Number.isNaN(nextActionAt.getTime())) {
+    redirect(
+      buildOurLeadsHref({
+        prospectId,
+        q,
+        status,
+        city,
+        nextActionDue,
+        updated: 'invalid_details'
+      })
+    );
+  }
+
+  const existing = await db.prospect.findUnique({
+    where: { id: prospectId },
+    select: {
+      id: true,
+      notes: true,
+      nextActionAt: true
+    }
+  });
+
+  if (!existing) {
+    redirect(buildOurLeadsHref({ q, status, city, nextActionDue }));
+  }
+
+  const parsed = parseProspectNotes(existing.notes);
+  const previousNextAction = existing.nextActionAt?.toISOString() || '';
+  const nextActionChanged = previousNextAction !== (nextActionAt?.toISOString() || '');
+
+  await db.$transaction(async (tx) => {
+    await tx.prospect.update({
+      where: { id: prospectId },
+      data: {
+        nextActionAt,
+        notes: buildProspectNotes({
+          plainNotes: notes,
+          clinicType: parsed.profile.clinicType,
+          zipCode: parsed.profile.zipCode,
+          predictedRevenue: parsed.profile.predictedRevenue,
+          sourceLabel: parsed.profile.source,
+          importBatch: parsed.profile.importBatch,
+          sourceRecord: parsed.profile.sourceRecord,
+          logoUrl: parsed.profile.logoUrl
+        })
+      }
+    });
+
+    if (nextActionChanged) {
+      await tx.callLog.create({
+        data: {
+          prospectId,
+          outcome: nextActionAt ? 'Updated follow-up date' : 'Cleared follow-up date',
+          notes: nextActionAt
+            ? `Next action set for ${nextActionAt.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+              })}.`
+            : 'Next action date removed.'
+        }
+      });
+    }
+  });
+
+  revalidatePath('/our-leads');
+  revalidatePath('/leads');
+  redirect(
+    buildOurLeadsHref({
+      prospectId,
+      q,
+      status,
+      city,
+      nextActionDue,
+      updated: 'details'
     })
   );
 }
