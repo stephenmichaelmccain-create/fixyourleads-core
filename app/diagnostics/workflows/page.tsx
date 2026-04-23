@@ -11,7 +11,7 @@ const systemLayers = [
   },
   {
     name: 'Postgres',
-    role: 'Stores companies, contacts, leads, conversations, messages, appointments, events, and idempotency keys.'
+    role: 'Stores companies, contacts, channel identities, workflow runs, leads, conversations, messages, appointments, events, and idempotency keys.'
   },
   {
     name: 'Redis + BullMQ',
@@ -38,7 +38,7 @@ const systemLayers = [
 const workflows = [
   {
     title: 'Lead intake and dedupe',
-    summary: 'This is the front door for new clinics. It creates or reuses the contact, lead, and conversation so the same clinic is not worked twice.',
+    summary: 'This is the front door for new clinics. It creates or reuses the contact, lead, and conversation, then maps channel identity so the same clinic is not worked twice.',
     trigger: 'Operator quick add, webhook-based lead intake, or Google Maps import.',
     paths: [
       '/api/internal/leads/create',
@@ -51,11 +51,13 @@ const workflows = [
       'lib/phone.ts'
     ],
     systems: ['Next.js app', 'Google Maps API', 'Postgres', 'Redis lead_queue'],
-    records: ['Company', 'Contact', 'Lead', 'Conversation', 'EventLog'],
+    records: ['Company', 'Contact', 'ContactChannelIdentity', 'Lead', 'Conversation', 'WorkflowRun', 'EventLog'],
     stages: [
       'Normalize phone and source identifiers.',
       'Reuse existing contact and conversation when the clinic already exists.',
       'Create the lead only when it is truly net new.',
+      'Map the normalized phone to the contact as both SMS and voice identity.',
+      'Activate the first workflow owner for the contact.',
       'Write an event so operators can see whether it was imported, duplicated, or suppressed.',
       'Queue first-touch outreach when the flow says the lead is ready.'
     ]
@@ -73,13 +75,14 @@ const workflows = [
       'lib/telnyx.ts',
       'lib/inbound-numbers.ts'
     ],
-    systems: ['Next.js app', 'Worker processes', 'Telnyx', 'Postgres', 'Redis lead_queue'],
-    records: ['Lead', 'Conversation', 'Message', 'EventLog'],
+    systems: ['Next.js app', 'Worker processes', 'Telnyx', 'Postgres', 'Redis lead_queue', 'Redis workflow_queue'],
+    records: ['Lead', 'Conversation', 'Message', 'WorkflowRun', 'EventLog'],
     stages: [
       'Pick the company sender number from the clinic routing setup.',
       'Send the message through Telnyx.',
       'Persist the outbound message on the conversation.',
-      'Move lead status to contacted, keep the workflow owner current, and log the event.'
+      'Move lead status to contacted, keep the workflow owner current, and log the event.',
+      'Schedule the next delayed follow-up step when the workflow still owns the contact.'
     ]
   },
   {
@@ -96,12 +99,13 @@ const workflows = [
       'lib/queue.ts'
     ],
     systems: ['Next.js app', 'Telnyx', 'Postgres', 'Redis message_queue'],
-    records: ['IdempotencyKey', 'Company', 'Contact', 'Conversation', 'Message', 'EventLog'],
+    records: ['IdempotencyKey', 'Company', 'Contact', 'ContactChannelIdentity', 'Conversation', 'Message', 'WorkflowRun', 'EventLog'],
     stages: [
       'Verify webhook signature when strict mode is enabled.',
       'Reject duplicates with a company-scoped idempotency key.',
       'Resolve the clinic, contact, and conversation owner from the inbound number.',
       'Store the inbound message and mark the lead as replied.',
+      'Promote the contact into an active conversation workflow.',
       'Queue the message text for interpretation.'
     ]
   },
@@ -116,14 +120,38 @@ const workflows = [
       'workers/handle_incoming_message.ts',
       'lib/queue.ts'
     ],
-    systems: ['Worker processes', 'Postgres', 'Redis message_queue', 'Redis booking_queue'],
-    records: ['Lead', 'EventLog'],
+    systems: ['Worker processes', 'Postgres', 'Redis message_queue', 'Redis booking_queue', 'Redis workflow_queue'],
+    records: ['Lead', 'WorkflowRun', 'EventLog'],
     stages: [
       'Normalize the inbound text.',
       'Suppress the lead on stop or wrong-number language.',
       'Restore the lead on start or unstop language.',
       'Log help requests without changing booking state.',
-      'Queue a booking job when the reply looks like booking intent.'
+      'Queue a booking job when the reply looks like booking intent.',
+      'Pause or cancel lower-priority workflows when the contact changes state.'
+    ]
+  },
+  {
+    title: 'Delayed workflow follow-up',
+    summary: 'This is the first explicit workflow runner. The app owns the timeline and state; BullMQ wakes the job up when a follow-up step is due.',
+    trigger: 'A workflow run has a due nextRunAt and a queued workflow job.',
+    paths: [
+      'workers/workflows.ts'
+    ],
+    services: [
+      'lib/workflows.ts',
+      'lib/workflow-jobs.ts',
+      'workers/workflows.ts',
+      'services/messaging.ts'
+    ],
+    systems: ['Worker processes', 'Postgres', 'Redis workflow_queue', 'Telnyx'],
+    records: ['WorkflowRun', 'Lead', 'Conversation', 'Message', 'EventLog'],
+    stages: [
+      'Wake up the due workflow step from BullMQ.',
+      'Confirm the workflow still owns the contact and is still active.',
+      'Send the next message only when the lead is neither booked nor suppressed.',
+      'Advance or complete the workflow run based on the number of touches sent.',
+      'Write a workflow execution event so operators can audit what happened.'
     ]
   },
   {
@@ -141,13 +169,14 @@ const workflows = [
       'lib/inbound-numbers.ts'
     ],
     systems: ['Next.js app', 'Worker processes', 'Telnyx', 'SMTP / Gmail', 'Postgres', 'Redis booking_queue'],
-    records: ['Appointment', 'Lead', 'Message', 'EventLog'],
+    records: ['Appointment', 'Lead', 'Message', 'WorkflowRun', 'EventLog'],
     stages: [
       'Resolve the requested appointment time.',
       'Prevent duplicate bookings for the same contact and slot.',
       'Create the appointment and mark the lead as booked.',
       'Send a confirmation text from the clinic routing number.',
       'Send the booking notification email when SMTP is configured.',
+      'Promote booking as the active workflow owner and complete lower-priority lead follow-up state.',
       'Keep booking state and audit history in the app.'
     ]
   },
@@ -175,7 +204,7 @@ const workflows = [
       'app/events/page.tsx'
     ],
     systems: ['Next.js app', 'Railway', 'Telnyx', 'Postgres', 'Redis'],
-    records: ['Company', 'Lead', 'Conversation', 'Message', 'Appointment', 'EventLog'],
+    records: ['Company', 'Contact', 'ContactChannelIdentity', 'WorkflowRun', 'Lead', 'Conversation', 'Message', 'Appointment', 'EventLog'],
     stages: [
       'Probe the app, database, Redis, and external providers.',
       'Expose queue health and recent failed jobs.',

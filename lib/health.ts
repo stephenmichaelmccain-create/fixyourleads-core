@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { notificationReadiness } from '@/lib/notifications';
-import { getBookingQueue, getLeadQueue, getMessageQueue } from '@/lib/queue';
+import { getBookingQueue, getLeadQueue, getMessageQueue, getWorkflowQueue } from '@/lib/queue';
 import { getRedis } from '@/lib/redis';
 import { envPresence, missingRequiredEnvVars } from '@/lib/runtime-safe';
 import { getTelnyxWebhookSecurityConfig } from '@/lib/security';
@@ -237,7 +237,7 @@ async function checkQueue(
 
 async function getQueueHealth(redisUrlSet: boolean): Promise<QueueHealth[]> {
   if (!redisUrlSet) {
-    return ['lead_queue', 'message_queue', 'booking_queue'].map((name) => ({
+    return ['lead_queue', 'message_queue', 'booking_queue', 'workflow_queue'].map((name) => ({
       name,
       status: 'missing_config',
       detail: 'REDIS_URL is required to read queue stats'
@@ -247,7 +247,8 @@ async function getQueueHealth(redisUrlSet: boolean): Promise<QueueHealth[]> {
   return Promise.all([
     checkQueue('lead_queue', getLeadQueue),
     checkQueue('message_queue', getMessageQueue),
-    checkQueue('booking_queue', getBookingQueue)
+    checkQueue('booking_queue', getBookingQueue),
+    checkQueue('workflow_queue', getWorkflowQueue)
   ]);
 }
 

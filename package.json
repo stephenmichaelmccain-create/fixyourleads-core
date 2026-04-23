@@ -17,7 +17,8 @@
     "worker": "tsx workers/index.ts",
     "worker:lead": "tsx workers/process_new_lead.ts",
     "worker:message": "tsx workers/handle_incoming_message.ts",
-    "worker:booking": "tsx workers/booking.ts"
+    "worker:booking": "tsx workers/booking.ts",
+    "worker:workflow": "tsx workers/workflows.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",

@@ -1,8 +1,9 @@
-import { LeadStatus, MessageDirection, type Appointment } from '@prisma/client';
+import { AppointmentStatus, LeadStatus, MessageDirection, WorkflowType, type Appointment } from '@prisma/client';
 import { db } from '@/lib/db';
 import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 import { sendBookingNotification } from '@/lib/notifications';
 import { sendSms } from '@/lib/telnyx';
+import { activateWorkflowRun, completeWorkflowRuns } from '@/lib/workflows';
 
 type CreateAppointmentInput = {
   companyId: string;
@@ -99,6 +100,20 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
       }
     });
 
+    await activateWorkflowRun({
+      companyId,
+      contactId,
+      conversationId: conversation.id,
+      workflowType: WorkflowType.BOOKING,
+      reason: 'appointment_already_exists'
+    });
+    await completeWorkflowRuns({
+      companyId,
+      contactId,
+      workflowTypes: [WorkflowType.NEW_LEAD_FOLLOW_UP, WorkflowType.ACTIVE_CONVERSATION],
+      reason: 'appointment_already_exists'
+    });
+
     return {
       appointment: existingAppointment,
       bookingStatus: 'existing',
@@ -116,7 +131,8 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
     data: {
       companyId,
       contactId,
-      startTime: appointmentTime
+      startTime: appointmentTime,
+      status: AppointmentStatus.BOOKED
     }
   });
 
@@ -177,6 +193,23 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
         notificationDetail: notification.detail
       }
     }
+  });
+
+  await activateWorkflowRun({
+    companyId,
+    contactId,
+    conversationId: conversation.id,
+    workflowType: WorkflowType.BOOKING,
+    reason: 'appointment_booked',
+    payload: {
+      appointmentId: appointment.id
+    }
+  });
+  await completeWorkflowRuns({
+    companyId,
+    contactId,
+    workflowTypes: [WorkflowType.NEW_LEAD_FOLLOW_UP, WorkflowType.ACTIVE_CONVERSATION],
+    reason: 'appointment_booked'
   });
 
   return {

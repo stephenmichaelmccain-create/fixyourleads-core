@@ -1,8 +1,10 @@
 import { Worker } from 'bullmq';
-import { LeadStatus } from '@prisma/client';
+import { LeadStatus, WorkflowType } from '@prisma/client';
 import { db } from '@/lib/db';
 import { getRedis } from '@/lib/redis';
+import { scheduleWorkflowRun } from '@/lib/workflow-jobs';
 import { sendOutboundMessage } from '@/services/messaging';
+import { activateWorkflowRun } from '@/lib/workflows';
 
 new Worker('lead_queue', async (job) => {
   const { companyId, leadId, contactId, conversationId } = job.data;
@@ -21,9 +23,27 @@ new Worker('lead_queue', async (job) => {
   }
 
   const text = `Hey ${contact.name || 'there'}, saw your request, want to book?`;
-  await sendOutboundMessage(companyId, contactId, text, 'message_sent');
+  const result = await sendOutboundMessage(companyId, contactId, text, 'message_sent');
   await db.lead.update({
     where: { id: leadId },
     data: { status: LeadStatus.CONTACTED, lastContactedAt: new Date() }
+  });
+  const workflowRun = await activateWorkflowRun({
+    companyId,
+    contactId,
+    conversationId: result.conversation.id,
+    leadId,
+    workflowType: WorkflowType.NEW_LEAD_FOLLOW_UP,
+    reason: 'initial_outbound_message_sent',
+    lastOutboundAt: result.message.createdAt,
+    nextRunAt: new Date(result.message.createdAt.getTime() + 24 * 60 * 60 * 1000),
+    payload: {
+      step: 'initial_outreach_sent'
+    }
+  });
+
+  await scheduleWorkflowRun({
+    workflowRunId: workflowRun.id,
+    nextRunAt: workflowRun.nextRunAt
   });
 }, { connection: getRedis() });

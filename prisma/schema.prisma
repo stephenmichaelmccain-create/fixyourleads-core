@@ -20,6 +20,37 @@ enum MessageDirection {
   OUTBOUND
 }
 
+enum ContactChannelType {
+  SMS
+  VOICE
+}
+
+enum WorkflowType {
+  NEW_LEAD_FOLLOW_UP
+  ACTIVE_CONVERSATION
+  BOOKING
+  NO_SHOW_RECOVERY
+  RECALL
+  REACTIVATION
+  REVIEW_REQUEST
+}
+
+enum WorkflowStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELED
+}
+
+enum AppointmentStatus {
+  BOOKED
+  CONFIRMED
+  RESCHEDULED
+  CANCELED
+  NO_SHOW
+  COMPLETED
+}
+
 enum ProspectStatus {
   NEW
   NO_ANSWER
@@ -31,31 +62,36 @@ enum ProspectStatus {
 }
 
 model Company {
-  id                String         @id @default(cuid())
-  name              String
-  notificationEmail String?
-  telnyxInboundNumber String?      @unique
+  id                  String                 @id @default(cuid())
+  name                String
+  notificationEmail   String?
+  telnyxInboundNumber String?                @unique
   telnyxInboundNumbers CompanyTelnyxNumber[]
-  createdAt         DateTime       @default(now())
-  contacts          Contact[]
-  leads             Lead[]
-  conversations     Conversation[]
-  messages          Message[]
-  appointments      Appointment[]
-  events            EventLog[]
-  keys              IdempotencyKey[]
+  createdAt           DateTime               @default(now())
+  contacts            Contact[]
+  contactIdentities   ContactChannelIdentity[]
+  leads               Lead[]
+  conversations       Conversation[]
+  messages            Message[]
+  appointments        Appointment[]
+  workflowRuns        WorkflowRun[]
+  events              EventLog[]
+  keys                IdempotencyKey[]
 }
 
 model Contact {
-  id            String         @id @default(cuid())
-  companyId     String
-  name          String?
-  phone         String
-  createdAt     DateTime       @default(now())
-  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  leads         Lead[]
-  conversations Conversation[]
-  appointments  Appointment[]
+  id                String                 @id @default(cuid())
+  companyId         String
+  name              String?
+  phone             String
+  email             String?
+  createdAt         DateTime               @default(now())
+  company           Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leads             Lead[]
+  conversations     Conversation[]
+  appointments      Appointment[]
+  channelIdentities ContactChannelIdentity[]
+  workflowRuns      WorkflowRun[]
 
   @@unique([companyId, phone])
 }
@@ -71,29 +107,31 @@ model CompanyTelnyxNumber {
 }
 
 model Lead {
-  id                String     @id @default(cuid())
+  id                String        @id @default(cuid())
   companyId         String
   contactId         String
-  status            LeadStatus @default(NEW)
+  status            LeadStatus    @default(NEW)
   source            String?
   sourceExternalId  String?
   lastContactedAt   DateTime?
   lastRepliedAt     DateTime?
   suppressedAt      DateTime?
   suppressionReason String?
-  createdAt         DateTime   @default(now())
-  company           Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contact           Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt         DateTime      @default(now())
+  company           Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact           Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  workflowRuns      WorkflowRun[]
 }
 
 model Conversation {
-  id         String      @id @default(cuid())
-  companyId  String
-  contactId  String
-  createdAt  DateTime    @default(now())
-  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contact    Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  messages   Message[]
+  id           String        @id @default(cuid())
+  companyId    String
+  contactId    String
+  createdAt    DateTime      @default(now())
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact      Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  messages     Message[]
+  workflowRuns WorkflowRun[]
 
   @@unique([companyId, contactId])
 }
@@ -111,13 +149,19 @@ model Message {
 }
 
 model Appointment {
-  id         String   @id @default(cuid())
-  companyId  String
-  contactId  String
-  startTime  DateTime
-  createdAt  DateTime @default(now())
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  id           String            @id @default(cuid())
+  companyId    String
+  contactId    String
+  startTime    DateTime
+  status       AppointmentStatus @default(BOOKED)
+  notes        String?
+  confirmedAt  DateTime?
+  canceledAt   DateTime?
+  noShowAt     DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime          @default(now())
+  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact      Contact           @relation(fields: [contactId], references: [id], onDelete: Cascade)
 }
 
 model EventLog {
@@ -137,6 +181,50 @@ model IdempotencyKey {
   company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, key])
+}
+
+model ContactChannelIdentity {
+  id          String             @id @default(cuid())
+  companyId   String
+  contactId   String
+  channelType ContactChannelType
+  sourceId    String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  company     Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact     Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, channelType, sourceId])
+  @@index([contactId, channelType])
+}
+
+model WorkflowRun {
+  id             String         @id @default(cuid())
+  companyId      String
+  contactId      String
+  conversationId String?
+  leadId         String?
+  workflowType   WorkflowType
+  status         WorkflowStatus @default(ACTIVE)
+  priority       Int
+  nextRunAt      DateTime?
+  startedAt      DateTime       @default(now())
+  pausedAt       DateTime?
+  completedAt    DateTime?
+  canceledAt     DateTime?
+  lastInboundAt  DateTime?
+  lastOutboundAt DateTime?
+  payload        Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact        Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation   Conversation?  @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  lead           Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, contactId, status])
+  @@index([companyId, contactId, workflowType, status])
+  @@index([companyId, nextRunAt])
 }
 
 model Prospect {

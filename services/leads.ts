@@ -1,7 +1,8 @@
-import { LeadStatus } from '@prisma/client';
+import { LeadStatus, WorkflowType } from '@prisma/client';
 import { db } from '@/lib/db';
 import { searchGoogleMapsClinics } from '@/lib/google-maps';
 import { normalizePhone } from '@/lib/phone';
+import { activateWorkflowRun, ensurePhoneChannelIdentities } from '@/lib/workflows';
 
 type CreateLeadFlowInput = {
   companyId: string;
@@ -123,7 +124,7 @@ export async function createLeadFlow({
     throw new Error('invalid_phone');
   }
 
-  return db.$transaction(async (tx) => {
+  const result: CreateLeadFlowResult = await db.$transaction(async (tx) => {
     const existingLeadBySource =
       cleanedSource && cleanedSourceExternalId
         ? await tx.lead.findFirst({
@@ -283,6 +284,25 @@ export async function createLeadFlow({
       normalizedPhone
     };
   });
+
+  await ensurePhoneChannelIdentities(companyId, result.contact.id, normalizedPhone);
+
+  if (!result.duplicate) {
+    await activateWorkflowRun({
+      companyId,
+      contactId: result.contact.id,
+      conversationId: result.conversation.id,
+      leadId: result.lead.id,
+      workflowType: WorkflowType.NEW_LEAD_FOLLOW_UP,
+      reason: 'lead_created',
+      payload: {
+        source: result.lead.source,
+        sourceExternalId: result.lead.sourceExternalId
+      }
+    });
+  }
+
+  return result;
 }
 
 export async function importGoogleMapsLeads({

@@ -4,6 +4,7 @@ import { getRedis } from './redis';
 let leadQueueInstance: Queue | null = null;
 let messageQueueInstance: Queue | null = null;
 let bookingQueueInstance: Queue | null = null;
+let workflowQueueInstance: Queue | null = null;
 
 export function getLeadQueue() {
   if (!leadQueueInstance) {
@@ -24,4 +25,11 @@ export function getBookingQueue() {
     bookingQueueInstance = new Queue('booking_queue', { connection: getRedis() });
   }
   return bookingQueueInstance;
+}
+
+export function getWorkflowQueue() {
+  if (!workflowQueueInstance) {
+    workflowQueueInstance = new Queue('workflow_queue', { connection: getRedis() });
+  }
+  return workflowQueueInstance;
 }

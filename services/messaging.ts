@@ -1,8 +1,9 @@
-import { LeadStatus, MessageDirection } from '@prisma/client';
+import { LeadStatus, MessageDirection, WorkflowType } from '@prisma/client';
 import { db } from '@/lib/db';
 import { normalizePhone } from '@/lib/phone';
 import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 import { sendSms } from '@/lib/telnyx';
+import { activateWorkflowRun, ensurePhoneChannelIdentities, touchWorkflowActivity } from '@/lib/workflows';
 
 export async function storeInboundMessage(
   companyId: string,
@@ -69,6 +70,21 @@ export async function storeInboundMessage(
         from: normalizedPhone,
         to: inboundNumber || null
       }
+    }
+  });
+
+  await ensurePhoneChannelIdentities(companyId, contact.id, normalizedPhone);
+  await activateWorkflowRun({
+    companyId,
+    contactId: contact.id,
+    conversationId: conversation.id,
+    leadId: lead.id,
+    workflowType: WorkflowType.ACTIVE_CONVERSATION,
+    reason: 'inbound_message_received',
+    lastInboundAt: message.createdAt,
+    payload: {
+      from: normalizedPhone,
+      to: inboundNumber || null
     }
   });
 
@@ -150,6 +166,14 @@ export async function sendOutboundMessage(companyId: string, contactId: string, 
         to: contact.phone
       }
     }
+  });
+
+  await ensurePhoneChannelIdentities(companyId, contactId, contact.phone);
+  await touchWorkflowActivity({
+    companyId,
+    contactId,
+    direction: 'outbound',
+    when: message.createdAt
   });
 
   return { conversation, message, telnyxResult };

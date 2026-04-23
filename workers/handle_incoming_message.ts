@@ -1,8 +1,9 @@
-import { LeadStatus } from '@prisma/client';
+import { LeadStatus, WorkflowType } from '@prisma/client';
 import { Worker } from 'bullmq';
 import { getBookingQueue } from '@/lib/queue';
 import { getRedis } from '@/lib/redis';
 import { db } from '@/lib/db';
+import { activateWorkflowRun, cancelWorkflowRunsForContact } from '@/lib/workflows';
 
 const STOP_KEYWORDS = new Set(['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit', 'unsub']);
 const START_KEYWORDS = new Set(['start', 'unstop']);
@@ -37,6 +38,7 @@ new Worker('message_queue', async (job) => {
         payload: { contactId, text, reason: 'contact_requested_stop' }
       }
     });
+    await cancelWorkflowRunsForContact(companyId, contactId, 'contact_requested_stop');
     return;
   }
 
@@ -57,6 +59,13 @@ new Worker('message_queue', async (job) => {
         payload: { contactId, text, reason: 'contact_requested_restart' }
       }
     });
+    await activateWorkflowRun({
+      companyId,
+      contactId,
+      workflowType: WorkflowType.ACTIVE_CONVERSATION,
+      reason: 'contact_requested_restart',
+      lastInboundAt: new Date()
+    });
     return;
   }
 
@@ -68,10 +77,24 @@ new Worker('message_queue', async (job) => {
         payload: { contactId, text }
       }
     });
+    await activateWorkflowRun({
+      companyId,
+      contactId,
+      workflowType: WorkflowType.ACTIVE_CONVERSATION,
+      reason: 'contact_requested_help',
+      lastInboundAt: new Date()
+    });
     return;
   }
 
   if (/\b(yes|book|booking)\b/.test(normalized)) {
+    await activateWorkflowRun({
+      companyId,
+      contactId,
+      workflowType: WorkflowType.BOOKING,
+      reason: 'booking_intent_detected',
+      lastInboundAt: new Date()
+    });
     await getBookingQueue().add('booking_worker', { companyId, contactId });
     await db.eventLog.create({ data: { companyId, eventType: 'booking_intent_detected', payload: { contactId, text } } });
   }
