@@ -3,31 +3,12 @@
 import { ProspectStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { normalizeClinicKey, normalizeWebsiteKey } from '@/lib/client-intake';
 import { db } from '@/lib/db';
 import { normalizePhone } from '@/lib/phone';
 import { buildProspectNotes, parseProspectNotes } from '@/lib/prospect-metadata';
 
 const INTERNAL_COMPANY_ID = 'fixyourleads';
-
-function normalizeWebsiteHost(website: string) {
-  const trimmed = String(website || '').trim();
-
-  if (!trimmed) {
-    return '';
-  }
-
-  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-
-  try {
-    return new URL(candidate).hostname.replace(/^www\./i, '').toLowerCase();
-  } catch {
-    return trimmed
-      .replace(/^https?:\/\//i, '')
-      .replace(/^www\./i, '')
-      .split('/')[0]
-      .toLowerCase();
-  }
-}
 
 function readText(formData: FormData, key: string) {
   return String(formData.get(key) || '').trim();
@@ -61,7 +42,12 @@ function buildOurLeadsHref({
   status,
   city,
   nextActionDue,
-  updated
+  updated,
+  added,
+  error,
+  duplicateReason,
+  duplicateCompanyId,
+  draft
 }: {
   prospectId?: string;
   q?: string;
@@ -69,6 +55,19 @@ function buildOurLeadsHref({
   city?: string;
   nextActionDue?: string;
   updated?: string;
+  added?: string;
+  error?: string;
+  duplicateReason?: string;
+  duplicateCompanyId?: string;
+  draft?: {
+    name?: string;
+    phone?: string;
+    city?: string;
+    ownerName?: string;
+    website?: string;
+    nextActionAt?: string;
+    notes?: string;
+  };
 }) {
   const params = new URLSearchParams();
 
@@ -96,11 +95,78 @@ function buildOurLeadsHref({
     params.set('updated', updated);
   }
 
+  if (added) {
+    params.set('added', added);
+  }
+
+  if (error) {
+    params.set('error', error);
+  }
+
+  if (duplicateReason) {
+    params.set('duplicateReason', duplicateReason);
+  }
+
+  if (duplicateCompanyId) {
+    params.set('duplicateCompanyId', duplicateCompanyId);
+  }
+
+  if (draft?.name) {
+    params.set('draftName', draft.name);
+  }
+
+  if (draft?.phone) {
+    params.set('draftPhone', draft.phone);
+  }
+
+  if (draft?.city) {
+    params.set('draftCity', draft.city);
+  }
+
+  if (draft?.ownerName) {
+    params.set('draftOwnerName', draft.ownerName);
+  }
+
+  if (draft?.website) {
+    params.set('draftWebsite', draft.website);
+  }
+
+  if (draft?.nextActionAt) {
+    params.set('draftNextActionAt', draft.nextActionAt);
+  }
+
+  if (draft?.notes) {
+    params.set('draftNotes', draft.notes);
+  }
+
   const query = params.toString();
   return query ? `/leads?${query}` : '/leads';
 }
 
+function readLeadDraft(formData: FormData) {
+  return {
+    name: readText(formData, 'name'),
+    phone: readText(formData, 'phone'),
+    city: readText(formData, 'city'),
+    ownerName: readText(formData, 'ownerName'),
+    website: readText(formData, 'website'),
+    nextActionAt: readText(formData, 'nextActionAt'),
+    notes: readText(formData, 'notes')
+  };
+}
+
+function readCurrentView(formData: FormData) {
+  return {
+    q: readText(formData, 'viewQ'),
+    status: readText(formData, 'viewStatus'),
+    city: readText(formData, 'viewCity'),
+    nextActionDue: readText(formData, 'viewNextActionDue')
+  };
+}
+
 export async function createProspectAction(formData: FormData) {
+  const currentView = readCurrentView(formData);
+  const draft = readLeadDraft(formData);
   const name = readText(formData, 'name');
   const rawPhone = readText(formData, 'phone');
   const city = readText(formData, 'city') || null;
@@ -118,65 +184,100 @@ export async function createProspectAction(formData: FormData) {
   const nextActionRaw = readText(formData, 'nextActionAt');
 
   if (!name) {
-    redirect('/leads?error=name_required#add-prospect');
+    redirect(`${buildOurLeadsHref({ ...currentView, error: 'name_required', draft })}#add-prospect`);
   }
 
   const status = Object.values(ProspectStatus).includes(requestedStatus as ProspectStatus)
     ? (requestedStatus as ProspectStatus)
     : ProspectStatus.NEW;
   const normalizedPhone = rawPhone ? normalizePhone(rawPhone) || rawPhone : null;
-  const normalizedHost = normalizeWebsiteHost(website || '');
-  const normalizedName = name.trim().toLowerCase();
-  const normalizedCity = (city || '').trim().toLowerCase();
+  const clinicKey = normalizeClinicKey(name);
+  const websiteKey = normalizeWebsiteKey(website || '');
   const nextActionAt = nextActionRaw ? new Date(nextActionRaw) : null;
 
   if (nextActionAt && Number.isNaN(nextActionAt.getTime())) {
-    redirect('/leads?error=invalid_next_action#add-prospect');
+    redirect(`${buildOurLeadsHref({ ...currentView, error: 'invalid_next_action', draft })}#add-prospect`);
   }
 
-  const existingProspects = await db.prospect.findMany({
-    where: {
-      companyId: INTERNAL_COMPANY_ID
-    },
-    select: {
-      id: true,
-      name: true,
-      city: true,
-      website: true,
-      phone: true
-    }
-  });
+  const [existingProspects, contactedCompanies] = await Promise.all([
+    db.prospect.findMany({
+      where: {
+        companyId: INTERNAL_COMPANY_ID
+      },
+      select: {
+        id: true,
+        name: true,
+        website: true,
+        phone: true
+      }
+    }),
+    db.company.findMany({
+      select: {
+        id: true,
+        name: true,
+        contacts: {
+          select: {
+            phone: true
+          }
+        }
+      }
+    })
+  ]);
 
-  const duplicate =
-    (normalizedHost
-      ? existingProspects.find((prospect) => normalizeWebsiteHost(prospect.website || '') === normalizedHost)
-      : null) ||
+  const prospectDuplicate =
+    existingProspects.find((prospect) => normalizeClinicKey(prospect.name) === clinicKey) ||
     (normalizedPhone
       ? existingProspects.find((prospect) => normalizePhone(prospect.phone || '') === normalizedPhone)
       : null) ||
-    existingProspects.find(
-      (prospect) =>
-        prospect.name.trim().toLowerCase() === normalizedName &&
-        String(prospect.city || '')
-          .trim()
-          .toLowerCase() === normalizedCity
-    );
+    (websiteKey
+      ? existingProspects.find((prospect) => normalizeWebsiteKey(prospect.website || '') === websiteKey)
+      : null) ||
+    null;
 
-  if (duplicate) {
-    let duplicateReason = 'clinic';
+  if (prospectDuplicate) {
+    let duplicateReason = 'clinic_name';
 
-    if (normalizedHost && normalizeWebsiteHost(duplicate.website || '') === normalizedHost) {
-      duplicateReason = 'website';
-    } else if (normalizedPhone && normalizePhone(duplicate.phone || '') === normalizedPhone) {
+    if (normalizedPhone && normalizePhone(prospectDuplicate.phone || '') === normalizedPhone) {
       duplicateReason = 'phone';
-    } else {
-      duplicateReason = 'name_city';
+    } else if (websiteKey && normalizeWebsiteKey(prospectDuplicate.website || '') === websiteKey) {
+      duplicateReason = 'website';
     }
 
     redirect(
-      `/leads?error=duplicate&prospectId=${encodeURIComponent(duplicate.id)}&duplicateReason=${encodeURIComponent(
-        duplicateReason
-      )}#add-prospect`
+      `${buildOurLeadsHref({
+        ...currentView,
+        prospectId: prospectDuplicate.id,
+        error: 'duplicate',
+        duplicateReason,
+        draft
+      })}#selected-lead`
+    );
+  }
+
+  const contactedCompanyDuplicate =
+    contactedCompanies.find((company) => normalizeClinicKey(company.name) === clinicKey) ||
+    (normalizedPhone
+      ? contactedCompanies.find((company) =>
+          company.contacts.some((contact) => normalizePhone(contact.phone || '') === normalizedPhone)
+        )
+      : null) ||
+    null;
+
+  if (contactedCompanyDuplicate) {
+    const duplicateReason =
+      normalizedPhone &&
+      contactedCompanyDuplicate.contacts.some((contact) => normalizePhone(contact.phone || '') === normalizedPhone)
+        ? 'master_phone'
+        : 'master_name';
+
+    redirect(
+      buildOurLeadsHref({
+        ...currentView,
+        error: 'duplicate',
+        duplicateReason,
+        duplicateCompanyId: contactedCompanyDuplicate.id,
+        draft
+      })
     );
   }
 
@@ -205,7 +306,13 @@ export async function createProspectAction(formData: FormData) {
 
   revalidatePath('/our-leads');
   revalidatePath('/leads');
-  redirect(`/leads?prospectId=${encodeURIComponent(prospect.id)}&added=1`);
+  redirect(
+    buildOurLeadsHref({
+      ...currentView,
+      prospectId: prospect.id,
+      added: '1'
+    })
+  );
 }
 
 export async function updateProspectOutcomeAction(formData: FormData) {

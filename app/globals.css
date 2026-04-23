@@ -844,6 +844,14 @@ select {
   background: linear-gradient(180deg, rgba(250, 244, 255, 0.98), rgba(246, 239, 255, 0.96));
 }
 
+.live-feed-bar-compact {
+  padding-block: 14px;
+}
+
+.live-feed-bar-compact .live-feed-header .panel-stack {
+  gap: 6px;
+}
+
 .live-feed-header {
   display: flex;
   flex-wrap: wrap;

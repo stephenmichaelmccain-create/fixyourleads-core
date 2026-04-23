@@ -195,18 +195,35 @@ export default async function ClientIntakePage() {
     String(b.signupReceivedAt || '').localeCompare(String(a.signupReceivedAt || ''))
   );
 
-  const waitingCount = allRows.filter((row) => row.stage.stage === 'waiting_signup').length;
-  const onboardingMissingCount = allRows.filter((row) => row.stage.stage === 'workspace_created').length;
-  const setupPendingCount = allRows.filter((row) => row.stage.stage === 'setup_pending').length;
+  const blockedRows = allRows
+    .filter((row) => row.stage.stage !== 'ready')
+    .sort((left, right) => {
+      const stageRank = {
+        waiting_signup: 0,
+        workspace_created: 1,
+        setup_pending: 2,
+        ready: 3
+      } as const;
+
+      if (stageRank[left.stage.stage] !== stageRank[right.stage.stage]) {
+        return stageRank[left.stage.stage] - stageRank[right.stage.stage];
+      }
+
+      return String(right.signupReceivedAt || '').localeCompare(String(left.signupReceivedAt || ''));
+    });
+
+  const waitingCount = blockedRows.filter((row) => row.stage.stage === 'waiting_signup').length;
+  const onboardingMissingCount = blockedRows.filter((row) => row.stage.stage === 'workspace_created').length;
+  const setupPendingCount = blockedRows.filter((row) => row.stage.stage === 'setup_pending').length;
   const readyCount = allRows.filter((row) => row.stage.stage === 'ready').length;
 
   return (
     <LayoutShell title="Client Intake" section="clients">
       <section className="panel panel-stack">
-        <div className="metric-label">Intake queue</div>
-        <h2 className="section-title">Waiting on signup, onboarding, or final setup.</h2>
+        <div className="metric-label">Blocked before go-live</div>
+        <h2 className="section-title">Clinics still waiting on signup, onboarding, or setup.</h2>
         <div className="prospect-stats-strip">
-          <span><strong>{allRows.length}</strong> total</span>
+          <span><strong>{blockedRows.length}</strong> blocked</span>
           <span><strong>{waitingCount}</strong> waiting for signup</span>
           <span><strong>{onboardingMissingCount}</strong> onboarding not finished</span>
           <span><strong>{setupPendingCount}</strong> setup pending</span>
@@ -223,19 +240,18 @@ export default async function ClientIntakePage() {
                 <th>Stage</th>
                 <th>Signup</th>
                 <th>Onboarding</th>
-                <th>Workspace</th>
                 <th>Next action</th>
               </tr>
             </thead>
             <tbody>
-              {allRows.length === 0 ? (
+              {blockedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>
-                    <div className="empty-state">No clinics are waiting on signup, onboarding, or setup right now.</div>
+                  <td colSpan={5}>
+                    <div className="empty-state">No clinics are currently blocked on signup, onboarding, or final setup.</div>
                   </td>
                 </tr>
               ) : (
-                allRows.map((row) => (
+                blockedRows.map((row) => (
                   <tr key={row.rowId}>
                     <td>
                       <div className="record-stack">
@@ -249,6 +265,15 @@ export default async function ClientIntakePage() {
                         <span className="tiny-muted">
                           {row.profile.business_type || row.profile.clinic_type || 'Clinic'}
                           {row.prospect?.city ? ` · ${row.prospect.city}` : ''}
+                        </span>
+                        <span className="tiny-muted">
+                          {row.matchedCompany
+                            ? `${row.matchedCompany.name} · ${
+                                row.inboundNumbers.length > 0
+                                  ? `${row.inboundNumbers.length} number${row.inboundNumbers.length === 1 ? '' : 's'}`
+                                  : 'No routing number yet'
+                              }`
+                            : 'No workspace yet'}
                         </span>
                       </div>
                     </td>
@@ -269,22 +294,6 @@ export default async function ClientIntakePage() {
                         <span>{row.onboardingReceivedAt ? formatDateTime(row.onboardingReceivedAt) : 'Not finished yet'}</span>
                         <span className="tiny-muted">{row.profile.campaign_use_case || 'Onboarding still needed'}</span>
                       </div>
-                    </td>
-                    <td>
-                      {row.matchedCompany ? (
-                        <div className="record-stack">
-                          <a className="table-link" href={`/clients/${row.matchedCompany.id}`}>
-                            {row.matchedCompany.name}
-                          </a>
-                          <span className="tiny-muted">
-                            {row.inboundNumbers.length > 0
-                              ? `${row.inboundNumbers.length} number${row.inboundNumbers.length === 1 ? '' : 's'}`
-                              : 'No routing number yet'}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="tiny-muted">No workspace yet</span>
-                      )}
                     </td>
                     <td>
                       <div className="record-stack">

@@ -164,7 +164,7 @@ const workflows = [
       '/leads',
       '/messages',
       '/admin/system',
-      '/admin/activity'
+      '/'
     ],
     services: [
       'lib/health.ts',
@@ -189,7 +189,7 @@ const operatorSurfaces = [
   { href: '/leads', title: 'Leads', body: 'The outbound prospecting pipeline for clinics we are trying to sell.' },
   { href: '/messages', title: 'Messages', body: 'Unified inbox across clients for the conversations that need a human.' },
   { href: '/admin/system', title: 'System Status', body: 'Runtime truth, env readiness, queue health, and deployment checks.' },
-  { href: '/admin/activity', title: 'Activity Log', body: 'A durable operator feed for workflow history, worker outcomes, and live system actions.' }
+  { href: '/', title: 'Activity Log', body: 'A durable operator feed for workflow history, worker outcomes, and live system actions.' }
 ];
 
 export default function WorkflowDiagnosticsPage() {

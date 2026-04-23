@@ -1,7 +1,10 @@
+import { ProspectStatus } from '@prisma/client';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { LiveFeedControls } from '@/app/events/LiveFeedControls';
 import { humanizeIntakeSource } from '@/lib/client-intake';
 import { db } from '@/lib/db';
+import { hasInboundRouting } from '@/lib/inbound-numbers';
+import { isLikelyTestWorkspaceName } from '@/lib/test-workspaces';
 import { safeLoad } from '@/lib/ui-data';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +16,7 @@ const windowOptions = [
   { label: 'All time', value: 'all' }
 ] as const;
 
-type SearchParamShape = Promise<{
+export type ActivitySearchParamShape = Promise<{
   companyId?: string;
   eventType?: string;
   window?: string;
@@ -39,19 +42,34 @@ function startForWindow(windowValue: string) {
   return new Date(now - 7 * 24 * 60 * 60 * 1000);
 }
 
-function buildEventsHref({
-  companyId,
-  eventType,
-  window,
-  q,
-  related
-}: {
-  companyId?: string;
-  eventType?: string;
-  window?: string;
-  q?: string;
-  related?: string;
-}) {
+function startOfDay(date = new Date()) {
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  return value;
+}
+
+function addDays(date: Date, days: number) {
+  const value = new Date(date);
+  value.setDate(value.getDate() + days);
+  return value;
+}
+
+function buildEventsHref(
+  basePath: string,
+  {
+    companyId,
+    eventType,
+    window,
+    q,
+    related
+  }: {
+    companyId?: string;
+    eventType?: string;
+    window?: string;
+    q?: string;
+    related?: string;
+  }
+) {
   const params = new URLSearchParams();
 
   if (companyId) {
@@ -75,7 +93,7 @@ function buildEventsHref({
   }
 
   const query = params.toString();
-  return query ? `/admin/activity?${query}` : '/admin/activity';
+  return query ? `${basePath}?${query}` : basePath;
 }
 
 function humanizeEventType(eventType: string) {
@@ -233,10 +251,121 @@ function payloadLinks(companyId: string, payload: unknown) {
   return links;
 }
 
-export default async function EventsPage({
-  searchParams
+async function loadAttentionSummary() {
+  const todayStart = startOfDay();
+  const tomorrowStart = addDays(todayStart, 1);
+
+  const [allCompanies, conversations, appointmentsToday, overdueProspects] = await Promise.all([
+    safeLoad(
+      () =>
+        db.company.findMany({
+          orderBy: { name: 'asc' },
+          include: {
+            telnyxInboundNumbers: {
+              select: { number: true }
+            }
+          }
+        }),
+      []
+    ),
+    safeLoad(
+      () =>
+        db.conversation.findMany({
+          include: {
+            company: {
+              select: {
+                id: true,
+                name: true,
+                notificationEmail: true,
+                telnyxInboundNumber: true,
+                telnyxInboundNumbers: {
+                  select: { number: true }
+                }
+              }
+            },
+            messages: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                direction: true
+              }
+            }
+          }
+        }),
+      []
+    ),
+    safeLoad(
+      () =>
+        db.appointment.count({
+          where: {
+            startTime: {
+              gte: todayStart,
+              lt: tomorrowStart
+            }
+          }
+        }),
+      0
+    ),
+    safeLoad(
+      () =>
+        db.prospect.count({
+          where: {
+            companyId: 'fixyourleads',
+            status: {
+              notIn: [ProspectStatus.CLOSED, ProspectStatus.DEAD]
+            },
+            nextActionAt: {
+              lt: todayStart
+            }
+          }
+        }),
+      0
+    )
+  ]);
+
+  const companies = allCompanies.filter((company) => !isLikelyTestWorkspaceName(company.name));
+  const activeCompanyIds = new Set(companies.map((company) => company.id));
+  const liveConversations = conversations.filter((conversation) => activeCompanyIds.has(conversation.companyId));
+  const unreadClientMessages = liveConversations.filter(
+    (conversation) => conversation.messages[0]?.direction === 'INBOUND'
+  ).length;
+  const clientsNeedingAttention = companies.filter((company) => {
+    const hasUnreadConversation = liveConversations.some(
+      (conversation) => conversation.companyId === company.id && conversation.messages[0]?.direction === 'INBOUND'
+    );
+
+    return !hasInboundRouting(company) || !company.notificationEmail || hasUnreadConversation;
+  }).length;
+
+  return {
+    unreadClientMessages,
+    appointmentsToday,
+    overdueProspects,
+    clientsNeedingAttention,
+    allClear:
+      unreadClientMessages === 0 &&
+      appointmentsToday === 0 &&
+      overdueProspects === 0 &&
+      clientsNeedingAttention === 0
+  };
+}
+
+export async function ActivityPage({
+  searchParams,
+  basePath = '/admin/activity',
+  title = 'Activity Log',
+  description = 'See what the system actually did across signups, messages, bookings, and follow-up work.',
+  hidePageHeader = false,
+  compact = false,
+  section = 'activity'
 }: {
-  searchParams?: SearchParamShape;
+  searchParams?: ActivitySearchParamShape;
+  basePath?: string;
+  title?: string;
+  description?: string;
+  hidePageHeader?: boolean;
+  compact?: boolean;
+  section?: 'home' | 'clients' | 'leads' | 'messages' | 'system' | 'activity' | 'diagnostics' | 'our-leads';
 }) {
   const params = (await searchParams) || {};
   const selectedCompanyId = String(params.companyId || '').trim();
@@ -247,7 +376,8 @@ export default async function EventsPage({
   const windowStart = startForWindow(selectedWindow);
   const snapshotAt = new Date().toISOString();
 
-  const [companies, eventTypeRows, rawEvents] = await Promise.all([
+  const [summary, companies, eventTypeRows, rawEvents] = await Promise.all([
+    loadAttentionSummary(),
     safeLoad(
       () =>
         db.company.findMany({
@@ -329,10 +459,43 @@ export default async function EventsPage({
 
   return (
     <LayoutShell
-      title="Activity Log"
-      description="See what the system actually did across signups, messages, bookings, and follow-up work."
-      section="activity"
+      title={title}
+      description={description}
+      section={section}
+      hidePageHeader={hidePageHeader}
     >
+      <section className={`home-inline-bar${summary.allClear ? '' : ' panel-attention'}`}>
+        <div className="home-inline-status">
+          <span className={`status-dot ${summary.allClear ? 'ok' : 'warn'}`} />
+          <strong>{summary.allClear ? 'Everything is running.' : 'Something needs attention.'}</strong>
+        </div>
+
+        <div className="home-inline-metrics">
+          <span className="home-inline-pill">
+            <span className="metric-label">Unread client messages</span>
+            <strong>{summary.unreadClientMessages}</strong>
+          </span>
+          <span className="home-inline-pill">
+            <span className="metric-label">Overdue leads</span>
+            <strong>{summary.overdueProspects}</strong>
+          </span>
+          <span className="home-inline-pill">
+            <span className="metric-label">Appointments today</span>
+            <strong>{summary.appointmentsToday}</strong>
+          </span>
+          <span className="home-inline-pill">
+            <span className="metric-label">Clients needing attention</span>
+            <strong>{summary.clientsNeedingAttention}</strong>
+          </span>
+        </div>
+
+        <span className="tiny-muted">
+          {latestEvent
+            ? `Latest event ${humanizeEventType(latestEvent.eventType)} at ${formatDateTime(latestEvent.createdAt)}`
+            : 'Waiting for activity'}
+        </span>
+      </section>
+
       <LiveFeedControls
         snapshotAt={snapshotAt}
         categoryLabel={liveFeedCategoryLabel}
@@ -340,30 +503,35 @@ export default async function EventsPage({
         latestEventLabel={latestEvent ? humanizeEventType(latestEvent.eventType) : null}
         latestEventAt={latestEvent ? latestEvent.createdAt.toISOString() : null}
         companyName={activeCompanyName}
+        compact={compact}
       />
 
-      <div className="metric-grid">
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Visible events</div>
-          <div className="metric-value">{events.length}</div>
-          <div className="metric-copy">Filtered operator events in the current view.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Event types</div>
-          <div className="metric-value">{visibleEventTypes.size}</div>
-          <div className="metric-copy">Distinct workflow events in this feed window.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Clients in view</div>
-          <div className="metric-value">{visibleCompanies.size}</div>
-          <div className="metric-copy">Client workspaces represented in this filtered log.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Latest event</div>
-          <div className="metric-value">{latestEvent ? formatDateTime(latestEvent.createdAt) : '—'}</div>
-          <div className="metric-copy">{latestEvent ? humanizeEventType(latestEvent.eventType) : 'No event in this view yet.'}</div>
-        </section>
-      </div>
+      {!compact ? (
+        <div className="metric-grid">
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Visible events</div>
+            <div className="metric-value">{events.length}</div>
+            <div className="metric-copy">Filtered operator events in the current view.</div>
+          </section>
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Event types</div>
+            <div className="metric-value">{visibleEventTypes.size}</div>
+            <div className="metric-copy">Distinct workflow events in this feed window.</div>
+          </section>
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Clients in view</div>
+            <div className="metric-value">{visibleCompanies.size}</div>
+            <div className="metric-copy">Client workspaces represented in this filtered log.</div>
+          </section>
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Latest event</div>
+            <div className="metric-value">{latestEvent ? formatDateTime(latestEvent.createdAt) : '—'}</div>
+            <div className="metric-copy">
+              {latestEvent ? humanizeEventType(latestEvent.eventType) : 'No event in this view yet.'}
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       <section className="panel panel-stack">
         <div className="record-header">
@@ -371,12 +539,12 @@ export default async function EventsPage({
             <div className="metric-label">Filters</div>
             <h2 className="section-title">Filter the activity without leaving the page.</h2>
           </div>
-          <a className="button-ghost" href="/admin/activity">
+          <a className="button-ghost" href={basePath}>
             Reset
           </a>
         </div>
 
-        <form action="/admin/activity" className="workspace-filter-form">
+        <form action={basePath} className="workspace-filter-form">
           <div className="workspace-filter-row">
             <div className="field-stack">
               <label className="key-value-label" htmlFor="events-company">
@@ -456,11 +624,11 @@ export default async function EventsPage({
       </section>
 
       <section className="panel panel-stack">
-          <div className="record-header">
-            <div className="panel-stack">
-              <div className="metric-label">Event feed</div>
-              <h2 className="section-title">Recent activity across the live app.</h2>
-            </div>
+        <div className="record-header">
+          <div className="panel-stack">
+            <div className="metric-label">Event feed</div>
+            <h2 className="section-title">Recent activity across the live app.</h2>
+          </div>
           <div className="action-cluster">
             <a className="button-ghost" href="/admin/system">
               System Status
@@ -478,7 +646,7 @@ export default async function EventsPage({
             {events.map((event) => {
               const tone = eventTone(event.eventType);
               const links = payloadLinks(event.companyId, event.payload);
-              const summary = shortPayload(event.payload);
+              const summaryLine = shortPayload(event.payload);
               const related = relatedRecordType(event.payload);
 
               return (
@@ -493,7 +661,7 @@ export default async function EventsPage({
                             : ''
                       }`}
                     >
-                    <span className={`status-dot ${tone}`} />
+                      <span className={`status-dot ${tone}`} />
                       {humanizeEventType(event.eventType)}
                     </span>
                     <span className="tiny-muted">{humanizeRelatedRecordType(related)}</span>
@@ -504,7 +672,7 @@ export default async function EventsPage({
                     <div className="inline-row">
                       <a
                         className="table-link"
-                        href={buildEventsHref({
+                        href={buildEventsHref(basePath, {
                           companyId: event.companyId,
                           eventType: selectedEventType || undefined,
                           window: selectedWindow,
@@ -516,7 +684,7 @@ export default async function EventsPage({
                       </a>
                     </div>
                     <div className="text-muted">
-                      {summary || 'No short summary derived from the payload. Expand details for the raw event body.'}
+                      {summaryLine || 'No short summary derived from the payload. Expand details for the raw event body.'}
                     </div>
                   </div>
 
@@ -543,4 +711,12 @@ export default async function EventsPage({
       </section>
     </LayoutShell>
   );
+}
+
+export default async function EventsPage({
+  searchParams
+}: {
+  searchParams?: ActivitySearchParamShape;
+}) {
+  return ActivityPage({ searchParams });
 }

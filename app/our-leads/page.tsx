@@ -23,6 +23,14 @@ type SearchParamShape = Promise<{
   updated?: string;
   error?: string;
   duplicateReason?: string;
+  duplicateCompanyId?: string;
+  draftName?: string;
+  draftPhone?: string;
+  draftCity?: string;
+  draftOwnerName?: string;
+  draftWebsite?: string;
+  draftNextActionAt?: string;
+  draftNotes?: string;
 }>;
 
 function startOfDay(date: Date) {
@@ -275,6 +283,16 @@ export default async function OurLeadsPage({
   const updated = String(params.updated || '').trim();
   const error = String(params.error || '').trim();
   const duplicateReason = String(params.duplicateReason || '').trim();
+  const duplicateCompanyId = String(params.duplicateCompanyId || '').trim();
+  const draftValues = {
+    name: String(params.draftName || '').trim(),
+    phone: String(params.draftPhone || '').trim(),
+    city: String(params.draftCity || '').trim(),
+    ownerName: String(params.draftOwnerName || '').trim(),
+    website: String(params.draftWebsite || '').trim(),
+    nextActionAt: String(params.draftNextActionAt || '').trim(),
+    notes: String(params.draftNotes || '').trim()
+  };
   const now = new Date();
 
   const allProspects = await safeLoad(
@@ -383,21 +401,28 @@ export default async function OurLeadsPage({
         ...parseProspectNotes(selectedProspect.notes)
       }
     : null;
+  const duplicateLeadHref = selectedProspectId ? `${buildPageHref({ prospectId: selectedProspectId })}#selected-lead` : '/leads';
+  const duplicateCompanyHref = duplicateCompanyId ? `/clients/${duplicateCompanyId}` : '/clients';
 
   const errorMessage =
     error === 'name_required'
       ? 'Name is required to add a prospect.'
       : error === 'invalid_next_action'
         ? 'Next action must be a valid date and time.'
-        : error === 'duplicate'
+      : error === 'duplicate'
           ? duplicateReason === 'website'
-            ? 'This clinic is already in the queue with the same website.'
+            ? 'This clinic is already in the leads queue with the same website.'
             : duplicateReason === 'phone'
-              ? 'This clinic is already in the queue with the same phone number.'
-              : 'This clinic already looks like an existing prospect in the queue.'
+              ? 'This clinic is already in the leads queue with the same phone number.'
+              : duplicateReason === 'master_phone'
+                ? 'This clinic already exists in the contacted-company master list with the same phone number.'
+                : duplicateReason === 'master_name'
+                  ? 'This clinic already exists in the contacted-company master list with the same company name.'
+                  : 'This clinic already exists in the leads queue.'
         : error
           ? 'The prospect could not be saved. Try again.'
           : '';
+  const shouldOpenAddProspect = error !== 'duplicate' && Boolean(errorMessage || Object.values(draftValues).some((value) => value));
 
   return (
     <LayoutShell title="Leads" section="leads" variant="workspace">
@@ -437,6 +462,16 @@ export default async function OurLeadsPage({
               {errorMessage}
             </span>
           ) : null}
+          {error === 'duplicate' && selectedProspectId ? (
+            <a className="button-ghost" href={duplicateLeadHref}>
+              Open matching lead
+            </a>
+          ) : null}
+          {error === 'duplicate' && duplicateCompanyId ? (
+            <a className="button-ghost" href={duplicateCompanyHref}>
+              Open contacted company
+            </a>
+          ) : null}
           {updated === 'invalid_details' ? (
             <span className="inline-row">
               <span className="status-dot error" />
@@ -468,45 +503,86 @@ export default async function OurLeadsPage({
                   Reset view
                 </a>
               ) : null}
-              <details className="prospect-add-drawer" id="add-prospect">
+              <details className="prospect-add-drawer" id="add-prospect" open={shouldOpenAddProspect}>
                 <summary className="button-secondary prospect-add-trigger">Add lead</summary>
                 <form action={createProspectAction} className="workspace-filter-form" style={{ marginTop: 12 }}>
+                  <input type="hidden" name="viewQ" value={searchQuery} />
+                  <input type="hidden" name="viewStatus" value={selectedStatus} />
+                  <input type="hidden" name="viewCity" value={selectedCity} />
+                  <input type="hidden" name="viewNextActionDue" value={selectedDue} />
                   <div className="workspace-filter-row">
                     <div className="field-stack">
                       <label className="key-value-label" htmlFor="prospect-name">
                         Business name
                       </label>
-                      <input id="prospect-name" name="name" className="text-input" placeholder="Glow Med Spa" required />
+                      <input
+                        id="prospect-name"
+                        name="name"
+                        className="text-input"
+                        defaultValue={draftValues.name}
+                        placeholder="Glow Med Spa"
+                        required
+                      />
                     </div>
                     <div className="field-stack">
                       <label className="key-value-label" htmlFor="prospect-phone">
                         Phone
                       </label>
-                      <input id="prospect-phone" name="phone" className="text-input" placeholder="(555) 555-5555" />
+                      <input
+                        id="prospect-phone"
+                        name="phone"
+                        className="text-input"
+                        defaultValue={draftValues.phone}
+                        placeholder="(555) 555-5555"
+                      />
                     </div>
                     <div className="field-stack">
                       <label className="key-value-label" htmlFor="prospect-city">
                         City
                       </label>
-                      <input id="prospect-city" name="city" className="text-input" placeholder="Austin" />
+                      <input
+                        id="prospect-city"
+                        name="city"
+                        className="text-input"
+                        defaultValue={draftValues.city}
+                        placeholder="Austin"
+                      />
                     </div>
                     <div className="field-stack">
                       <label className="key-value-label" htmlFor="prospect-owner-name">
                         Contact
                       </label>
-                      <input id="prospect-owner-name" name="ownerName" className="text-input" placeholder="Jamie Reed" />
+                      <input
+                        id="prospect-owner-name"
+                        name="ownerName"
+                        className="text-input"
+                        defaultValue={draftValues.ownerName}
+                        placeholder="Jamie Reed"
+                      />
                     </div>
                     <div className="field-stack">
                       <label className="key-value-label" htmlFor="prospect-website">
                         Website
                       </label>
-                      <input id="prospect-website" name="website" className="text-input" placeholder="glowmedspa.com" />
+                      <input
+                        id="prospect-website"
+                        name="website"
+                        className="text-input"
+                        defaultValue={draftValues.website}
+                        placeholder="glowmedspa.com"
+                      />
                     </div>
                     <div className="field-stack">
                       <label className="key-value-label" htmlFor="prospect-next-action">
                         Next action
                       </label>
-                      <input id="prospect-next-action" name="nextActionAt" type="datetime-local" className="text-input" />
+                      <input
+                        id="prospect-next-action"
+                        name="nextActionAt"
+                        type="datetime-local"
+                        className="text-input"
+                        defaultValue={draftValues.nextActionAt}
+                      />
                     </div>
                   </div>
 
@@ -518,6 +594,7 @@ export default async function OurLeadsPage({
                       id="prospect-notes"
                       name="notes"
                       className="text-area"
+                      defaultValue={draftValues.notes}
                       placeholder="Anything the next caller should know."
                     />
                   </div>
@@ -548,64 +625,6 @@ export default async function OurLeadsPage({
                 <strong>{queueCounts.booked}</strong> booked
               </span>
             </div>
-
-            {selectedProspectView ? (
-              <section className="lead-master-card">
-                <div className="lead-master-header">
-                  <div className="record-stack">
-                    <h2 className="form-title lead-company-name">{selectedProspectView.name}</h2>
-                    <div className="tiny-muted">
-                      {detailValue(selectedProspectView.ownerName, 'No contact name')}
-                      {selectedProspectView.city ? ` · ${selectedProspectView.city}` : ''}
-                      {selectedProspectView.profile.clinicType ? ` · ${selectedProspectView.profile.clinicType}` : ''}
-                      {selectedProspectView.profile.source ? ` · ${selectedProspectView.profile.source}` : ' · Manual add'}
-                      {selectedProspectView.website ? ` · ${websiteLabel(selectedProspectView.website)}` : ''}
-                    </div>
-                  </div>
-                  <div className="inline-row inline-actions-wrap">
-                    <span className={statusChipClass(selectedProspectView.status)}>{humanizeStatus(selectedProspectView.status)}</span>
-                    {selectedProspectView.website ? (
-                      <a
-                        className="button-secondary button-secondary-strong"
-                        href={websiteHref(selectedProspectView.website)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open website
-                      </a>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="lead-identity-grid lead-identity-grid-wide">
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Phone</span>
-                    <strong>{detailValue(selectedProspectView.phone)}</strong>
-                  </div>
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Contact</span>
-                    <strong>{detailValue(selectedProspectView.ownerName)}</strong>
-                  </div>
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Location</span>
-                    <strong>{detailValue(selectedProspectView.city)}</strong>
-                  </div>
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Last touch</span>
-                    <strong>{formatDateTime(selectedProspectView.callLogs[0]?.createdAt || selectedProspectView.lastCallAt || selectedProspectView.updatedAt)}</strong>
-                  </div>
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Next action</span>
-                    <strong>{formatDateTime(selectedProspectView.nextActionAt)}</strong>
-                  </div>
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Website</span>
-                    <strong>{websiteLabel(selectedProspectView.website)}</strong>
-                    <span className="tiny-muted">{websiteHref(selectedProspectView.website) || 'No website set'}</span>
-                  </div>
-                </div>
-              </section>
-            ) : null}
 
             <div className="filter-bar">
               <a className={`filter-chip${!selectedStatus && !selectedDue ? ' is-active' : ''}`} href={buildPageHref({ q: searchQuery, city: selectedCity })}>
@@ -718,6 +737,64 @@ export default async function OurLeadsPage({
                 </table>
               </div>
             )}
+
+            {selectedProspectView ? (
+              <section className="lead-master-card" id="selected-lead">
+                <div className="lead-master-header">
+                  <div className="record-stack">
+                    <h2 className="form-title lead-company-name">{selectedProspectView.name}</h2>
+                    <div className="tiny-muted">
+                      {detailValue(selectedProspectView.ownerName, 'No contact name')}
+                      {selectedProspectView.city ? ` · ${selectedProspectView.city}` : ''}
+                      {selectedProspectView.profile.clinicType ? ` · ${selectedProspectView.profile.clinicType}` : ''}
+                      {selectedProspectView.profile.source ? ` · ${selectedProspectView.profile.source}` : ' · Manual add'}
+                      {selectedProspectView.website ? ` · ${websiteLabel(selectedProspectView.website)}` : ''}
+                    </div>
+                  </div>
+                  <div className="inline-row inline-actions-wrap">
+                    <span className={statusChipClass(selectedProspectView.status)}>{humanizeStatus(selectedProspectView.status)}</span>
+                    {selectedProspectView.website ? (
+                      <a
+                        className="button-secondary button-secondary-strong"
+                        href={websiteHref(selectedProspectView.website)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open website
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="lead-identity-grid lead-identity-grid-wide">
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Phone</span>
+                    <strong>{detailValue(selectedProspectView.phone)}</strong>
+                  </div>
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Contact</span>
+                    <strong>{detailValue(selectedProspectView.ownerName)}</strong>
+                  </div>
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Location</span>
+                    <strong>{detailValue(selectedProspectView.city)}</strong>
+                  </div>
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Last touch</span>
+                    <strong>{formatDateTime(selectedProspectView.callLogs[0]?.createdAt || selectedProspectView.lastCallAt || selectedProspectView.updatedAt)}</strong>
+                  </div>
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Next action</span>
+                    <strong>{formatDateTime(selectedProspectView.nextActionAt)}</strong>
+                  </div>
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Website</span>
+                    <strong>{websiteLabel(selectedProspectView.website)}</strong>
+                    <span className="tiny-muted">{websiteHref(selectedProspectView.website) || 'No website set'}</span>
+                  </div>
+                </div>
+              </section>
+            ) : null}
           </section>
         </div>
 
@@ -869,6 +946,59 @@ export default async function OurLeadsPage({
                       ))}
                     </div>
                   )}
+                </details>
+
+                <details className="routing-details">
+                  <summary className="routing-summary">
+                    <span className="metric-label">Lead context</span>
+                    <span className="tiny-muted">Extra details</span>
+                  </summary>
+                  <div className="key-value-grid">
+                    <div className="key-value-card">
+                      <span className="key-value-label">Created</span>
+                      <span>{formatDateTime(selectedProspectView.createdAt)}</span>
+                    </div>
+                    <div className="key-value-card">
+                      <span className="key-value-label">Updated</span>
+                      <span>{formatDateTime(selectedProspectView.updatedAt)}</span>
+                    </div>
+                    <div className="key-value-card">
+                      <span className="key-value-label">Source</span>
+                      <span>{detailValue(selectedProspectView.profile.source, 'Manual add')}</span>
+                    </div>
+                    <div className="key-value-card">
+                      <span className="key-value-label">Clinic type</span>
+                      <span>{detailValue(selectedProspectView.profile.clinicType)}</span>
+                    </div>
+                    <div className="key-value-card">
+                      <span className="key-value-label">ZIP</span>
+                      <span>{detailValue(selectedProspectView.profile.zipCode)}</span>
+                    </div>
+                    <div className="key-value-card">
+                      <span className="key-value-label">Predicted revenue</span>
+                      <span>{detailValue(selectedProspectView.profile.predictedRevenue)}</span>
+                    </div>
+                    <div className="key-value-card">
+                      <span className="key-value-label">Import batch</span>
+                      <span>{detailValue(selectedProspectView.profile.importBatch)}</span>
+                    </div>
+                    <div className="key-value-card">
+                      <span className="key-value-label">Source record</span>
+                      <span>{detailValue(selectedProspectView.profile.sourceRecord)}</span>
+                    </div>
+                  </div>
+                  {selectedProspectView.website ? (
+                    <div className="inline-actions">
+                      <a
+                        className="button-ghost"
+                        href={websiteHref(selectedProspectView.website)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open full website
+                      </a>
+                    </div>
+                  ) : null}
                 </details>
               </>
             )}

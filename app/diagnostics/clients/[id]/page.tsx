@@ -182,7 +182,7 @@ export default async function ClientDiagnosticsPage({
             <a className="button-secondary" href={`/clients/${company.id}`}>
               Open workspace
             </a>
-            <a className="button-secondary" href={`/admin/activity?companyId=${company.id}`}>
+            <a className="button-secondary" href={`/?companyId=${company.id}`}>
               Open activity log
             </a>
             <a className="button" href={`/clients/${company.id}#setup`}>

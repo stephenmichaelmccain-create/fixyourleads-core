@@ -36,7 +36,8 @@ export function LiveFeedControls({
   visibleCount,
   latestEventLabel,
   latestEventAt,
-  companyName
+  companyName,
+  compact = false
 }: {
   snapshotAt: string;
   categoryLabel: string;
@@ -44,6 +45,7 @@ export function LiveFeedControls({
   latestEventLabel: string | null;
   latestEventAt: string | null;
   companyName?: string | null;
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [isLive, setIsLive] = useState(true);
@@ -74,14 +76,18 @@ export function LiveFeedControls({
   }, [intervalSeconds, isLive, router, startTransition]);
 
   return (
-    <section className="panel panel-stack live-feed-bar">
+    <section className={`panel panel-stack live-feed-bar${compact ? ' live-feed-bar-compact' : ''}`}>
       <div className="live-feed-header">
         <div className="panel-stack">
           <div className="metric-label">Live feed</div>
-          <h2 className="section-title">Watch the latest operator activity without reloading the page.</h2>
-          <p className="text-muted">
-            {companyName ? `${companyName} live feed` : 'Workspace live feed'} refreshes automatically while this page stays open.
-          </p>
+          <h2 className="section-title">
+            {compact ? 'Auto-refreshing operator feed.' : 'Watch the latest operator activity without reloading the page.'}
+          </h2>
+          {!compact ? (
+            <p className="text-muted">
+              {companyName ? `${companyName} live feed` : 'Workspace live feed'} refreshes automatically while this page stays open.
+            </p>
+          ) : null}
         </div>
         <div className="live-feed-actions">
           <span className={`live-indicator ${isLive ? 'is-live' : 'is-paused'}`}>

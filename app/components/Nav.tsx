@@ -9,8 +9,8 @@ export function Nav({ current }: NavProps) {
   return (
     <div className="app-nav-wrap">
       <nav className="app-nav" aria-label="Primary">
-        <a className={linkClass('home')} href="/">
-          Home
+        <a className={linkClass('activity')} href="/">
+          Activity
         </a>
         <a className={linkClass(current === 'our-leads' ? 'our-leads' : 'leads')} href="/leads">
           Leads
@@ -31,9 +31,6 @@ export function Nav({ current }: NavProps) {
             href="/admin/system"
           >
             System
-          </a>
-          <a className={`nav-utility-link${current === 'activity' ? ' is-active' : ''}`} href="/admin/activity">
-            Activity
           </a>
         </div>
       </div>
