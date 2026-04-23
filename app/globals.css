@@ -833,6 +833,12 @@ select {
   overscroll-behavior: contain;
 }
 
+.lead-call-layout .lead-sidebar-panel {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
 .lead-sidebar-panel::-webkit-scrollbar {
   width: 10px;
 }
@@ -1595,6 +1601,10 @@ select {
   align-items: start;
 }
 
+.lead-call-layout {
+  grid-template-columns: 1fr;
+}
+
 .conversation-thread-panel {
   display: grid;
   gap: 14px;
@@ -1604,6 +1614,10 @@ select {
   display: grid;
   gap: 16px;
   align-content: start;
+}
+
+.lead-call-layout .conversation-sidebar {
+  max-width: none;
 }
 
 .conversation-summary-grid {
@@ -1848,6 +1862,10 @@ select {
 .sticky-panel {
   position: sticky;
   top: 18px;
+}
+
+.lead-call-layout .sticky-panel {
+  position: static;
 }
 
 .pre-wrap {

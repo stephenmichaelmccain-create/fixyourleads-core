@@ -507,7 +507,7 @@ export default async function OurLeadsPage({
         </section>
       ) : null}
 
-      <div className="conversation-layout">
+      <div className="conversation-layout lead-call-layout">
         <div className="page-stack lead-queue-column">
           <section className="panel panel-stack lead-queue-panel">
             <div className="workspace-search-bar">
