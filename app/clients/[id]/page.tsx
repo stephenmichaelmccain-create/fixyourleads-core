@@ -116,6 +116,22 @@ function replyRate(replyCount: number, total: number) {
   return `${Math.round((replyCount / total) * 100)}%`;
 }
 
+function formatUsd(cents?: number | null) {
+  if (typeof cents !== 'number') {
+    return '—';
+  }
+
+  const dollars = cents / 100;
+  const whole = Number.isFinite(dollars) && Math.round(dollars) === dollars;
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: whole ? 0 : 2
+  }).format(dollars);
+}
+
 function buildClientHealthBanner(options: {
   setupGaps: string[];
   needsReplyCount: number;
@@ -807,7 +823,9 @@ export default async function ClientWorkspacePage({
     : null;
   const setupGaps = [
     !hasInboundRouting(company) ? 'Inbound routing number' : null,
-    !company.notificationEmail ? 'Client notification email' : null
+    !company.notificationEmail ? 'Business email' : null,
+    !company.primaryContactName ? 'Primary contact name' : null,
+    !company.primaryContactEmail ? 'Primary contact email' : null
   ].filter(Boolean) as string[];
   const latestBooking = upcomingBookings[0] || null;
   const latestSignupEvent = intakeEvents.find((event) => event.eventType === 'client_signup_received') || null;
@@ -907,6 +925,13 @@ export default async function ClientWorkspacePage({
         ? 'Outbound SMS is available, but replies are still on the shared fallback sender.'
         : 'Do not trust live SMS here until a shared sender or dedicated inbound number is configured.';
 
+  const hasWeeklySignal =
+    weeklyStats.aiVoiceCallsThisWeek > 0 ||
+    weeklyStats.appointmentsThisWeek > 0 ||
+    weeklyStats.emailsThisWeek > 0 ||
+    weeklyStats.messagesThisWeek > 0 ||
+    leadCounts.REPLIED + leadCounts.BOOKED > 0;
+
   return (
     <LayoutShell
       title={company.name}
@@ -968,6 +993,48 @@ export default async function ClientWorkspacePage({
               <strong>{clientHealthBanner.label}</strong>
               <span className="record-subtitle">{clientHealthBanner.reason}</span>
             </div>
+            <div className="client-setup-strip">
+              <div className="client-setup-item">
+                <span className="key-value-label">Business email</span>
+                <span className="client-setup-value">
+                  {company.notificationEmail || importedNotificationEmail || 'Missing'}
+                </span>
+              </div>
+              <div className="client-setup-item">
+                <span className="key-value-label">Primary contact</span>
+                <span className="client-setup-value">
+                  {company.primaryContactName || importedContactName || 'Missing'}
+                </span>
+                <span className="tiny-muted">
+                  {[
+                    company.primaryContactEmail || '',
+                    company.primaryContactPhone ? truncatePhone(company.primaryContactPhone) : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' • ') || 'Add contact email + phone'}
+                </span>
+              </div>
+              <div className="client-setup-item">
+                <span className="key-value-label">Routing line</span>
+                <span className="client-setup-value">{activeSenderNumber || 'Missing'}</span>
+                <span className="tiny-muted">{telnyxMode === 'dedicated' ? 'Dedicated' : telnyxMode === 'shared' ? 'Shared fallback' : 'Unconfigured'}</span>
+              </div>
+              <div className="client-setup-item">
+                <span className="key-value-label">Bookings feed</span>
+                <span className="client-setup-value">
+                  {latestBooking ? `Next ${formatCompactDateTime(latestBooking.startTime)}` : 'No upcoming bookings'}
+                </span>
+                <span className="tiny-muted">{upcomingBookings.length ? `${upcomingBookings.length} upcoming` : 'Connect Google Calendar if expected'}</span>
+              </div>
+              <div className="client-setup-item">
+                <span className="key-value-label">Payment</span>
+                <span className="client-setup-value">
+                  {formatUsd(company.retainerCents)} retainer
+                  {typeof company.downPaymentCents === 'number' ? ` • ${formatUsd(company.downPaymentCents)} down` : ''}
+                </span>
+                <span className="tiny-muted">{company.retainerCents ? 'Configured' : 'Set retainer + down payment'}</span>
+              </div>
+            </div>
           </div>
           <div className="inline-actions">
             {topPriorityRow ? (
@@ -979,27 +1046,29 @@ export default async function ClientWorkspacePage({
         </div>
       </section>
 
-      <section className="panel panel-stack">
-        <div className="metric-label">This week</div>
-        <div className="workspace-stats-strip">
-          <div className="workspace-stats-item">
-            <span className="workspace-stats-value">{weeklyStats.aiVoiceCallsThisWeek}</span>
-            <span className="workspace-stats-label">AI voice</span>
+      {hasWeeklySignal ? (
+        <section className="panel panel-stack">
+          <div className="metric-label">This week</div>
+          <div className="workspace-stats-strip">
+            <div className="workspace-stats-item">
+              <span className="workspace-stats-value">{weeklyStats.aiVoiceCallsThisWeek}</span>
+              <span className="workspace-stats-label">AI voice</span>
+            </div>
+            <div className="workspace-stats-item">
+              <span className="workspace-stats-value">{weeklyStats.appointmentsThisWeek}</span>
+              <span className="workspace-stats-label">Appointments</span>
+            </div>
+            <div className="workspace-stats-item">
+              <span className="workspace-stats-value">{weeklyStats.emailsThisWeek}</span>
+              <span className="workspace-stats-label">Emails</span>
+            </div>
+            <div className="workspace-stats-item">
+              <span className="workspace-stats-value">{leadCounts.REPLIED + leadCounts.BOOKED}</span>
+              <span className="workspace-stats-label">Replies</span>
+            </div>
           </div>
-          <div className="workspace-stats-item">
-            <span className="workspace-stats-value">{weeklyStats.appointmentsThisWeek}</span>
-            <span className="workspace-stats-label">Appointments</span>
-          </div>
-          <div className="workspace-stats-item">
-            <span className="workspace-stats-value">{weeklyStats.emailsThisWeek}</span>
-            <span className="workspace-stats-label">Emails</span>
-          </div>
-          <div className="workspace-stats-item">
-            <span className="workspace-stats-value">{leadCounts.REPLIED + leadCounts.BOOKED}</span>
-            <span className="workspace-stats-label">Replies</span>
-          </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <div className="client-workspace-layout">
         <section id="leads" className="panel panel-stack">
@@ -1592,6 +1661,84 @@ export default async function ClientWorkspacePage({
                   name="notificationEmail"
                   defaultValue={company.notificationEmail || ''}
                   placeholder="appointments@client.com"
+                />
+              </div>
+            </div>
+            <div className="workspace-filter-row">
+              <div className="field-stack">
+                <label className="key-value-label" htmlFor="client-website">
+                  Website
+                </label>
+                <input
+                  id="client-website"
+                  className="text-input"
+                  name="website"
+                  defaultValue={company.website || ''}
+                  placeholder="https://client.com"
+                />
+              </div>
+              <div className="field-stack">
+                <label className="key-value-label" htmlFor="client-primary-contact-name">
+                  Primary contact name
+                </label>
+                <input
+                  id="client-primary-contact-name"
+                  className="text-input"
+                  name="primaryContactName"
+                  defaultValue={company.primaryContactName || ''}
+                  placeholder="Owner name"
+                />
+              </div>
+              <div className="field-stack">
+                <label className="key-value-label" htmlFor="client-primary-contact-email">
+                  Primary contact email
+                </label>
+                <input
+                  id="client-primary-contact-email"
+                  className="text-input"
+                  name="primaryContactEmail"
+                  defaultValue={company.primaryContactEmail || ''}
+                  placeholder="owner@client.com"
+                />
+              </div>
+            </div>
+            <div className="workspace-filter-row">
+              <div className="field-stack">
+                <label className="key-value-label" htmlFor="client-primary-contact-phone">
+                  Primary contact phone
+                </label>
+                <input
+                  id="client-primary-contact-phone"
+                  className="text-input"
+                  name="primaryContactPhone"
+                  defaultValue={company.primaryContactPhone || ''}
+                  placeholder="(555) 555-5555"
+                />
+              </div>
+              <div className="field-stack">
+                <label className="key-value-label" htmlFor="client-retainer">
+                  Retainer (monthly USD)
+                </label>
+                <input
+                  id="client-retainer"
+                  className="text-input"
+                  name="retainer"
+                  defaultValue={typeof company.retainerCents === 'number' ? String(company.retainerCents / 100) : ''}
+                  placeholder="1500"
+                  inputMode="decimal"
+                />
+              </div>
+              <div className="field-stack">
+                <label className="key-value-label" htmlFor="client-down-payment">
+                  Down payment (USD)
+                </label>
+                <input
+                  id="client-down-payment"
+                  className="text-input"
+                  name="downPayment"
+                  defaultValue={typeof company.downPaymentCents === 'number' ? String(company.downPaymentCents / 100) : ''}
+                  placeholder="500"
+                  inputMode="decimal"
                 />
               </div>
             </div>

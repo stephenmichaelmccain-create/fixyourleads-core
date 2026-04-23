@@ -1787,6 +1787,31 @@ select {
   gap: 8px;
 }
 
+.client-setup-strip {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  padding-top: 8px;
+}
+
+.client-setup-item {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(176, 137, 244, 0.18);
+  background: rgba(250, 244, 255, 0.72);
+}
+
+.client-setup-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #2b0a45;
+}
+
 .workspace-stats-strip {
   display: grid;
   gap: 10px;

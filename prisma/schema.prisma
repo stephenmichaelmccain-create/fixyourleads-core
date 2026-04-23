@@ -65,6 +65,12 @@ model Company {
   id                  String                 @id @default(cuid())
   name                String
   notificationEmail   String?
+  website             String?
+  primaryContactName  String?
+  primaryContactEmail String?
+  primaryContactPhone String?
+  retainerCents       Int?
+  downPaymentCents    Int?
   telnyxInboundNumber String?                @unique
   telnyxInboundNumbers CompanyTelnyxNumber[]
   createdAt           DateTime               @default(now())

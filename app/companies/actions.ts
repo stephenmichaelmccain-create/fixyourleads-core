@@ -10,6 +10,21 @@ function optionalText(value: FormDataEntryValue | null) {
   return text || null;
 }
 
+function optionalMoneyCents(value: FormDataEntryValue | null) {
+  const text = String(value || '').trim();
+  if (!text) {
+    return null;
+  }
+
+  const match = text.replace(/[$,]/g, '').match(/-?\d+(\.\d+)?/);
+  const parsed = match ? Number(match[0]) : Number.NaN;
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.round(parsed * 100);
+}
+
 function clientsPath(values: { notice?: string; targetCompanyId?: string } = {}) {
   const params = new URLSearchParams();
 
@@ -30,6 +45,12 @@ function clientsPath(values: { notice?: string; targetCompanyId?: string } = {})
 export async function createCompanyAction(formData: FormData) {
   const name = String(formData.get('name') || '').trim();
   const notificationEmail = optionalText(formData.get('notificationEmail'));
+  const website = optionalText(formData.get('website'));
+  const primaryContactName = optionalText(formData.get('primaryContactName'));
+  const primaryContactEmail = optionalText(formData.get('primaryContactEmail'));
+  const primaryContactPhone = optionalText(formData.get('primaryContactPhone'));
+  const retainerCents = optionalMoneyCents(formData.get('retainer'));
+  const downPaymentCents = optionalMoneyCents(formData.get('downPayment'));
   const telnyxInboundInput = formData.get('telnyxInboundNumber');
   const nextSurface = String(formData.get('nextSurface') || '').trim();
   const inboundNumbers = parseInboundNumberList(telnyxInboundInput);
@@ -65,6 +86,12 @@ export async function createCompanyAction(formData: FormData) {
     data: {
       name,
       notificationEmail,
+      website,
+      primaryContactName,
+      primaryContactEmail,
+      primaryContactPhone,
+      retainerCents,
+      downPaymentCents,
       telnyxInboundNumber: normalizedInboundNumber,
       ...(inboundNumbers.length > 0
         ? {
@@ -91,6 +118,12 @@ export async function updateCompanyAction(formData: FormData) {
   const companyId = String(formData.get('companyId') || '').trim();
   const name = String(formData.get('name') || '').trim();
   const notificationEmail = optionalText(formData.get('notificationEmail'));
+  const website = optionalText(formData.get('website'));
+  const primaryContactName = optionalText(formData.get('primaryContactName'));
+  const primaryContactEmail = optionalText(formData.get('primaryContactEmail'));
+  const primaryContactPhone = optionalText(formData.get('primaryContactPhone'));
+  const retainerCents = optionalMoneyCents(formData.get('retainer'));
+  const downPaymentCents = optionalMoneyCents(formData.get('downPayment'));
   const telnyxInboundInput = formData.get('telnyxInboundNumber');
   const inboundNumbers = parseInboundNumberList(telnyxInboundInput);
   const normalizedInboundNumber = inboundNumbers[0] || null;
@@ -127,6 +160,12 @@ export async function updateCompanyAction(formData: FormData) {
     data: {
       name,
       notificationEmail,
+      website,
+      primaryContactName,
+      primaryContactEmail,
+      primaryContactPhone,
+      retainerCents,
+      downPaymentCents,
       telnyxInboundNumber: normalizedInboundNumber,
       telnyxInboundNumbers: {
         deleteMany: {},
