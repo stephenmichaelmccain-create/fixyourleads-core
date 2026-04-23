@@ -25,7 +25,6 @@ function formatPlural(value: number, singular: string, plural = `${singular}s`) 
 type HomeAction = {
   label: string;
   href: string;
-  detail: string;
 };
 
 function buildPrimaryAction(input: {
@@ -38,47 +37,41 @@ function buildPrimaryAction(input: {
   if (input.clients === 0) {
     return {
       label: 'Add a Client',
-      href: '/clients/intake',
-      detail: 'No live clients are set up yet.'
+      href: '/clients/intake'
     };
   }
 
   if (input.unreadClientMessages > 0) {
     return {
       label: 'Open Messages',
-      href: '/messages',
-      detail: `${input.unreadClientMessages} client conversation${input.unreadClientMessages === 1 ? '' : 's'} need a reply.`
+      href: '/messages'
     };
   }
 
   if (input.clientsNeedingAttention > 0) {
     return {
       label: 'Open Clients',
-      href: '/clients',
-      detail: `${input.clientsNeedingAttention} client${input.clientsNeedingAttention === 1 ? '' : 's'} need setup or inbox attention.`
+      href: '/clients'
     };
   }
 
   if (input.appointmentsToday > 0) {
     return {
       label: 'Open Clients',
-      href: '/clients',
-      detail: `${input.appointmentsToday} appointment${input.appointmentsToday === 1 ? '' : 's'} are on the board today.`
+      href: '/clients'
     };
   }
 
   if (input.newLeadsYesterday > 0) {
     return {
       label: 'Open Leads',
-      href: '/leads',
-      detail: `${input.newLeadsYesterday} new lead${input.newLeadsYesterday === 1 ? '' : 's'} arrived yesterday.`
+      href: '/leads'
     };
   }
 
   return {
     label: 'Check System Status',
-    href: '/admin/system',
-    detail: 'No urgent client work is waiting right now.'
+    href: '/admin/system'
   };
 }
 
@@ -231,12 +224,9 @@ export default async function HomePage() {
           <a className="button" href={primaryAction.href}>
             {primaryAction.label}
           </a>
-          <span className="tiny-muted">{primaryAction.detail}</span>
-        </div>
-
-        <div className="home-inline-recap">
-          Yesterday: {formatPlural(newLeadsYesterday, 'new lead')}, {formatPlural(appointmentsYesterday, 'appointment')},{' '}
-          {formatPlural(messagesYesterday, 'message')}.
+          <span className="tiny-muted">
+            Yesterday {newLeadsYesterday} leads · {appointmentsYesterday} appointments · {messagesYesterday} messages
+          </span>
         </div>
       </section>
     </LayoutShell>

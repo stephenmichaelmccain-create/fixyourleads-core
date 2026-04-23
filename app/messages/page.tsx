@@ -9,12 +9,6 @@ type SearchParamShape = Promise<{
   filter?: string;
 }>;
 
-function startOfDay(date = new Date()) {
-  const value = new Date(date);
-  value.setHours(0, 0, 0, 0);
-  return value;
-}
-
 function formatDateTime(value: Date | string | null | undefined) {
   if (!value) {
     return '—';
@@ -32,16 +26,19 @@ function buildMessagesHref(filter?: string) {
   return filter && filter !== 'all' ? `/messages?filter=${encodeURIComponent(filter)}` : '/messages';
 }
 
+function buildClientThreadHref(companyId: string, conversationId: string) {
+  return `/clients/${companyId}?conversationId=${encodeURIComponent(conversationId)}`;
+}
+
 export default async function MessagesPage({
   searchParams
 }: {
   searchParams?: SearchParamShape;
 }) {
   const params = (await searchParams) || {};
-  const selectedFilter = ['all', 'needs_human', 'today'].includes(String(params.filter || ''))
+  const selectedFilter = ['all', 'needs_human'].includes(String(params.filter || ''))
     ? String(params.filter)
-    : 'all';
-  const todayStart = startOfDay();
+    : 'needs_human';
 
   const rows = await safeLoad(
     () =>
@@ -80,22 +77,16 @@ export default async function MessagesPage({
     .map((row) => {
       const latestMessage = row.messages[0] || null;
       const needsHuman = latestMessage?.direction === 'INBOUND';
-      const happenedToday = latestMessage ? latestMessage.createdAt >= todayStart : false;
 
       return {
         ...row,
         latestMessage,
-        needsHuman,
-        happenedToday
+        needsHuman
       };
     })
     .filter((row) => {
       if (selectedFilter === 'needs_human') {
         return row.needsHuman;
-      }
-
-      if (selectedFilter === 'today') {
-        return row.happenedToday;
       }
 
       return true;
@@ -109,24 +100,19 @@ export default async function MessagesPage({
   return (
     <LayoutShell
       title="Messages"
-      description="One inbox across all clients."
       section="messages"
     >
       <section className="panel panel-stack">
         <div className="record-header">
           <div className="panel-stack">
-            <div className="metric-label">Unified inbox</div>
-            <h2 className="section-title">Open the threads that need a reply.</h2>
+            <div className="metric-label">Global inbox</div>
           </div>
           <div className="inline-actions">
-            <a className={selectedFilter === 'all' ? 'button' : 'button-secondary'} href={buildMessagesHref('all')}>
+            <a className={selectedFilter === 'all' ? 'button-secondary' : 'button-ghost'} href={buildMessagesHref('all')}>
               All
             </a>
             <a className={selectedFilter === 'needs_human' ? 'button' : 'button-secondary'} href={buildMessagesHref('needs_human')}>
               Needs reply
-            </a>
-            <a className={selectedFilter === 'today' ? 'button' : 'button-secondary'} href={buildMessagesHref('today')}>
-              Today
             </a>
           </div>
         </div>
@@ -153,13 +139,13 @@ export default async function MessagesPage({
                 visibleRows.map((row) => (
                   <tr key={row.id}>
                     <td>
-                      <a className="table-link" href={`/clients/${row.company.id}`}>
+                      <a className="table-link" href={buildClientThreadHref(row.company.id, row.id)}>
                         {row.company.name}
                       </a>
                     </td>
                     <td>{row.contact.name || row.contact.phone || 'Unknown lead'}</td>
                     <td>
-                      <a className="table-link" href={`/conversations/${row.id}`}>
+                      <a className="table-link" href={buildClientThreadHref(row.company.id, row.id)}>
                         {row.latestMessage?.content?.slice(0, 90) || 'No messages yet'}
                       </a>
                     </td>

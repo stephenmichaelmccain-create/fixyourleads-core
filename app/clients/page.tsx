@@ -174,7 +174,6 @@ export default async function ClientsPage({
   return (
     <LayoutShell
       title="Clients"
-      description="Paying clinics, sorted by what needs attention first."
       section="clients"
     >
       {notice && (
@@ -196,10 +195,9 @@ export default async function ClientsPage({
         <div className="record-header">
           <div className="panel-stack">
             <div className="metric-label">Clients</div>
-            <h2 className="section-title">Open the red or yellow rows first.</h2>
           </div>
           <div className="inline-actions">
-            <a className="button-secondary" href="/clients/intake">
+            <a className="button-ghost" href="/clients/intake">
               Intake queue
             </a>
             <a className="button" href="/clients/new">
@@ -230,17 +228,8 @@ export default async function ClientsPage({
                 rows.map((row) => (
                   <tr key={row.id}>
                     <td>
-                      <span
-                        className={`status-chip ${
-                          row.health.tone === 'error'
-                            ? 'status-chip-attention'
-                            : row.health.tone === 'warn'
-                              ? 'status-chip-muted'
-                              : ''
-                        }`}
-                      >
+                      <span className="client-health-cell" title={`${row.health.label} · ${row.health.reason}`}>
                         <span className={`status-dot ${row.health.tone}`} />
-                        {row.health.label}
                       </span>
                     </td>
                     <td>
@@ -249,7 +238,7 @@ export default async function ClientsPage({
                           <strong>{row.name}</strong>
                         </a>
                         <span className="tiny-muted">
-                          {row.health.reason} • {row.connectedNumbers} number{row.connectedNumbers === 1 ? '' : 's'} •{' '}
+                          {row.health.reason} · {row.connectedNumbers} number{row.connectedNumbers === 1 ? '' : 's'} ·{' '}
                           {formatRelativeDay(row.lastActivityAt)}
                         </span>
                       </div>

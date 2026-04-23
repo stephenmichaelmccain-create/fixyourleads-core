@@ -246,13 +246,13 @@ select {
 .home-inline-bar {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding: 14px 16px;
-  border-radius: 20px;
+  padding: 12px 14px;
+  border-radius: 14px;
   border: 1px solid rgba(176, 137, 244, 0.16);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 245, 255, 0.98));
-  box-shadow: 0 12px 24px rgba(52, 16, 88, 0.05);
+  box-shadow: none;
 }
 
 .home-inline-status {
@@ -274,8 +274,8 @@ select {
   display: inline-grid;
   gap: 4px;
   min-width: 0;
-  padding: 10px 12px;
-  border-radius: 16px;
+  padding: 8px 10px;
+  border-radius: 12px;
   border: 1px solid rgba(176, 137, 244, 0.14);
   background: rgba(255, 255, 255, 0.78);
 }
@@ -290,6 +290,14 @@ select {
   color: var(--fyl-muted);
   line-height: 1.4;
   flex: 1 1 280px;
+}
+
+.client-health-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  min-height: 18px;
 }
 
 .page-copy-inverse {
