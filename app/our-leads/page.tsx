@@ -553,12 +553,13 @@ export default async function OurLeadsPage({
               <section className="lead-master-card">
                 <div className="lead-master-header">
                   <div className="record-stack">
-                    <span className="key-value-label">Selected clinic</span>
                     <h2 className="form-title lead-company-name">{selectedProspectView.name}</h2>
                     <div className="tiny-muted">
                       {detailValue(selectedProspectView.ownerName, 'No contact name')}
                       {selectedProspectView.city ? ` · ${selectedProspectView.city}` : ''}
                       {selectedProspectView.profile.clinicType ? ` · ${selectedProspectView.profile.clinicType}` : ''}
+                      {selectedProspectView.profile.source ? ` · ${selectedProspectView.profile.source}` : ' · Manual add'}
+                      {selectedProspectView.website ? ` · ${websiteLabel(selectedProspectView.website)}` : ''}
                     </div>
                   </div>
                   <div className="inline-row inline-actions-wrap">
@@ -598,11 +599,7 @@ export default async function OurLeadsPage({
                     <strong>{formatDateTime(selectedProspectView.nextActionAt)}</strong>
                   </div>
                   <div className="lead-identity-item">
-                    <span className="key-value-label">Source</span>
-                    <strong>{detailValue(selectedProspectView.profile.source, 'Manual add')}</strong>
-                  </div>
-                  <div className="lead-identity-item lead-identity-item-website">
-                    <span className="key-value-label">Company website</span>
+                    <span className="key-value-label">Website</span>
                     <strong>{websiteLabel(selectedProspectView.website)}</strong>
                     <span className="tiny-muted">{websiteHref(selectedProspectView.website) || 'No website set'}</span>
                   </div>
