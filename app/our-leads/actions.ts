@@ -326,6 +326,7 @@ export async function createProspectAction(formData: FormData) {
 
 export async function updateProspectOutcomeAction(formData: FormData) {
   const prospectId = readText(formData, 'prospectId');
+  const nextProspectId = readText(formData, 'nextProspectId');
   const outcome = readText(formData, 'outcome');
   const q = readText(formData, 'q');
   const status = readText(formData, 'status');
@@ -425,7 +426,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   revalidatePath('/leads');
   redirect(
     buildOurLeadsHref({
-      prospectId,
+      prospectId: nextProspectId || prospectId,
       q,
       status,
       city,
@@ -437,6 +438,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
 
 export async function scheduleProspectCallbackAction(formData: FormData) {
   const prospectId = readText(formData, 'prospectId');
+  const nextProspectId = readText(formData, 'nextProspectId');
   const preset = readText(formData, 'preset');
   const q = readText(formData, 'q');
   const status = readText(formData, 'status');
@@ -487,7 +489,7 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
   revalidatePath('/leads');
   redirect(
     buildOurLeadsHref({
-      prospectId,
+      prospectId: nextProspectId || prospectId,
       q,
       status,
       city,

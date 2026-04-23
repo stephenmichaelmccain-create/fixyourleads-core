@@ -394,6 +394,13 @@ export default async function OurLeadsPage({
     (selectedProspectId && visibleProspects.some((prospect) => prospect.id === selectedProspectId)
       ? selectedProspectId
       : visibleProspects[0]?.id) || '';
+  const selectedQueueIndex = visibleProspects.findIndex((prospect) => prospect.id === effectiveSelectedProspectId);
+  const nextQueueProspect =
+    selectedQueueIndex >= 0 ? visibleProspects[selectedQueueIndex + 1] || null : visibleProspects[1] || null;
+  const nextQueueProspectId =
+    selectedQueueIndex >= 0
+      ? visibleProspects[Math.min(selectedQueueIndex + 1, Math.max(visibleProspects.length - 1, 0))]?.id || ''
+      : '';
 
   const selectedProspect = effectiveSelectedProspectId
     ? await safeLoad(
@@ -418,6 +425,10 @@ export default async function OurLeadsPage({
     : null;
   const duplicateLeadHref = selectedProspectId ? `${buildPageHref({ prospectId: selectedProspectId })}#selected-lead` : '/leads';
   const duplicateCompanyHref = duplicateCompanyId ? `/clients/${duplicateCompanyId}` : '/clients';
+  const activeQueueCount = visibleProspects.length;
+  const dueNowCount = visibleProspects.filter((prospect) =>
+    prospect.nextActionAt ? dueBucketMatches(prospect.nextActionAt, 'today', now) || dueBucketMatches(prospect.nextActionAt, 'overdue', now) : true
+  ).length;
 
   const errorMessage =
     error === 'name_required'
@@ -625,20 +636,22 @@ export default async function OurLeadsPage({
 
             <div className="prospect-stats-strip">
               <span>
-                <strong>{queueCounts.all}</strong> total
+                <strong>{activeQueueCount}</strong> in view
               </span>
               <span>
-                <strong>{queueCounts.overdue}</strong> overdue
+                <strong>{dueNowCount}</strong> due now
               </span>
               <span>
-                <strong>{queueCounts.today}</strong> today
-              </span>
-              <span>
-                <strong>{queueCounts.waiting}</strong> waiting
+                <strong>{queueCounts.waiting}</strong> callbacks
               </span>
               <span>
                 <strong>{queueCounts.booked}</strong> booked
               </span>
+              {selectedQueueIndex >= 0 ? (
+                <span>
+                  <strong>{selectedQueueIndex + 1}</strong> working now
+                </span>
+              ) : null}
             </div>
 
             <div className="filter-bar">
@@ -674,7 +687,7 @@ export default async function OurLeadsPage({
                   <div>No leads in this view.</div>
                 </div>
               ) : (
-                <div className="record-grid">
+                <div className="record-grid lead-queue-list">
                 {visibleProspects.map((prospect) => {
                   const rowHref = buildPageHref({
                     prospectId: prospect.id,
@@ -692,52 +705,49 @@ export default async function OurLeadsPage({
                       className={`lead-master-card${selected ? ' lead-master-card-selected' : ''}`}
                       id={selected ? 'selected-lead' : undefined}
                     >
+                      <a className="lead-master-overlay" href={rowHref} aria-label={`Select ${prospect.name}`} />
                       <div className="lead-master-header">
-                        <a className="lead-master-select" href={rowHref}>
+                        <div className="lead-master-select">
+                          <div className="lead-master-kicker">
+                            <span className="tiny-muted">
+                              {selected ? 'Active lead' : 'Queue lead'}
+                            </span>
+                            <span className="tiny-muted">
+                              {nextActionState(prospect.nextActionAt, now)}
+                            </span>
+                          </div>
                           <div className="record-stack">
                             <h2 className="form-title lead-company-name">{prospect.name}</h2>
-                            <div className="tiny-muted">
+                            <div className="lead-queue-subline">
                               {detailValue(prospect.ownerName, 'No contact name')}
                               {prospect.city ? ` · ${prospect.city}` : ''}
                               {prospect.profile.source ? ` · ${prospect.profile.source}` : ' · Manual add'}
+                              {prospect.website ? ` · ${websiteLabel(prospect.website)}` : ''}
                             </div>
                           </div>
 
-                          <div className="lead-compact-grid">
-                            <div className="lead-compact-item">
-                              <span className="key-value-label">Phone</span>
-                              <strong className="lead-compact-value">{detailValue(prospect.phone)}</strong>
+                          <div className="lead-queue-body">
+                            <div className="lead-queue-phone">{detailValue(prospect.phone)}</div>
+                            <div className="lead-queue-meta">
+                              <span>{detailValue(prospect.ownerName, 'No contact name')}</span>
+                              {prospect.city ? <span>{prospect.city}</span> : null}
+                              <span>{prospect.profile.source || 'Manual add'}</span>
+                              {prospect.website ? <span>{websiteLabel(prospect.website)}</span> : null}
                             </div>
-                            <div className="lead-compact-item">
-                              <span className="key-value-label">Contact</span>
-                              <strong className="lead-compact-value">{detailValue(prospect.ownerName)}</strong>
-                            </div>
-                            <div className="lead-compact-item">
-                              <span className="key-value-label">Location</span>
-                              <strong className="lead-compact-value">{detailValue(prospect.city)}</strong>
-                            </div>
-                            <div className="lead-compact-item">
-                              <span className="key-value-label">Status</span>
-                              <strong className="lead-compact-value">{humanizeStatus(prospect.status)}</strong>
-                              <span className="tiny-muted">{prospect.profile.source || 'Manual add'}</span>
-                            </div>
-                            <div className="lead-compact-item">
-                              <span className="key-value-label">Last touch</span>
-                              <strong className="lead-compact-value">{formatDateTime(lastTouch)}</strong>
-                              <span className="tiny-muted">{prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || 'Recent activity'}</span>
-                            </div>
-                            <div className="lead-compact-item">
-                              <span className="key-value-label">Next action</span>
-                              <strong className="lead-compact-value">{formatDateTime(prospect.nextActionAt)}</strong>
-                              <span className="tiny-muted">{nextActionState(prospect.nextActionAt, now)}</span>
-                            </div>
-                            <div className="lead-compact-item lead-compact-item-wide">
-                              <span className="key-value-label">Website</span>
-                              <strong className="lead-compact-value">{websiteLabel(prospect.website)}</strong>
-                              <span className="tiny-muted">{websiteHref(prospect.website) || 'No website set'}</span>
+                            <div className="lead-queue-timing">
+                              <div className="lead-queue-timing-item">
+                                <span className="key-value-label">Last touch</span>
+                                <strong className="lead-compact-value">{formatDateTime(lastTouch)}</strong>
+                                <span className="tiny-muted">{prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || 'Recent activity'}</span>
+                              </div>
+                              <div className="lead-queue-timing-item">
+                                <span className="key-value-label">Next action</span>
+                                <strong className="lead-compact-value">{formatDateTime(prospect.nextActionAt)}</strong>
+                                <span className="tiny-muted">{nextActionState(prospect.nextActionAt, now)}</span>
+                              </div>
                             </div>
                           </div>
-                        </a>
+                        </div>
 
                         <div className="inline-row inline-actions-wrap lead-master-actions">
                           {prospect.phone ? (
@@ -775,10 +785,66 @@ export default async function OurLeadsPage({
               </div>
             ) : (
               <>
-                <div className="lead-sidebar-intro">Update the outcome, callback date, notes, and history for the selected clinic.</div>
+                <section className="panel panel-stack lead-active-summary">
+                  <div className="lead-sidebar-current">
+                    <div className="inline-row justify-between">
+                      <span className="key-value-label">Selected clinic</span>
+                      <span className="tiny-muted">
+                        {selectedQueueIndex >= 0 ? `${selectedQueueIndex + 1} of ${activeQueueCount} in queue` : `${activeQueueCount} in queue`}
+                      </span>
+                    </div>
+                    <strong className="lead-sidebar-title">{selectedProspectView.name}</strong>
+                    <div className="lead-queue-subline">
+                      {detailValue(selectedProspectView.ownerName, 'No contact name')}
+                      {selectedProspectView.city ? ` · ${selectedProspectView.city}` : ''}
+                      {selectedProspectView.profile.source ? ` · ${selectedProspectView.profile.source}` : ' · Manual add'}
+                      {selectedProspectView.website ? ` · ${websiteLabel(selectedProspectView.website)}` : ''}
+                    </div>
+                  </div>
+
+                  <div className="lead-identity-grid">
+                    <div className="lead-identity-item">
+                      <span className="key-value-label">Phone</span>
+                      <strong className="lead-compact-value">{detailValue(selectedProspectView.phone)}</strong>
+                    </div>
+                    <div className="lead-identity-item">
+                      <span className="key-value-label">Status</span>
+                      <strong className="lead-compact-value">{humanizeStatus(selectedProspectView.status)}</strong>
+                    </div>
+                    <div className="lead-identity-item">
+                      <span className="key-value-label">Next action</span>
+                      <strong className="lead-compact-value">{formatDateTime(selectedProspectView.nextActionAt)}</strong>
+                    </div>
+                    <div className="lead-identity-item">
+                      <span className="key-value-label">Last touch</span>
+                      <strong className="lead-compact-value">
+                        {formatDateTime(selectedProspectView.callLogs[0]?.createdAt || selectedProspectView.lastCallAt || selectedProspectView.updatedAt)}
+                      </strong>
+                    </div>
+                    <div className="lead-identity-item lead-identity-item-wide">
+                      <span className="key-value-label">Website</span>
+                      <strong className="lead-compact-value">{websiteLabel(selectedProspectView.website)}</strong>
+                      <span className="tiny-muted">{websiteHref(selectedProspectView.website) || 'No website set'}</span>
+                    </div>
+                  </div>
+
+                  <div className="lead-sidebar-intro">
+                    Update the outcome, callback date, notes, and history for the selected clinic.
+                    <span className="tiny-muted lead-sidebar-intro-meta">
+                      {dueNowCount} due now in this view
+                    </span>
+                    {nextQueueProspect ? (
+                      <span className="tiny-muted lead-sidebar-intro-meta">
+                        Next up: {nextQueueProspect.name}
+                        {nextQueueProspect.city ? ` · ${nextQueueProspect.city}` : ''}
+                      </span>
+                    ) : null}
+                  </div>
+                </section>
 
                 <form action={updateProspectOutcomeAction} className="panel panel-stack">
                   <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                  <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
                   <input type="hidden" name="q" value={searchQuery} />
                   <input type="hidden" name="status" value={selectedStatus} />
                   <input type="hidden" name="city" value={selectedCity} />
@@ -811,6 +877,7 @@ export default async function OurLeadsPage({
                     <div className="tiny-muted">{formatDateOnly(selectedProspectView.nextActionAt)}</div>
                   </div>
                   <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                  <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
                   <input type="hidden" name="q" value={searchQuery} />
                   <input type="hidden" name="status" value={selectedStatus} />
                   <input type="hidden" name="city" value={selectedCity} />
