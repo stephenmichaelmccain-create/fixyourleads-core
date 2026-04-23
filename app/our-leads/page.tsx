@@ -696,7 +696,10 @@ export default async function OurLeadsPage({
                     city: selectedCity,
                     nextActionDue: selectedDue
                   });
-                  const lastTouch = prospect.callLogs[0]?.createdAt || prospect.lastCallAt || prospect.updatedAt;
+                  const lastTouch = prospect.callLogs[0]?.createdAt || prospect.lastCallAt || null;
+                  const lastTouchLabel = lastTouch ? formatDateTime(lastTouch) : 'New';
+                  const lastTouchMeta =
+                    prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || (lastTouch ? 'Recent activity' : 'Not contacted yet');
                   const selected = prospect.id === effectiveSelectedProspectId;
 
                   return (
@@ -730,8 +733,8 @@ export default async function OurLeadsPage({
                             <div className="lead-queue-timing">
                               <div className="lead-queue-timing-item">
                                 <span className="key-value-label">Last touch</span>
-                                <strong className="lead-compact-value">{formatDateTime(lastTouch)}</strong>
-                                <span className="tiny-muted">{prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || 'Recent activity'}</span>
+                                <strong className="lead-compact-value">{lastTouchLabel}</strong>
+                                <span className="tiny-muted">{lastTouchMeta}</span>
                               </div>
                               <div className="lead-queue-timing-item">
                                 <span className="key-value-label">Next action</span>
