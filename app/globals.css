@@ -1758,6 +1758,14 @@ select {
   flex-wrap: wrap;
 }
 
+.workspace-action-rail {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  position: relative;
+}
+
 .workspace-search-bar .text-input {
   flex: 1 1 280px;
 }
@@ -1800,17 +1808,21 @@ select {
   padding-block: 10px;
 }
 
-.prospect-add-drawer {
+.prospect-add-drawer,
+.prospect-bulk-drawer {
   min-width: fit-content;
   flex: 0 0 auto;
+  position: relative;
 }
 
-.prospect-add-drawer summary {
+.prospect-add-drawer summary,
+.prospect-bulk-drawer summary {
   list-style: none;
   cursor: pointer;
 }
 
-.prospect-add-drawer summary::-webkit-details-marker {
+.prospect-add-drawer summary::-webkit-details-marker,
+.prospect-bulk-drawer summary::-webkit-details-marker {
   display: none;
 }
 
@@ -1819,40 +1831,27 @@ select {
   min-width: 132px;
 }
 
-.prospect-add-drawer[open] {
-  flex-basis: 100%;
+.prospect-drawer-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 20;
+  width: min(980px, calc(100vw - 80px));
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(176, 137, 244, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.995), rgba(250, 244, 255, 0.985));
+  box-shadow: 0 30px 60px rgba(91, 45, 157, 0.16);
 }
 
-.prospect-add-drawer[open] summary {
-  min-height: auto;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: #5f2bc8;
-  justify-content: flex-start;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.prospect-drawer-panel-compact {
+  width: min(620px, calc(100vw - 80px));
 }
 
-.prospect-add-drawer[open] summary:hover {
-  transform: none;
-}
-
-.prospect-stats-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  align-items: center;
-  color: var(--fyl-muted);
-  font-size: 12px;
-}
-
-.prospect-stats-strip strong {
-  color: var(--fyl-black);
-  font-size: 14px;
+.prospect-add-drawer[open] .prospect-drawer-panel,
+.prospect-bulk-drawer[open] .prospect-drawer-panel {
+  display: block;
 }
 
 .inline-actions-wrap {
@@ -2043,6 +2042,17 @@ select {
 
   .live-feed-actions {
     justify-content: flex-start;
+  }
+
+  .workspace-action-rail {
+    width: 100%;
+  }
+
+  .prospect-drawer-panel,
+  .prospect-drawer-panel-compact {
+    position: static;
+    width: 100%;
+    margin-top: 12px;
   }
 }
 

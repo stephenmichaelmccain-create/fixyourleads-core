@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoad } from '@/lib/ui-data';
 import {
+  bulkCreateProspectsAction,
   createProspectAction,
   scheduleProspectCallbackAction,
   updateProspectDetailsAction,
@@ -20,6 +21,9 @@ type SearchParamShape = Promise<{
   city?: string;
   nextActionDue?: string;
   added?: string;
+  bulkAdded?: string;
+  bulkSkipped?: string;
+  bulkError?: string;
   updated?: string;
   error?: string;
   duplicateReason?: string;
@@ -290,6 +294,44 @@ function nextActionState(date: Date | null, now: Date) {
   return 'Scheduled';
 }
 
+function callbackSummary(date: Date | null, now: Date) {
+  if (!date) {
+    return 'Not set';
+  }
+
+  const todayStart = startOfDay(now);
+  const tomorrowStart = endOfDay(now);
+  const dayAfterTomorrow = endOfDay(tomorrowStart);
+
+  if (date < todayStart) {
+    return 'Past due';
+  }
+
+  if (date >= todayStart && date < tomorrowStart) {
+    return 'Due today';
+  }
+
+  if (date >= tomorrowStart && date < dayAfterTomorrow) {
+    return 'Tomorrow';
+  }
+
+  const diffDays = Math.round((startOfDay(date).getTime() - todayStart.getTime()) / (24 * 60 * 60 * 1000));
+
+  if (diffDays === 3) {
+    return 'In 3 days';
+  }
+
+  if (diffDays === 7) {
+    return 'In 1 week';
+  }
+
+  if (diffDays === 30) {
+    return 'In 1 month';
+  }
+
+  return 'Scheduled';
+}
+
 export default async function OurLeadsPage({
   searchParams
 }: {
@@ -307,6 +349,9 @@ export default async function OurLeadsPage({
   const selectedDue = String(params.nextActionDue || '').trim();
   const selectedProspectId = String(params.prospectId || '').trim();
   const added = params.added === '1';
+  const bulkAdded = Number.parseInt(String(params.bulkAdded || '0'), 10) || 0;
+  const bulkSkipped = Number.parseInt(String(params.bulkSkipped || '0'), 10) || 0;
+  const bulkError = String(params.bulkError || '').trim();
   const updated = String(params.updated || '').trim();
   const error = String(params.error || '').trim();
   const duplicateReason = String(params.duplicateReason || '').trim();
@@ -465,7 +510,7 @@ export default async function OurLeadsPage({
 
   return (
     <LayoutShell title="Leads" section="leads" variant="workspace" hidePageHeader>
-      {updated || added || errorMessage ? (
+      {updated || added || bulkAdded || bulkSkipped || bulkError || errorMessage ? (
         <section className="panel prospect-update-bar">
           {updated ? (
             <span className="inline-row">
@@ -493,6 +538,21 @@ export default async function OurLeadsPage({
             <span className="inline-row">
               <span className="status-dot ok" />
               Lead added
+            </span>
+          ) : null}
+          {bulkAdded || bulkSkipped ? (
+            <span className="inline-row">
+              <span className={`status-dot ${bulkAdded ? 'ok' : 'error'}`} />
+              Imported {bulkAdded} lead{bulkAdded === 1 ? '' : 's'}
+              {bulkSkipped ? ` • skipped ${bulkSkipped} duplicate${bulkSkipped === 1 ? '' : 's'}` : ''}
+            </span>
+          ) : null}
+          {bulkError ? (
+            <span className="inline-row">
+              <span className="status-dot error" />
+              {bulkError === 'bulk_required'
+                ? 'Paste at least one lead row to bulk import.'
+                : 'Bulk import could not be processed.'}
             </span>
           ) : null}
           {errorMessage ? (
@@ -538,14 +598,16 @@ export default async function OurLeadsPage({
                   Search
                 </button>
               </form>
-              {searchQuery || selectedStatus || selectedCity || selectedDue ? (
-                <a className="button-secondary prospect-reset-trigger" href="/leads">
-                  Reset view
-                </a>
-              ) : null}
-              <details className="prospect-add-drawer" id="add-prospect" open={shouldOpenAddProspect}>
-                <summary className="button-secondary prospect-add-trigger">Add lead</summary>
-                <form action={createProspectAction} className="workspace-filter-form" style={{ marginTop: 12 }}>
+              <div className="workspace-action-rail">
+                {searchQuery || selectedStatus || selectedCity || selectedDue || selectedView ? (
+                  <a className="button-secondary prospect-reset-trigger" href="/leads">
+                    Reset view
+                  </a>
+                ) : null}
+                <details className="prospect-add-drawer" id="add-prospect" open={shouldOpenAddProspect}>
+                  <summary className="button-secondary prospect-add-trigger">Add lead</summary>
+                  <div className="prospect-drawer-panel">
+                    <form action={createProspectAction} className="workspace-filter-form">
                   <input type="hidden" name="viewQ" value={searchQuery} />
                   <input type="hidden" name="viewMode" value={selectedView} />
                   <input type="hidden" name="viewStatus" value={selectedStatus} />
@@ -645,8 +707,41 @@ export default async function OurLeadsPage({
                       Save lead
                     </button>
                   </div>
-                </form>
-              </details>
+                    </form>
+                  </div>
+                </details>
+                <details className="prospect-bulk-drawer" id="bulk-prospects" open={bulkError === 'bulk_required'}>
+                  <summary className="button-secondary prospect-add-trigger">Bulk leads</summary>
+                  <div className="prospect-drawer-panel prospect-drawer-panel-compact">
+                    <form action={bulkCreateProspectsAction} className="workspace-filter-form">
+                      <input type="hidden" name="viewQ" value={searchQuery} />
+                      <input type="hidden" name="viewMode" value={selectedView} />
+                      <input type="hidden" name="viewStatus" value={selectedStatus} />
+                      <input type="hidden" name="viewCity" value={selectedCity} />
+                      <input type="hidden" name="viewNextActionDue" value={selectedDue} />
+                      <div className="field-stack">
+                        <label className="key-value-label" htmlFor="prospect-bulk-rows">
+                          Paste rows
+                        </label>
+                        <textarea
+                          id="prospect-bulk-rows"
+                          name="rows"
+                          className="text-area"
+                          placeholder={'Business name, phone, city, contact, website, next action, notes\nGlow Med Spa, (555) 555-5555, Austin, Jamie Reed, glowmedspa.com'}
+                        />
+                        <div className="tiny-muted">
+                          Paste comma, pipe, or tab-separated rows. Order: business name, phone, city, contact, website, next action, notes.
+                        </div>
+                      </div>
+                      <div className="workspace-filter-actions">
+                        <button type="submit" className="button">
+                          Import leads
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </details>
+              </div>
             </div>
 
             <div className="filter-bar">
@@ -822,7 +917,7 @@ export default async function OurLeadsPage({
                 <form action={scheduleProspectCallbackAction} className="panel panel-stack">
                   <div className="inline-row justify-between">
                     <div className="metric-label">Callback</div>
-                    <div className="tiny-muted">{formatDateOnly(selectedProspectView.nextActionAt)}</div>
+                    <div className="tiny-muted">Current: {callbackSummary(selectedProspectView.nextActionAt, now)}</div>
                   </div>
                   <input type="hidden" name="prospectId" value={selectedProspectView.id} />
                   <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
@@ -844,6 +939,9 @@ export default async function OurLeadsPage({
                     <button type="submit" className="button-secondary" name="preset" value="1_month">
                       1 month
                     </button>
+                  </div>
+                  <div className="tiny-muted">
+                    {selectedProspectView.nextActionAt ? formatDateTime(selectedProspectView.nextActionAt) : 'No callback scheduled yet.'}
                   </div>
                 </form>
 

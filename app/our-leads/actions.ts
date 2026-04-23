@@ -45,6 +45,9 @@ function buildOurLeadsHref({
   nextActionDue,
   updated,
   added,
+  bulkAdded,
+  bulkSkipped,
+  bulkError,
   error,
   duplicateReason,
   duplicateCompanyId,
@@ -58,6 +61,9 @@ function buildOurLeadsHref({
   nextActionDue?: string;
   updated?: string;
   added?: string;
+  bulkAdded?: string;
+  bulkSkipped?: string;
+  bulkError?: string;
   error?: string;
   duplicateReason?: string;
   duplicateCompanyId?: string;
@@ -103,6 +109,18 @@ function buildOurLeadsHref({
 
   if (added) {
     params.set('added', added);
+  }
+
+  if (bulkAdded) {
+    params.set('bulkAdded', bulkAdded);
+  }
+
+  if (bulkSkipped) {
+    params.set('bulkSkipped', bulkSkipped);
+  }
+
+  if (bulkError) {
+    params.set('bulkError', bulkError);
   }
 
   if (error) {
@@ -161,6 +179,94 @@ function readLeadDraft(formData: FormData) {
   };
 }
 
+function splitBulkRow(row: string) {
+  if (row.includes('\t')) {
+    return row.split('\t').map((part) => part.trim());
+  }
+
+  if (row.includes('|')) {
+    return row.split('|').map((part) => part.trim());
+  }
+
+  return row.split(',').map((part) => part.trim());
+}
+
+type DuplicateSources = Awaited<ReturnType<typeof loadDuplicateSources>>;
+
+async function loadDuplicateSources() {
+  const [existingProspects, contactedCompanies] = await Promise.all([
+    db.prospect.findMany({
+      where: {
+        companyId: INTERNAL_COMPANY_ID
+      },
+      select: {
+        id: true,
+        name: true,
+        website: true,
+        phone: true
+      }
+    }),
+    db.company.findMany({
+      select: {
+        id: true,
+        name: true,
+        contacts: {
+          select: {
+            phone: true
+          }
+        }
+      }
+    })
+  ]);
+
+  return { existingProspects, contactedCompanies };
+}
+
+function findProspectDuplicate(
+  duplicateSources: DuplicateSources,
+  {
+    clinicKey,
+    normalizedPhone,
+    websiteKey
+  }: {
+    clinicKey: string;
+    normalizedPhone: string | null;
+    websiteKey: string;
+  }
+) {
+  return (
+    duplicateSources.existingProspects.find((prospect) => normalizeClinicKey(prospect.name) === clinicKey) ||
+    (normalizedPhone
+      ? duplicateSources.existingProspects.find((prospect) => normalizePhone(prospect.phone || '') === normalizedPhone)
+      : null) ||
+    (websiteKey
+      ? duplicateSources.existingProspects.find((prospect) => normalizeWebsiteKey(prospect.website || '') === websiteKey)
+      : null) ||
+    null
+  );
+}
+
+function findContactedCompanyDuplicate(
+  duplicateSources: DuplicateSources,
+  {
+    clinicKey,
+    normalizedPhone
+  }: {
+    clinicKey: string;
+    normalizedPhone: string | null;
+  }
+) {
+  return (
+    duplicateSources.contactedCompanies.find((company) => normalizeClinicKey(company.name) === clinicKey) ||
+    (normalizedPhone
+      ? duplicateSources.contactedCompanies.find((company) =>
+          company.contacts.some((contact) => normalizePhone(contact.phone || '') === normalizedPhone)
+        )
+      : null) ||
+    null
+  );
+}
+
 function readCurrentView(formData: FormData) {
   return {
     q: readText(formData, 'viewQ'),
@@ -215,40 +321,13 @@ export async function createProspectAction(formData: FormData) {
     redirect(`${buildOurLeadsHref({ ...currentView, error: 'invalid_next_action', draft })}#add-prospect`);
   }
 
-  const [existingProspects, contactedCompanies] = await Promise.all([
-    db.prospect.findMany({
-      where: {
-        companyId: INTERNAL_COMPANY_ID
-      },
-      select: {
-        id: true,
-        name: true,
-        website: true,
-        phone: true
-      }
-    }),
-    db.company.findMany({
-      select: {
-        id: true,
-        name: true,
-        contacts: {
-          select: {
-            phone: true
-          }
-        }
-      }
-    })
-  ]);
+  const duplicateSources = await loadDuplicateSources();
 
-  const prospectDuplicate =
-    existingProspects.find((prospect) => normalizeClinicKey(prospect.name) === clinicKey) ||
-    (normalizedPhone
-      ? existingProspects.find((prospect) => normalizePhone(prospect.phone || '') === normalizedPhone)
-      : null) ||
-    (websiteKey
-      ? existingProspects.find((prospect) => normalizeWebsiteKey(prospect.website || '') === websiteKey)
-      : null) ||
-    null;
+  const prospectDuplicate = findProspectDuplicate(duplicateSources, {
+    clinicKey,
+    normalizedPhone,
+    websiteKey
+  });
 
   if (prospectDuplicate) {
     let duplicateReason = 'clinic_name';
@@ -270,14 +349,10 @@ export async function createProspectAction(formData: FormData) {
     );
   }
 
-  const contactedCompanyDuplicate =
-    contactedCompanies.find((company) => normalizeClinicKey(company.name) === clinicKey) ||
-    (normalizedPhone
-      ? contactedCompanies.find((company) =>
-          company.contacts.some((contact) => normalizePhone(contact.phone || '') === normalizedPhone)
-        )
-      : null) ||
-    null;
+  const contactedCompanyDuplicate = findContactedCompanyDuplicate(duplicateSources, {
+    clinicKey,
+    normalizedPhone
+  });
 
   if (contactedCompanyDuplicate) {
     const duplicateReason =
@@ -327,6 +402,95 @@ export async function createProspectAction(formData: FormData) {
       ...currentView,
       prospectId: prospect.id,
       added: '1'
+    })
+  );
+}
+
+export async function bulkCreateProspectsAction(formData: FormData) {
+  const currentView = readCurrentView(formData);
+  const rowsRaw = readText(formData, 'rows');
+
+  if (!rowsRaw) {
+    redirect(buildOurLeadsHref({ ...currentView, bulkError: 'bulk_required' }));
+  }
+
+  const duplicateSources = await loadDuplicateSources();
+  const rows = rowsRaw
+    .split(/\r?\n/)
+    .map((row) => row.trim())
+    .filter(Boolean);
+
+  let addedCount = 0;
+  let skippedCount = 0;
+
+  for (const row of rows) {
+    const [nameRaw, phoneRaw = '', cityRaw = '', ownerNameRaw = '', websiteRaw = '', nextActionRaw = '', notesRaw = ''] =
+      splitBulkRow(row);
+    const name = nameRaw?.trim();
+
+    if (!name) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const normalizedPhone = phoneRaw ? normalizePhone(phoneRaw) || phoneRaw : null;
+    const clinicKey = normalizeClinicKey(name);
+    const websiteKey = normalizeWebsiteKey(websiteRaw || '');
+    const nextActionAt = nextActionRaw ? new Date(nextActionRaw) : null;
+
+    if (nextActionAt && Number.isNaN(nextActionAt.getTime())) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const prospectDuplicate = findProspectDuplicate(duplicateSources, {
+      clinicKey,
+      normalizedPhone,
+      websiteKey
+    });
+    const contactedCompanyDuplicate = findContactedCompanyDuplicate(duplicateSources, {
+      clinicKey,
+      normalizedPhone
+    });
+
+    if (prospectDuplicate || contactedCompanyDuplicate) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const created = await db.prospect.create({
+      data: {
+        companyId: INTERNAL_COMPANY_ID,
+        name,
+        phone: normalizedPhone,
+        city: cityRaw || null,
+        website: websiteRaw || null,
+        ownerName: ownerNameRaw || null,
+        status: ProspectStatus.NEW,
+        nextActionAt,
+        notes: buildProspectNotes({
+          plainNotes: notesRaw || null
+        })
+      },
+      select: {
+        id: true,
+        name: true,
+        website: true,
+        phone: true
+      }
+    });
+
+    duplicateSources.existingProspects.push(created);
+    addedCount += 1;
+  }
+
+  revalidatePath('/our-leads');
+  revalidatePath('/leads');
+  redirect(
+    buildOurLeadsHref({
+      ...currentView,
+      bulkAdded: String(addedCount),
+      bulkSkipped: String(skippedCount)
     })
   );
 }
