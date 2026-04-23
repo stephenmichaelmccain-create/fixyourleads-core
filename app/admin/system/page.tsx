@@ -60,42 +60,36 @@ const priorityCheckCards: Array<{
   }
 ];
 
-const workflowCards = [
+const systemSettingsPages = [
   {
-    title: 'Website intake',
-    body: 'Website signup and onboarding feed client intake, then hand off to the CRM profile as the source of truth.',
-    route: '/api/webhooks/website/intake',
-    routeSecondary: '/api/webhooks/website/onboarding',
-    records: 'Company · EventLog',
-    href: '/clients/intake',
-    action: 'Open intake queue'
+    href: '#checks',
+    title: 'System checks',
+    body: 'Runtime readiness, deploy info, and which checks are failing right now.',
+    action: 'Open checks'
   },
   {
-    title: 'Lead ops queue',
-    body: 'Operators add or dedupe clinics, then work a single compact outbound queue.',
-    route: '/leads',
-    routeSecondary: '/api/internal/leads/create',
-    records: 'Prospect · Lead · Conversation',
-    href: '/leads',
-    action: 'Open leads'
+    href: '/diagnostics/queues',
+    title: 'Queue health',
+    body: 'Worker heartbeat, failed jobs, and queue backlog.',
+    action: 'Open queues'
   },
   {
-    title: 'Messaging and booking',
-    body: 'Telnyx handles message delivery and events, while the app routes replies into workflow state, booking jobs, and operator history.',
-    route: '/api/webhooks/telnyx',
-    routeSecondary: 'workers/booking.ts',
-    records: 'Message · Appointment · EventLog',
-    href: '/',
+    href: '/diagnostics/workflows',
+    title: 'Workflow map',
+    body: 'How intake, Telnyx, booking, and the app tie together.',
+    action: 'Open map'
+  },
+  {
+    href: '/admin/activity',
+    title: 'Activity log',
+    body: 'Operator event feed: messages, bookings, intake, and worker actions.',
     action: 'Open activity'
   },
   {
-    title: 'Runtime and deploy',
-    body: 'System checks, queues, and workflow diagnostics are the operator truth surface for the live stack.',
-    route: '/admin/system',
-    routeSecondary: '/diagnostics/workflows',
-    records: 'Health checks · Queue stats · EventLog',
-    href: '/diagnostics/workflows',
-    action: 'Open full map'
+    href: '/clients/intake',
+    title: 'Client intake queue',
+    body: 'New workspaces waiting on setup, routing, and booking hookup.',
+    action: 'Open intake'
   }
 ] as const;
 
@@ -125,9 +119,10 @@ export default async function AdminSystemPage() {
 
   return (
     <LayoutShell
-      title="System Status"
-      description="A calm, honest system check. If this page is green, you should not need to think about the plumbing."
+      title="System"
+      description="System checks and settings."
       section="system"
+      hidePageHeader
     >
       <section className={`panel panel-stack ${summary.tone === 'ok' ? 'panel-success' : 'panel-attention'}`}>
         <div className="inline-row">
@@ -141,8 +136,28 @@ export default async function AdminSystemPage() {
       <section className="panel panel-stack">
         <div className="record-header">
           <div className="panel-stack">
+            <div className="metric-label">System settings</div>
+            <h2 className="section-title">Everything system-related, linked from one place.</h2>
+          </div>
+        </div>
+
+        <div className="surface-link-grid">
+          {systemSettingsPages.map((page) => (
+            <a key={page.href} className="surface-link-card" href={page.href}>
+              <span className="metric-label">Settings</span>
+              <strong className="section-title">{page.title}</strong>
+              <span className="text-muted">{page.body}</span>
+              <span className="tiny-muted">{page.action}</span>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel panel-stack">
+        <div className="record-header">
+          <div className="panel-stack">
             <div className="metric-label">Priority gaps</div>
-            <h2 className="section-title">The main blockers still standing between intake and dependable operations.</h2>
+            <h2 className="section-title">The current blockers keeping the platform from being boring.</h2>
           </div>
         </div>
 
@@ -153,11 +168,7 @@ export default async function AdminSystemPage() {
             {activePriorityCards.map((card) => (
               <a key={card.key} className="surface-link-card" href={card.href}>
                 <span className="inline-row">
-                  <span
-                    className={`status-dot ${
-                      health.checks[card.key].status === 'error' ? 'error' : 'warn'
-                    }`}
-                  />
+                  <span className={`status-dot ${health.checks[card.key].status === 'error' ? 'error' : 'warn'}`} />
                   <span className="metric-label">Needs attention</span>
                 </span>
                 <strong className="section-title">{card.title}</strong>
@@ -169,41 +180,9 @@ export default async function AdminSystemPage() {
         )}
       </section>
 
-      <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">Workflow map</div>
-            <h2 className="section-title">The short version of how the app and providers divide responsibility.</h2>
-          </div>
-          <a className="button-secondary" href="/diagnostics/workflows">
-            Open full map
-          </a>
-        </div>
-
-        <div className="surface-link-grid">
-          {workflowCards.map((card) => (
-            <a key={card.title} className="surface-link-card" href={card.href}>
-              <span className="metric-label">Workflow</span>
-              <strong className="section-title">{card.title}</strong>
-              <span className="text-muted">{card.body}</span>
-              <div className="panel-stack" style={{ gap: 6 }}>
-                <span className="tiny-muted">
-                  Route: <code>{card.route}</code>
-                </span>
-                <span className="tiny-muted">
-                  Next: <code>{card.routeSecondary}</code>
-                </span>
-                <span className="tiny-muted">Writes: {card.records}</span>
-              </div>
-              <span className="tiny-muted">{card.action}</span>
-            </a>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel panel-stack">
+      <section className="panel panel-stack" id="checks">
         <details>
-          <summary className="form-title">Show technical details</summary>
+          <summary className="form-title">System check details</summary>
           <div className="page-stack" style={{ marginTop: 16 }}>
             <div className="key-value-grid">
               <div className="key-value-card">
