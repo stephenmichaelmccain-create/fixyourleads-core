@@ -712,9 +712,7 @@ export default async function OurLeadsPage({
                             <span className="tiny-muted">
                               {selected ? 'Active lead' : 'Queue lead'}
                             </span>
-                            <span className="tiny-muted">
-                              {nextActionState(prospect.nextActionAt, now)}
-                            </span>
+                            <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
                           </div>
                           <div className="record-stack">
                             <h2 className="form-title lead-company-name">{prospect.name}</h2>
@@ -727,13 +725,6 @@ export default async function OurLeadsPage({
                           </div>
 
                           <div className="lead-queue-body">
-                            <div className="lead-queue-phone">{detailValue(prospect.phone)}</div>
-                            <div className="lead-queue-meta">
-                              <span>{detailValue(prospect.ownerName, 'No contact name')}</span>
-                              {prospect.city ? <span>{prospect.city}</span> : null}
-                              <span>{prospect.profile.source || 'Manual add'}</span>
-                              {prospect.website ? <span>{websiteLabel(prospect.website)}</span> : null}
-                            </div>
                             <div className="lead-queue-timing">
                               <div className="lead-queue-timing-item">
                                 <span className="key-value-label">Last touch</span>
@@ -746,27 +737,27 @@ export default async function OurLeadsPage({
                                 <span className="tiny-muted">{nextActionState(prospect.nextActionAt, now)}</span>
                               </div>
                             </div>
+                            <div className="lead-queue-phone">{detailValue(prospect.phone)}</div>
                           </div>
                         </div>
+                      </div>
 
-                        <div className="inline-row inline-actions-wrap lead-master-actions">
-                          {prospect.phone ? (
-                            <a className="button" href={`tel:${prospect.phone}`}>
-                              Call now
-                            </a>
-                          ) : null}
-                          {prospect.website ? (
-                            <a
-                              className="button-secondary button-secondary-strong"
-                              href={websiteHref(prospect.website)}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Open website
-                            </a>
-                          ) : null}
-                          <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
-                        </div>
+                      <div className="inline-row inline-actions-wrap lead-master-footer">
+                        {prospect.phone ? (
+                          <a className="button" href={`tel:${prospect.phone}`}>
+                            Call now
+                          </a>
+                        ) : null}
+                        {prospect.website ? (
+                          <a
+                            className="button-secondary button-secondary-strong"
+                            href={websiteHref(prospect.website)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open website
+                          </a>
+                        ) : null}
                       </div>
                     </section>
                   );

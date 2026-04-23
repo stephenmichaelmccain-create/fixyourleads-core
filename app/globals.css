@@ -614,8 +614,8 @@ select {
 
 .lead-master-card {
   display: grid;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 14px;
   position: relative;
   border-radius: 16px;
   border: 1px solid rgba(176, 137, 244, 0.22);
@@ -635,14 +635,14 @@ select {
 
 .lead-master-header {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-start;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .lead-master-select {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   position: relative;
   z-index: 2;
@@ -661,42 +661,24 @@ select {
   min-width: 0;
   color: var(--fyl-muted);
   overflow-wrap: anywhere;
+  font-size: 15px;
 }
 
 .lead-queue-body {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .lead-queue-phone {
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }
 
-.lead-queue-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  color: var(--fyl-muted);
-  font-size: 14px;
-}
-
-.lead-queue-meta span::before {
-  content: '•';
-  margin-right: 10px;
-  color: rgba(124, 58, 237, 0.34);
-}
-
-.lead-queue-meta span:first-child::before {
-  content: none;
-  margin-right: 0;
-}
-
 .lead-queue-timing {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -704,7 +686,7 @@ select {
   display: grid;
   gap: 3px;
   min-width: 0;
-  padding: 7px 9px;
+  padding: 8px 10px;
   border-radius: 11px;
   border: 1px solid rgba(176, 137, 244, 0.18);
   background: rgba(250, 244, 255, 0.52);
@@ -732,6 +714,14 @@ select {
   gap: 8px;
   position: relative;
   z-index: 3;
+}
+
+.lead-master-footer {
+  position: relative;
+  z-index: 3;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 4px;
 }
 
 .lead-queue-list {
