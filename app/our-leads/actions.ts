@@ -164,6 +164,15 @@ function readCurrentView(formData: FormData) {
   };
 }
 
+function formatHistoryDateTime(date: Date) {
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+}
+
 export async function createProspectAction(formData: FormData) {
   const currentView = readCurrentView(formData);
   const draft = readLeadDraft(formData);
@@ -530,7 +539,9 @@ export async function updateProspectDetailsAction(formData: FormData) {
   }
 
   const parsed = parseProspectNotes(existing.notes);
+  const previousPlainNotes = parsed.plainNotes.trim();
   const previousNextAction = existing.nextActionAt?.toISOString() || '';
+  const noteChanged = previousPlainNotes !== notes;
   const nextActionChanged = previousNextAction !== (nextActionAt?.toISOString() || '');
 
   await db.$transaction(async (tx) => {
@@ -551,19 +562,33 @@ export async function updateProspectDetailsAction(formData: FormData) {
       }
     });
 
-    if (nextActionChanged) {
+    if (noteChanged || nextActionChanged) {
+      const historyParts: string[] = [];
+      let outcome = 'Updated contact details';
+
+      if (noteChanged && nextActionChanged) {
+        outcome = nextActionAt ? 'Updated note and follow-up date' : 'Updated note and cleared follow-up date';
+      } else if (noteChanged) {
+        outcome = notes ? 'Updated note' : 'Cleared note';
+      } else if (nextActionChanged) {
+        outcome = nextActionAt ? 'Updated follow-up date' : 'Cleared follow-up date';
+      }
+
+      if (noteChanged) {
+        historyParts.push(notes ? 'Note updated.' : 'Note cleared.');
+      }
+
+      if (nextActionChanged) {
+        historyParts.push(
+          nextActionAt ? `Next action set for ${formatHistoryDateTime(nextActionAt)}.` : 'Next action date removed.'
+        );
+      }
+
       await tx.callLog.create({
         data: {
           prospectId,
-          outcome: nextActionAt ? 'Updated follow-up date' : 'Cleared follow-up date',
-          notes: nextActionAt
-            ? `Next action set for ${nextActionAt.toLocaleString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit'
-              })}.`
-            : 'Next action date removed.'
+          outcome,
+          notes: historyParts.join(' ')
         }
       });
     }

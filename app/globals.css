@@ -609,13 +609,13 @@ select {
 }
 
 .lead-company-name {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
 }
 
 .lead-master-card {
   display: grid;
-  gap: 14px;
-  padding: 16px;
+  gap: 10px;
+  padding: 14px;
   border-radius: 16px;
   border: 1px solid rgba(176, 137, 244, 0.22);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 240, 255, 0.99));
@@ -634,14 +634,14 @@ select {
 
 .lead-master-header {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-start;
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .lead-master-select {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   color: inherit;
   text-decoration: none;
   min-width: 0;
@@ -663,6 +663,7 @@ select {
 .lead-master-actions {
   align-self: start;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 .lead-queue-column {
@@ -682,6 +683,7 @@ select {
   min-height: 0;
   overflow-y: auto;
   padding-right: 6px;
+  padding-bottom: 28vh;
 }
 
 .lead-queue-scroll::-webkit-scrollbar {
@@ -694,28 +696,30 @@ select {
   background: rgba(124, 58, 237, 0.18);
 }
 
-.lead-summary-grid {
+.lead-compact-grid {
   display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.lead-summary-item {
+.lead-compact-item {
   display: grid;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: 12px;
   border: 1px solid rgba(176, 137, 244, 0.18);
-  background: rgba(250, 244, 255, 0.58);
+  background: rgba(250, 244, 255, 0.52);
 }
 
-.lead-identity-grid-wide {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-.lead-identity-item-website {
+.lead-compact-item-wide {
   grid-column: span 2;
+}
+
+.lead-compact-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .lead-sidebar-header {
@@ -725,6 +729,10 @@ select {
 .lead-sidebar-intro {
   color: var(--fyl-muted);
   line-height: 1.6;
+}
+
+.lead-sidebar-panel {
+  margin-top: 188px;
 }
 
 .lead-identity-grid {
@@ -2112,6 +2120,18 @@ select {
 
   .lead-master-actions {
     justify-content: flex-start;
+  }
+
+  .lead-compact-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lead-compact-item-wide {
+    grid-column: span 2;
+  }
+
+  .lead-sidebar-panel {
+    margin-top: 0;
   }
 
   .client-workspace-layout {
