@@ -918,6 +918,7 @@ export default async function ClientWorkspacePage({
       companyName={company.name}
       section="clients"
       variant="workspace"
+      hidePageHeader
     >
       {notice && (
         <section className="panel panel-stack">

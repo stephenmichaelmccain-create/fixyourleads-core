@@ -10,7 +10,8 @@ export async function LayoutShell({
   companyId,
   companyName,
   section,
-  variant = 'default'
+  variant = 'default',
+  hidePageHeader = false
 }: {
   title: string;
   description?: string;
@@ -19,8 +20,9 @@ export async function LayoutShell({
   companyName?: string;
   section?: 'home' | 'clients' | 'leads' | 'messages' | 'system' | 'activity' | 'diagnostics' | 'our-leads';
   variant?: 'default' | 'workspace';
+  hidePageHeader?: boolean;
 }) {
-  const showPageHeader = section !== 'home';
+  const showPageHeader = section !== 'home' && !hidePageHeader;
 
   return (
     <main className="app-shell">
