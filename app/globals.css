@@ -621,12 +621,33 @@ select {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 240, 255, 0.99));
 }
 
+.lead-master-card-selected {
+  border-color: rgba(124, 58, 237, 0.34);
+  box-shadow: 0 18px 40px rgba(124, 58, 237, 0.12);
+}
+
 .lead-master-header {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
   flex-wrap: wrap;
+}
+
+.lead-summary-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.lead-summary-item {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(176, 137, 244, 0.18);
+  background: rgba(250, 244, 255, 0.58);
 }
 
 .lead-identity-grid-wide {
@@ -1551,10 +1572,6 @@ select {
 .prospect-stats-strip strong {
   color: var(--fyl-black);
   font-size: 14px;
-}
-
-.prospect-row-selected td {
-  background: rgba(124, 58, 237, 0.06);
 }
 
 .inline-actions-wrap {

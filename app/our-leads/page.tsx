@@ -264,6 +264,22 @@ function queueChipLabel(status: ProspectStatus) {
   }
 }
 
+function nextActionState(date: Date | null, now: Date) {
+  if (!date) {
+    return 'Needs scheduling';
+  }
+
+  if (dueBucketMatches(date, 'overdue', now)) {
+    return 'Past due';
+  }
+
+  if (dueBucketMatches(date, 'today', now)) {
+    return 'Due today';
+  }
+
+  return 'Scheduled';
+}
+
 export default async function OurLeadsPage({
   searchParams
 }: {
@@ -658,143 +674,116 @@ export default async function OurLeadsPage({
                 <div>No leads in this view.</div>
               </div>
             ) : (
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Clinic</th>
-                      <th>Contact</th>
-                      <th>Status</th>
-                      <th>Last touch</th>
-                      <th>Next action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleProspects.map((prospect) => {
-                      const rowHref = buildPageHref({
-                        prospectId: prospect.id,
-                        q: searchQuery,
-                        status: selectedStatus,
-                        city: selectedCity,
-                        nextActionDue: selectedDue
-                      });
-                      const lastTouch = prospect.callLogs[0]?.createdAt || prospect.lastCallAt || prospect.updatedAt;
-                      const selected = prospect.id === effectiveSelectedProspectId;
+              <div className="record-grid">
+                {visibleProspects.map((prospect) => {
+                  const rowHref = buildPageHref({
+                    prospectId: prospect.id,
+                    q: searchQuery,
+                    status: selectedStatus,
+                    city: selectedCity,
+                    nextActionDue: selectedDue
+                  });
+                  const lastTouch = prospect.callLogs[0]?.createdAt || prospect.lastCallAt || prospect.updatedAt;
+                  const selected = prospect.id === effectiveSelectedProspectId;
 
-                      return (
-                        <tr key={prospect.id} className={selected ? 'prospect-row-selected' : ''}>
-                          <td>
-                            <a className="table-link" href={rowHref}>
-                              <div className="record-stack">
-                                <span className="inline-row">
-                                  <strong>{prospect.name}</strong>
-                                  {isDemoLabel(prospect.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
-                                </span>
-                                <span className="tiny-muted">
-                                  {prospect.profile.clinicType || 'Clinic'}{prospect.city ? ` · ${prospect.city}` : ''}
-                                </span>
-                              </div>
+                  return (
+                    <section
+                      key={prospect.id}
+                      className={`lead-master-card${selected ? ' lead-master-card-selected' : ''}`}
+                      id={selected ? 'selected-lead' : undefined}
+                    >
+                      <div className="lead-master-header">
+                        <div className="record-stack">
+                          <a className="table-link" href={rowHref}>
+                            <h2 className="form-title lead-company-name">{prospect.name}</h2>
+                          </a>
+                          <div className="tiny-muted">
+                            {detailValue(prospect.ownerName, 'No contact name')}
+                            {prospect.city ? ` · ${prospect.city}` : ''}
+                            {prospect.profile.source ? ` · ${prospect.profile.source}` : ' · Manual add'}
+                            {prospect.website ? ` · ${websiteLabel(prospect.website)}` : ''}
+                          </div>
+                        </div>
+                        <div className="inline-row inline-actions-wrap">
+                          <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
+                          {prospect.website ? (
+                            <a
+                              className="button-secondary button-secondary-strong"
+                              href={websiteHref(prospect.website)}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Open website
                             </a>
-                          </td>
-                          <td>
-                            <div className="record-stack">
-                              <span>{prospect.phone || 'No phone'}</span>
-                              <span className="tiny-muted">
-                                {[prospect.ownerName, prospect.website ? websiteLabel(prospect.website) : null].filter(Boolean).join(' · ') || 'No contact info'}
-                              </span>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="record-stack">
-                              <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
-                              <span className="tiny-muted">{prospect.profile.source || 'Manual add'}</span>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="record-stack">
-                              <span>{formatDateTime(lastTouch)}</span>
-                              <span className="tiny-muted">{prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || 'Recent activity'}</span>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="record-stack">
-                              <span>{formatDateTime(prospect.nextActionAt)}</span>
-                              <span className="tiny-muted">
-                                {prospect.nextActionAt
-                                  ? dueBucketMatches(prospect.nextActionAt, 'overdue', now)
-                                    ? 'Past due'
-                                    : dueBucketMatches(prospect.nextActionAt, 'today', now)
-                                      ? 'Due today'
-                                      : 'Scheduled'
-                                  : 'Needs scheduling'}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="lead-summary-grid">
+                        <div className="lead-summary-item">
+                          <span className="key-value-label">Clinic</span>
+                          <strong>{prospect.name}</strong>
+                          <span className="tiny-muted">
+                            {prospect.profile.clinicType || 'Clinic'}
+                            {prospect.city ? ` · ${prospect.city}` : ''}
+                          </span>
+                        </div>
+                        <div className="lead-summary-item">
+                          <span className="key-value-label">Contact</span>
+                          <strong>{prospect.phone || 'No phone'}</strong>
+                          <span className="tiny-muted">
+                            {[prospect.ownerName, prospect.website ? websiteLabel(prospect.website) : null].filter(Boolean).join(' · ') || 'No contact info'}
+                          </span>
+                        </div>
+                        <div className="lead-summary-item">
+                          <span className="key-value-label">Status</span>
+                          <strong>{humanizeStatus(prospect.status)}</strong>
+                          <span className="tiny-muted">{prospect.profile.source || 'Manual add'}</span>
+                        </div>
+                        <div className="lead-summary-item">
+                          <span className="key-value-label">Last touch</span>
+                          <strong>{formatDateTime(lastTouch)}</strong>
+                          <span className="tiny-muted">{prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || 'Recent activity'}</span>
+                        </div>
+                        <div className="lead-summary-item">
+                          <span className="key-value-label">Next action</span>
+                          <strong>{formatDateTime(prospect.nextActionAt)}</strong>
+                          <span className="tiny-muted">{nextActionState(prospect.nextActionAt, now)}</span>
+                        </div>
+                      </div>
+
+                      <div className="lead-identity-grid lead-identity-grid-wide">
+                        <div className="lead-identity-item">
+                          <span className="key-value-label">Phone</span>
+                          <strong>{detailValue(prospect.phone)}</strong>
+                        </div>
+                        <div className="lead-identity-item">
+                          <span className="key-value-label">Contact</span>
+                          <strong>{detailValue(prospect.ownerName)}</strong>
+                        </div>
+                        <div className="lead-identity-item">
+                          <span className="key-value-label">Location</span>
+                          <strong>{detailValue(prospect.city)}</strong>
+                        </div>
+                        <div className="lead-identity-item">
+                          <span className="key-value-label">Last touch</span>
+                          <strong>{formatDateTime(lastTouch)}</strong>
+                        </div>
+                        <div className="lead-identity-item">
+                          <span className="key-value-label">Next action</span>
+                          <strong>{formatDateTime(prospect.nextActionAt)}</strong>
+                        </div>
+                        <div className="lead-identity-item">
+                          <span className="key-value-label">Website</span>
+                          <strong>{websiteLabel(prospect.website)}</strong>
+                          <span className="tiny-muted">{websiteHref(prospect.website) || 'No website set'}</span>
+                        </div>
+                      </div>
+                    </section>
+                  );
+                })}
               </div>
             )}
-
-            {selectedProspectView ? (
-              <section className="lead-master-card" id="selected-lead">
-                <div className="lead-master-header">
-                  <div className="record-stack">
-                    <h2 className="form-title lead-company-name">{selectedProspectView.name}</h2>
-                    <div className="tiny-muted">
-                      {detailValue(selectedProspectView.ownerName, 'No contact name')}
-                      {selectedProspectView.city ? ` · ${selectedProspectView.city}` : ''}
-                      {selectedProspectView.profile.clinicType ? ` · ${selectedProspectView.profile.clinicType}` : ''}
-                      {selectedProspectView.profile.source ? ` · ${selectedProspectView.profile.source}` : ' · Manual add'}
-                      {selectedProspectView.website ? ` · ${websiteLabel(selectedProspectView.website)}` : ''}
-                    </div>
-                  </div>
-                  <div className="inline-row inline-actions-wrap">
-                    <span className={statusChipClass(selectedProspectView.status)}>{humanizeStatus(selectedProspectView.status)}</span>
-                    {selectedProspectView.website ? (
-                      <a
-                        className="button-secondary button-secondary-strong"
-                        href={websiteHref(selectedProspectView.website)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open website
-                      </a>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="lead-identity-grid lead-identity-grid-wide">
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Phone</span>
-                    <strong>{detailValue(selectedProspectView.phone)}</strong>
-                  </div>
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Contact</span>
-                    <strong>{detailValue(selectedProspectView.ownerName)}</strong>
-                  </div>
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Location</span>
-                    <strong>{detailValue(selectedProspectView.city)}</strong>
-                  </div>
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Last touch</span>
-                    <strong>{formatDateTime(selectedProspectView.callLogs[0]?.createdAt || selectedProspectView.lastCallAt || selectedProspectView.updatedAt)}</strong>
-                  </div>
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Next action</span>
-                    <strong>{formatDateTime(selectedProspectView.nextActionAt)}</strong>
-                  </div>
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Website</span>
-                    <strong>{websiteLabel(selectedProspectView.website)}</strong>
-                    <span className="tiny-muted">{websiteHref(selectedProspectView.website) || 'No website set'}</span>
-                  </div>
-                </div>
-              </section>
-            ) : null}
           </section>
         </div>
 
