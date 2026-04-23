@@ -114,6 +114,11 @@ function formatDateTimeInput(date?: Date | null) {
   return local.toISOString().slice(0, 16);
 }
 
+function detailValue(value?: string | null, fallback = 'Not set') {
+  const trimmed = String(value || '').trim();
+  return trimmed || fallback;
+}
+
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase();
 }
@@ -451,7 +456,7 @@ export default async function OurLeadsPage({
                   name="q"
                   className="text-input"
                   defaultValue={searchQuery}
-                  placeholder="Search name, phone, website, owner, city"
+                  placeholder="Search clinic, phone, website, contact, city"
                 />
                 {selectedCity ? <input type="hidden" name="city" value={selectedCity} /> : null}
                 <button type="submit" className="button-ghost">
@@ -464,7 +469,7 @@ export default async function OurLeadsPage({
                   <div className="workspace-filter-row">
                     <div className="field-stack">
                       <label className="key-value-label" htmlFor="prospect-name">
-                        Name
+                        Business name
                       </label>
                       <input id="prospect-name" name="name" className="text-input" placeholder="Glow Med Spa" required />
                     </div>
@@ -688,6 +693,32 @@ export default async function OurLeadsPage({
               </div>
             ) : (
               <>
+                <div className="lead-identity-card">
+                  <div className="record-stack">
+                    <span className="key-value-label">Company</span>
+                    <h2 className="form-title lead-company-name">{selectedProspectView.name}</h2>
+                    <div className="tiny-muted">
+                      {detailValue(selectedProspectView.ownerName, 'No contact name')}
+                      {selectedProspectView.city ? ` · ${selectedProspectView.city}` : ''}
+                      {selectedProspectView.profile.clinicType ? ` · ${selectedProspectView.profile.clinicType}` : ''}
+                    </div>
+                  </div>
+                  <div className="lead-identity-grid">
+                    <div className="lead-identity-item">
+                      <span className="key-value-label">Phone</span>
+                      <strong>{detailValue(selectedProspectView.phone)}</strong>
+                    </div>
+                    <div className="lead-identity-item">
+                      <span className="key-value-label">Contact</span>
+                      <strong>{detailValue(selectedProspectView.ownerName)}</strong>
+                    </div>
+                    <div className="lead-identity-item">
+                      <span className="key-value-label">Location</span>
+                      <strong>{detailValue(selectedProspectView.city)}</strong>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="lead-brand-row">
                   {selectedProspectView.profile.logoUrl ? (
                     <img
@@ -699,7 +730,7 @@ export default async function OurLeadsPage({
                     <div className="lead-logo lead-logo-fallback">{selectedProspectView.name.charAt(0).toUpperCase()}</div>
                   )}
                   <div className="record-stack">
-                    <span className="metric-label">Website</span>
+                    <span className="metric-label">Company website</span>
                     <div className="inline-row inline-actions-wrap">
                       <strong>{websiteLabel(selectedProspectView.website)}</strong>
                       {selectedProspectView.website ? (
