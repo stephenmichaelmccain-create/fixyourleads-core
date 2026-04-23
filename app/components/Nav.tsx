@@ -30,7 +30,7 @@ export function Nav({ current }: NavProps) {
             className={`nav-utility-link${current === 'system' || current === 'diagnostics' ? ' is-active' : ''}`}
             href="/admin/system"
           >
-            System
+            Settings
           </a>
         </div>
       </div>

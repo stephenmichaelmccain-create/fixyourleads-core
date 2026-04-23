@@ -119,8 +119,8 @@ export default async function AdminSystemPage() {
 
   return (
     <LayoutShell
-      title="System"
-      description="System checks and settings."
+      title="Settings"
+      description="Health checks and system settings."
       section="system"
       hidePageHeader
     >
@@ -136,8 +136,8 @@ export default async function AdminSystemPage() {
       <section className="panel panel-stack">
         <div className="record-header">
           <div className="panel-stack">
-            <div className="metric-label">System settings</div>
-            <h2 className="section-title">Everything system-related, linked from one place.</h2>
+            <div className="metric-label">Settings</div>
+            <h2 className="section-title">Everything linked from one place.</h2>
           </div>
         </div>
 
