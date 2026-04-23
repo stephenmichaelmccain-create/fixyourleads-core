@@ -498,8 +498,8 @@ export default async function OurLeadsPage({
       ) : null}
 
       <div className="conversation-layout">
-        <div className="page-stack">
-          <section className="panel panel-stack">
+        <div className="page-stack lead-queue-column">
+          <section className="panel panel-stack lead-queue-panel">
             <div className="workspace-search-bar">
               <form action="/leads" className="workspace-search-bar" style={{ flex: 1 }}>
                 <input
@@ -669,12 +669,13 @@ export default async function OurLeadsPage({
               ))}
             </div>
 
-            {visibleProspects.length === 0 ? (
-              <div className="empty-state">
-                <div>No leads in this view.</div>
-              </div>
-            ) : (
-              <div className="record-grid">
+            <div className="lead-queue-scroll">
+              {visibleProspects.length === 0 ? (
+                <div className="empty-state">
+                  <div>No leads in this view.</div>
+                </div>
+              ) : (
+                <div className="record-grid">
                 {visibleProspects.map((prospect) => {
                   const rowHref = buildPageHref({
                     prospectId: prospect.id,
@@ -693,18 +694,80 @@ export default async function OurLeadsPage({
                       id={selected ? 'selected-lead' : undefined}
                     >
                       <div className="lead-master-header">
-                        <div className="record-stack">
-                          <a className="table-link" href={rowHref}>
+                        <a className="lead-master-select" href={rowHref}>
+                          <div className="record-stack">
                             <h2 className="form-title lead-company-name">{prospect.name}</h2>
-                          </a>
-                          <div className="tiny-muted">
-                            {detailValue(prospect.ownerName, 'No contact name')}
-                            {prospect.city ? ` · ${prospect.city}` : ''}
-                            {prospect.profile.source ? ` · ${prospect.profile.source}` : ' · Manual add'}
-                            {prospect.website ? ` · ${websiteLabel(prospect.website)}` : ''}
+                            <div className="tiny-muted">
+                              {detailValue(prospect.ownerName, 'No contact name')}
+                              {prospect.city ? ` · ${prospect.city}` : ''}
+                              {prospect.profile.source ? ` · ${prospect.profile.source}` : ' · Manual add'}
+                              {prospect.website ? ` · ${websiteLabel(prospect.website)}` : ''}
+                            </div>
                           </div>
-                        </div>
-                        <div className="inline-row inline-actions-wrap">
+
+                          <div className="lead-summary-grid">
+                            <div className="lead-summary-item">
+                              <span className="key-value-label">Clinic</span>
+                              <strong>{prospect.name}</strong>
+                              <span className="tiny-muted">
+                                {prospect.profile.clinicType || 'Clinic'}
+                                {prospect.city ? ` · ${prospect.city}` : ''}
+                              </span>
+                            </div>
+                            <div className="lead-summary-item">
+                              <span className="key-value-label">Contact</span>
+                              <strong>{prospect.phone || 'No phone'}</strong>
+                              <span className="tiny-muted">
+                                {[prospect.ownerName, prospect.website ? websiteLabel(prospect.website) : null].filter(Boolean).join(' · ') || 'No contact info'}
+                              </span>
+                            </div>
+                            <div className="lead-summary-item">
+                              <span className="key-value-label">Status</span>
+                              <strong>{humanizeStatus(prospect.status)}</strong>
+                              <span className="tiny-muted">{prospect.profile.source || 'Manual add'}</span>
+                            </div>
+                            <div className="lead-summary-item">
+                              <span className="key-value-label">Last touch</span>
+                              <strong>{formatDateTime(lastTouch)}</strong>
+                              <span className="tiny-muted">{prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || 'Recent activity'}</span>
+                            </div>
+                            <div className="lead-summary-item">
+                              <span className="key-value-label">Next action</span>
+                              <strong>{formatDateTime(prospect.nextActionAt)}</strong>
+                              <span className="tiny-muted">{nextActionState(prospect.nextActionAt, now)}</span>
+                            </div>
+                          </div>
+
+                          <div className="lead-identity-grid lead-identity-grid-wide">
+                            <div className="lead-identity-item">
+                              <span className="key-value-label">Phone</span>
+                              <strong>{detailValue(prospect.phone)}</strong>
+                            </div>
+                            <div className="lead-identity-item">
+                              <span className="key-value-label">Contact</span>
+                              <strong>{detailValue(prospect.ownerName)}</strong>
+                            </div>
+                            <div className="lead-identity-item">
+                              <span className="key-value-label">Location</span>
+                              <strong>{detailValue(prospect.city)}</strong>
+                            </div>
+                            <div className="lead-identity-item">
+                              <span className="key-value-label">Last touch</span>
+                              <strong>{formatDateTime(lastTouch)}</strong>
+                            </div>
+                            <div className="lead-identity-item">
+                              <span className="key-value-label">Next action</span>
+                              <strong>{formatDateTime(prospect.nextActionAt)}</strong>
+                            </div>
+                            <div className="lead-identity-item">
+                              <span className="key-value-label">Website</span>
+                              <strong>{websiteLabel(prospect.website)}</strong>
+                              <span className="tiny-muted">{websiteHref(prospect.website) || 'No website set'}</span>
+                            </div>
+                          </div>
+                        </a>
+
+                        <div className="inline-row inline-actions-wrap lead-master-actions">
                           <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
                           {prospect.website ? (
                             <a
@@ -718,72 +781,12 @@ export default async function OurLeadsPage({
                           ) : null}
                         </div>
                       </div>
-
-                      <div className="lead-summary-grid">
-                        <div className="lead-summary-item">
-                          <span className="key-value-label">Clinic</span>
-                          <strong>{prospect.name}</strong>
-                          <span className="tiny-muted">
-                            {prospect.profile.clinicType || 'Clinic'}
-                            {prospect.city ? ` · ${prospect.city}` : ''}
-                          </span>
-                        </div>
-                        <div className="lead-summary-item">
-                          <span className="key-value-label">Contact</span>
-                          <strong>{prospect.phone || 'No phone'}</strong>
-                          <span className="tiny-muted">
-                            {[prospect.ownerName, prospect.website ? websiteLabel(prospect.website) : null].filter(Boolean).join(' · ') || 'No contact info'}
-                          </span>
-                        </div>
-                        <div className="lead-summary-item">
-                          <span className="key-value-label">Status</span>
-                          <strong>{humanizeStatus(prospect.status)}</strong>
-                          <span className="tiny-muted">{prospect.profile.source || 'Manual add'}</span>
-                        </div>
-                        <div className="lead-summary-item">
-                          <span className="key-value-label">Last touch</span>
-                          <strong>{formatDateTime(lastTouch)}</strong>
-                          <span className="tiny-muted">{prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || 'Recent activity'}</span>
-                        </div>
-                        <div className="lead-summary-item">
-                          <span className="key-value-label">Next action</span>
-                          <strong>{formatDateTime(prospect.nextActionAt)}</strong>
-                          <span className="tiny-muted">{nextActionState(prospect.nextActionAt, now)}</span>
-                        </div>
-                      </div>
-
-                      <div className="lead-identity-grid lead-identity-grid-wide">
-                        <div className="lead-identity-item">
-                          <span className="key-value-label">Phone</span>
-                          <strong>{detailValue(prospect.phone)}</strong>
-                        </div>
-                        <div className="lead-identity-item">
-                          <span className="key-value-label">Contact</span>
-                          <strong>{detailValue(prospect.ownerName)}</strong>
-                        </div>
-                        <div className="lead-identity-item">
-                          <span className="key-value-label">Location</span>
-                          <strong>{detailValue(prospect.city)}</strong>
-                        </div>
-                        <div className="lead-identity-item">
-                          <span className="key-value-label">Last touch</span>
-                          <strong>{formatDateTime(lastTouch)}</strong>
-                        </div>
-                        <div className="lead-identity-item">
-                          <span className="key-value-label">Next action</span>
-                          <strong>{formatDateTime(prospect.nextActionAt)}</strong>
-                        </div>
-                        <div className="lead-identity-item">
-                          <span className="key-value-label">Website</span>
-                          <strong>{websiteLabel(prospect.website)}</strong>
-                          <span className="tiny-muted">{websiteHref(prospect.website) || 'No website set'}</span>
-                        </div>
-                      </div>
                     </section>
                   );
                 })}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </section>
         </div>
 
