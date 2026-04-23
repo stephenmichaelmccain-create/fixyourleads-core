@@ -56,7 +56,11 @@ export async function safeWorkspaceOverview() {
 
   try {
     const companies = await db.company.findMany({
-      include: {
+      select: {
+        id: true,
+        name: true,
+        notificationEmail: true,
+        telnyxInboundNumber: true,
         telnyxInboundNumbers: {
           select: { number: true }
         },

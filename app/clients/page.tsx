@@ -74,7 +74,12 @@ export default async function ClientsPage({
     () =>
       db.company.findMany({
         orderBy: { name: 'asc' },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          notificationEmail: true,
+          telnyxInboundNumber: true,
+          createdAt: true,
           telnyxInboundNumbers: {
             select: { number: true }
           },

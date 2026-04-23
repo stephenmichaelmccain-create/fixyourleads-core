@@ -45,7 +45,8 @@ export async function createClientFromProspectAction(formData: FormData) {
   const company = await db.company.create({
     data: {
       name: prospect.name
-    }
+    },
+    select: { id: true }
   });
 
   await db.prospect.update({

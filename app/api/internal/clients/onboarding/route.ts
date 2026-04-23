@@ -226,7 +226,8 @@ export async function POST(request: NextRequest) {
       data: {
         name: parsed.data.clinicName,
         notificationEmail: parsed.data.notificationEmail || null
-      }
+      },
+      select: { id: true, notificationEmail: true }
     }));
 
   if (parsed.data.notificationEmail && company.notificationEmail !== parsed.data.notificationEmail) {
@@ -234,7 +235,8 @@ export async function POST(request: NextRequest) {
       where: { id: company.id },
       data: {
         notificationEmail: parsed.data.notificationEmail
-      }
+      },
+      select: { id: true }
     });
   }
 

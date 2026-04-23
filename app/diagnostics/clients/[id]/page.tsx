@@ -46,7 +46,12 @@ export default async function ClientDiagnosticsPage({
     () =>
       db.company.findUnique({
         where: { id },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          notificationEmail: true,
+          telnyxInboundNumber: true,
+          createdAt: true,
           telnyxInboundNumbers: {
             select: { number: true },
             orderBy: { createdAt: 'asc' }

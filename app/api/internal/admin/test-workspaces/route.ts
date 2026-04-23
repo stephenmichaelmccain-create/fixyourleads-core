@@ -14,7 +14,11 @@ async function loadCleanupCandidates() {
   const [companies, prospects] = await Promise.all([
     db.company.findMany({
       orderBy: { name: 'asc' },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        notificationEmail: true,
+        telnyxInboundNumber: true,
         telnyxInboundNumbers: {
           select: { number: true }
         }

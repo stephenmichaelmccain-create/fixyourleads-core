@@ -468,11 +468,16 @@ export default async function ClientWorkspacePage({
   const windowStart = startOfTrailingDays(windowDays);
   const weekStart = startOfTrailingDays(7);
 
-  const company = await safeLoad(
+  const companyBase = await safeLoad(
     () =>
       db.company.findUnique({
         where: { id },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          notificationEmail: true,
+          telnyxInboundNumber: true,
+          createdAt: true,
           telnyxInboundNumbers: {
             select: { number: true },
             orderBy: { createdAt: 'asc' }
@@ -482,9 +487,37 @@ export default async function ClientWorkspacePage({
     null
   );
 
-  if (!company) {
+  if (!companyBase) {
     notFound();
   }
+
+  const companySetup = await safeLoad(
+    () =>
+      db.company.findUnique({
+        where: { id },
+        select: {
+          website: true,
+          primaryContactName: true,
+          primaryContactEmail: true,
+          primaryContactPhone: true,
+          retainerCents: true,
+          downPaymentCents: true
+        }
+      }),
+    {
+      website: null,
+      primaryContactName: null,
+      primaryContactEmail: null,
+      primaryContactPhone: null,
+      retainerCents: null,
+      downPaymentCents: null
+    }
+  );
+
+  const company = {
+    ...companyBase,
+    ...companySetup
+  };
 
   const [allWindowLeads, upcomingBookings, sequenceLeadCounts, intakeEvents, weeklyStats] = await Promise.all([
     safeLoad(
