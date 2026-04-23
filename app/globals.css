@@ -826,7 +826,7 @@ select {
 }
 
 .lead-sidebar-panel {
-  margin-top: 188px;
+  margin-top: 0;
   max-height: calc(100vh - 36px);
   overflow-y: auto;
   padding-right: 6px;
