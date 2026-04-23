@@ -39,6 +39,7 @@ function readCallbackPreset(preset: string) {
 function buildOurLeadsHref({
   prospectId,
   q,
+  view,
   status,
   city,
   nextActionDue,
@@ -51,6 +52,7 @@ function buildOurLeadsHref({
 }: {
   prospectId?: string;
   q?: string;
+  view?: string;
   status?: string;
   city?: string;
   nextActionDue?: string;
@@ -77,6 +79,10 @@ function buildOurLeadsHref({
 
   if (q) {
     params.set('q', q);
+  }
+
+  if (view) {
+    params.set('view', view);
   }
 
   if (status) {
@@ -158,6 +164,7 @@ function readLeadDraft(formData: FormData) {
 function readCurrentView(formData: FormData) {
   return {
     q: readText(formData, 'viewQ'),
+    view: readText(formData, 'viewMode'),
     status: readText(formData, 'viewStatus'),
     city: readText(formData, 'viewCity'),
     nextActionDue: readText(formData, 'viewNextActionDue')
@@ -329,12 +336,13 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   const nextProspectId = readText(formData, 'nextProspectId');
   const outcome = readText(formData, 'outcome');
   const q = readText(formData, 'q');
+  const view = readText(formData, 'view');
   const status = readText(formData, 'status');
   const city = readText(formData, 'city');
   const nextActionDue = readText(formData, 'nextActionDue');
 
   if (!prospectId) {
-    redirect(buildOurLeadsHref({ q, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
   }
 
   const outcomeMap: Record<
@@ -384,7 +392,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   const selection = outcomeMap[outcome];
 
   if (!selection) {
-    redirect(buildOurLeadsHref({ prospectId, q, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ prospectId, q, view, status, city, nextActionDue }));
   }
 
   const existing = await db.prospect.findUnique({
@@ -396,7 +404,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirect(buildOurLeadsHref({ q, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
   }
 
   await db.$transaction(async (tx) => {
@@ -428,6 +436,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
     buildOurLeadsHref({
       prospectId: nextProspectId || prospectId,
       q,
+      view,
       status,
       city,
       nextActionDue,
@@ -441,18 +450,19 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
   const nextProspectId = readText(formData, 'nextProspectId');
   const preset = readText(formData, 'preset');
   const q = readText(formData, 'q');
+  const view = readText(formData, 'view');
   const status = readText(formData, 'status');
   const city = readText(formData, 'city');
   const nextActionDue = readText(formData, 'nextActionDue');
 
   if (!prospectId) {
-    redirect(buildOurLeadsHref({ q, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
   }
 
   const callbackPlan = readCallbackPreset(preset);
 
   if (!callbackPlan) {
-    redirect(buildOurLeadsHref({ prospectId, q, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ prospectId, q, view, status, city, nextActionDue }));
   }
 
   const existing = await db.prospect.findUnique({
@@ -463,7 +473,7 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirect(buildOurLeadsHref({ q, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
   }
 
   await db.$transaction(async (tx) => {
@@ -491,6 +501,7 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
     buildOurLeadsHref({
       prospectId: nextProspectId || prospectId,
       q,
+      view,
       status,
       city,
       nextActionDue,
@@ -502,6 +513,7 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
 export async function updateProspectDetailsAction(formData: FormData) {
   const prospectId = readText(formData, 'prospectId');
   const q = readText(formData, 'q');
+  const view = readText(formData, 'view');
   const status = readText(formData, 'status');
   const city = readText(formData, 'city');
   const nextActionDue = readText(formData, 'nextActionDue');
@@ -509,7 +521,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
   const nextActionRaw = readText(formData, 'nextActionAt');
 
   if (!prospectId) {
-    redirect(buildOurLeadsHref({ q, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
   }
 
   const nextActionAt = nextActionRaw ? new Date(nextActionRaw) : null;
@@ -519,6 +531,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
       buildOurLeadsHref({
         prospectId,
         q,
+        view,
         status,
         city,
         nextActionDue,
@@ -537,7 +550,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirect(buildOurLeadsHref({ q, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
   }
 
   const parsed = parseProspectNotes(existing.notes);
@@ -602,6 +615,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
     buildOurLeadsHref({
       prospectId,
       q,
+      view,
       status,
       city,
       nextActionDue,

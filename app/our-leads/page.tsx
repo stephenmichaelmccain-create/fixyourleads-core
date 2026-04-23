@@ -15,6 +15,7 @@ export const dynamic = 'force-dynamic';
 type SearchParamShape = Promise<{
   prospectId?: string;
   q?: string;
+  view?: string;
   status?: string;
   city?: string;
   nextActionDue?: string;
@@ -194,12 +195,14 @@ function compareProspects(
 function buildPageHref({
   prospectId,
   q,
+  view,
   status,
   city,
   nextActionDue
 }: {
   prospectId?: string;
   q?: string;
+  view?: string;
   status?: string;
   city?: string;
   nextActionDue?: string;
@@ -212,6 +215,10 @@ function buildPageHref({
 
   if (q) {
     params.set('q', q);
+  }
+
+  if (view) {
+    params.set('view', view);
   }
 
   if (status) {
@@ -263,6 +270,10 @@ function queueChipLabel(status: ProspectStatus) {
   }
 }
 
+function isUntouchedProspect(prospect: { lastCallAt: Date | null; callLogs: Array<{ createdAt: Date }> }) {
+  return !prospect.lastCallAt && !prospect.callLogs[0]?.createdAt;
+}
+
 function nextActionState(date: Date | null, now: Date) {
   if (!date) {
     return 'Needs scheduling';
@@ -289,6 +300,7 @@ export default async function OurLeadsPage({
     Object.values(ProspectStatus).includes((params.status || '') as ProspectStatus)
       ? (params.status as ProspectStatus)
       : '';
+  const selectedView = String(params.view || '').trim() === 'all' ? 'all' : '';
   const searchQuery = String(params.q || '').trim();
   const normalizedSearchQuery = normalizeSearch(searchQuery);
   const selectedCity = String(params.city || '').trim();
@@ -352,6 +364,7 @@ export default async function OurLeadsPage({
       profile: parsed.profile
     };
   });
+  const showingUntouched = !selectedView && !selectedStatus && !selectedDue;
 
   const visibleProspects = [...prospectRows]
     .filter((prospect) => {
@@ -377,6 +390,7 @@ export default async function OurLeadsPage({
 
       return searchFields.some((value) => normalizeSearch(value || '').includes(normalizedSearchQuery));
     })
+    .filter((prospect) => (showingUntouched ? isUntouchedProspect(prospect) : true))
     .filter((prospect) => (selectedStatus ? prospect.status === selectedStatus : true))
     .filter((prospect) => (selectedCity ? prospect.city === selectedCity : true))
     .filter((prospect) => dueBucketMatches(prospect.nextActionAt, selectedDue, now))
@@ -384,10 +398,14 @@ export default async function OurLeadsPage({
 
   const queueCounts = {
     all: prospectRows.length,
+    untouched: prospectRows.filter((prospect) => isUntouchedProspect(prospect)).length,
     overdue: prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'overdue', now)).length,
     today: prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'today', now)).length,
     waiting: prospectRows.filter((prospect) => prospect.status === ProspectStatus.GATEKEEPER).length,
-    booked: prospectRows.filter((prospect) => prospect.status === ProspectStatus.BOOKED_DEMO).length
+    booked: prospectRows.filter((prospect) => prospect.status === ProspectStatus.BOOKED_DEMO).length,
+    noAnswer: prospectRows.filter((prospect) => prospect.status === ProspectStatus.NO_ANSWER).length,
+    sold: prospectRows.filter((prospect) => prospect.status === ProspectStatus.CLOSED).length,
+    dead: prospectRows.filter((prospect) => prospect.status === ProspectStatus.DEAD).length
   };
 
   const effectiveSelectedProspectId =
@@ -425,11 +443,6 @@ export default async function OurLeadsPage({
     : null;
   const duplicateLeadHref = selectedProspectId ? `${buildPageHref({ prospectId: selectedProspectId })}#selected-lead` : '/leads';
   const duplicateCompanyHref = duplicateCompanyId ? `/clients/${duplicateCompanyId}` : '/clients';
-  const activeQueueCount = visibleProspects.length;
-  const dueNowCount = visibleProspects.filter((prospect) =>
-    prospect.nextActionAt ? dueBucketMatches(prospect.nextActionAt, 'today', now) || dueBucketMatches(prospect.nextActionAt, 'overdue', now) : true
-  ).length;
-
   const errorMessage =
     error === 'name_required'
       ? 'Name is required to add a prospect.'
@@ -519,6 +532,7 @@ export default async function OurLeadsPage({
                   defaultValue={searchQuery}
                   placeholder="Search clinic, phone, website, contact, city"
                 />
+                {selectedView ? <input type="hidden" name="view" value={selectedView} /> : null}
                 {selectedCity ? <input type="hidden" name="city" value={selectedCity} /> : null}
                 <button type="submit" className="button-ghost">
                   Search
@@ -533,6 +547,7 @@ export default async function OurLeadsPage({
                 <summary className="button-secondary prospect-add-trigger">Add lead</summary>
                 <form action={createProspectAction} className="workspace-filter-form" style={{ marginTop: 12 }}>
                   <input type="hidden" name="viewQ" value={searchQuery} />
+                  <input type="hidden" name="viewMode" value={selectedView} />
                   <input type="hidden" name="viewStatus" value={selectedStatus} />
                   <input type="hidden" name="viewCity" value={selectedCity} />
                   <input type="hidden" name="viewNextActionDue" value={selectedDue} />
@@ -634,51 +649,43 @@ export default async function OurLeadsPage({
               </details>
             </div>
 
-            <div className="prospect-stats-strip">
-              <span>
-                <strong>{activeQueueCount}</strong> in view
-              </span>
-              <span>
-                <strong>{dueNowCount}</strong> due now
-              </span>
-              <span>
-                <strong>{queueCounts.waiting}</strong> callbacks
-              </span>
-              <span>
-                <strong>{queueCounts.booked}</strong> booked
-              </span>
-              {selectedQueueIndex >= 0 ? (
-                <span>
-                  <strong>{selectedQueueIndex + 1}</strong> working now
-                </span>
-              ) : null}
-            </div>
-
             <div className="filter-bar">
-              <a className={`filter-chip${!selectedStatus && !selectedDue ? ' is-active' : ''}`} href={buildPageHref({ q: searchQuery, city: selectedCity })}>
-                All
+              <a className={`filter-chip${showingUntouched ? ' is-active' : ''}`} href={buildPageHref({ q: searchQuery, city: selectedCity })}>
+                Untouched {queueCounts.untouched}
               </a>
               <a
-                className={`filter-chip${selectedDue === 'overdue' ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, nextActionDue: 'overdue' })}
+                className={`filter-chip${selectedStatus === ProspectStatus.NO_ANSWER ? ' is-active' : ''}`}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.NO_ANSWER })}
               >
-                Overdue {queueCounts.overdue}
+                No answer {queueCounts.noAnswer}
               </a>
               <a
-                className={`filter-chip${selectedDue === 'today' ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, nextActionDue: 'today' })}
+                className={`filter-chip${selectedStatus === ProspectStatus.GATEKEEPER ? ' is-active' : ''}`}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.GATEKEEPER })}
               >
-                Today {queueCounts.today}
+                Call back later {queueCounts.waiting}
               </a>
-              {Object.values(ProspectStatus).map((status) => (
-                <a
-                  key={status}
-                  className={`filter-chip${selectedStatus === status ? ' is-active' : ''}`}
-                  href={buildPageHref({ q: searchQuery, city: selectedCity, status })}
-                >
-                  {queueChipLabel(status)}
-                </a>
-              ))}
+              <a
+                className={`filter-chip${selectedStatus === ProspectStatus.BOOKED_DEMO ? ' is-active' : ''}`}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.BOOKED_DEMO })}
+              >
+                Booked {queueCounts.booked}
+              </a>
+              <a
+                className={`filter-chip${selectedStatus === ProspectStatus.CLOSED ? ' is-active' : ''}`}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.CLOSED })}
+              >
+                Sold {queueCounts.sold}
+              </a>
+              <a
+                className={`filter-chip${selectedStatus === ProspectStatus.DEAD ? ' is-active' : ''}`}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.DEAD })}
+              >
+                Do not contact {queueCounts.dead}
+              </a>
+              <a className={`filter-chip${selectedView === 'all' ? ' is-active' : ''}`} href={buildPageHref({ q: searchQuery, city: selectedCity, view: 'all' })}>
+                All {queueCounts.all}
+              </a>
             </div>
 
             <div className="lead-queue-scroll">
@@ -692,6 +699,7 @@ export default async function OurLeadsPage({
                   const rowHref = buildPageHref({
                     prospectId: prospect.id,
                     q: searchQuery,
+                    view: selectedView,
                     status: selectedStatus,
                     city: selectedCity,
                     nextActionDue: selectedDue
@@ -785,6 +793,7 @@ export default async function OurLeadsPage({
                   <input type="hidden" name="prospectId" value={selectedProspectView.id} />
                   <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
                   <input type="hidden" name="q" value={searchQuery} />
+                  <input type="hidden" name="view" value={selectedView} />
                   <input type="hidden" name="status" value={selectedStatus} />
                   <input type="hidden" name="city" value={selectedCity} />
                   <input type="hidden" name="nextActionDue" value={selectedDue} />
@@ -818,6 +827,7 @@ export default async function OurLeadsPage({
                   <input type="hidden" name="prospectId" value={selectedProspectView.id} />
                   <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
                   <input type="hidden" name="q" value={searchQuery} />
+                  <input type="hidden" name="view" value={selectedView} />
                   <input type="hidden" name="status" value={selectedStatus} />
                   <input type="hidden" name="city" value={selectedCity} />
                   <input type="hidden" name="nextActionDue" value={selectedDue} />
@@ -844,6 +854,7 @@ export default async function OurLeadsPage({
                   </div>
                   <input type="hidden" name="prospectId" value={selectedProspectView.id} />
                   <input type="hidden" name="q" value={searchQuery} />
+                  <input type="hidden" name="view" value={selectedView} />
                   <input type="hidden" name="status" value={selectedStatus} />
                   <input type="hidden" name="city" value={selectedCity} />
                   <input type="hidden" name="nextActionDue" value={selectedDue} />
