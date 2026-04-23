@@ -1602,7 +1602,7 @@ select {
 }
 
 .lead-call-layout {
-  grid-template-columns: 1fr;
+  display: block;
 }
 
 .conversation-thread-panel {
@@ -1618,6 +1618,7 @@ select {
 
 .lead-call-layout .conversation-sidebar {
   max-width: none;
+  margin-top: 18px;
 }
 
 .conversation-summary-grid {
