@@ -884,68 +884,74 @@ export default async function OurLeadsPage({
               </div>
             ) : (
               <>
-                <form action={updateProspectOutcomeAction} className="panel panel-stack">
-                  <input type="hidden" name="prospectId" value={selectedProspectView.id} />
-                  <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
-                  <input type="hidden" name="q" value={searchQuery} />
-                  <input type="hidden" name="view" value={selectedView} />
-                  <input type="hidden" name="status" value={selectedStatus} />
-                  <input type="hidden" name="city" value={selectedCity} />
-                  <input type="hidden" name="nextActionDue" value={selectedDue} />
-                  <div className="inline-actions inline-actions-wrap">
-                    <button type="submit" className="button-secondary" name="outcome" value="no_answer">
-                      No answer
-                    </button>
-                    <button type="submit" className="button-secondary" name="outcome" value="voicemail">
-                      Left voicemail
-                    </button>
-                    <button type="submit" className="button-secondary" name="outcome" value="not_interested">
-                      Not interested
-                    </button>
-                    <button type="submit" className="button-secondary" name="outcome" value="booked">
-                      Booked
-                    </button>
-                    <button type="submit" className="button-secondary" name="outcome" value="sold">
-                      Sold
-                    </button>
-                    <button type="submit" className="button-ghost" name="outcome" value="do_not_contact">
-                      Do not contact
-                    </button>
-                  </div>
-                </form>
+                <div className="lead-action-grid">
+                  <form action={updateProspectOutcomeAction} className="panel panel-stack lead-action-panel">
+                    <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                    <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
+                    <input type="hidden" name="q" value={searchQuery} />
+                    <input type="hidden" name="view" value={selectedView} />
+                    <input type="hidden" name="status" value={selectedStatus} />
+                    <input type="hidden" name="city" value={selectedCity} />
+                    <input type="hidden" name="nextActionDue" value={selectedDue} />
+                    <div className="inline-row justify-between lead-panel-header">
+                      <div className="metric-label">Outcome</div>
+                      <div className="tiny-muted">Save and move forward</div>
+                    </div>
+                    <div className="lead-action-pill-grid">
+                      <button type="submit" className="button-secondary" name="outcome" value="no_answer">
+                        No answer
+                      </button>
+                      <button type="submit" className="button-secondary" name="outcome" value="voicemail">
+                        Left voicemail
+                      </button>
+                      <button type="submit" className="button-secondary" name="outcome" value="not_interested">
+                        Not interested
+                      </button>
+                      <button type="submit" className="button-secondary" name="outcome" value="booked">
+                        Booked
+                      </button>
+                      <button type="submit" className="button-secondary" name="outcome" value="sold">
+                        Sold
+                      </button>
+                      <button type="submit" className="button-ghost" name="outcome" value="do_not_contact">
+                        Do not contact
+                      </button>
+                    </div>
+                  </form>
 
-                <form action={scheduleProspectCallbackAction} className="panel panel-stack">
-                  <div className="inline-row justify-between">
-                    <div className="metric-label">Callback</div>
-                    <div className="tiny-muted">Current: {callbackSummary(selectedProspectView.nextActionAt, now)}</div>
-                  </div>
-                  <input type="hidden" name="prospectId" value={selectedProspectView.id} />
-                  <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
-                  <input type="hidden" name="q" value={searchQuery} />
-                  <input type="hidden" name="view" value={selectedView} />
-                  <input type="hidden" name="status" value={selectedStatus} />
-                  <input type="hidden" name="city" value={selectedCity} />
-                  <input type="hidden" name="nextActionDue" value={selectedDue} />
-                  <div className="inline-actions inline-actions-wrap">
-                    <button type="submit" className="button-secondary" name="preset" value="tomorrow">
-                      Tomorrow
-                    </button>
-                    <button type="submit" className="button-secondary" name="preset" value="3_days">
-                      3 days
-                    </button>
-                    <button type="submit" className="button-secondary" name="preset" value="1_week">
-                      1 week
-                    </button>
-                    <button type="submit" className="button-secondary" name="preset" value="1_month">
-                      1 month
-                    </button>
-                  </div>
-                  <div className="tiny-muted">
-                    {selectedProspectView.nextActionAt ? formatDateTime(selectedProspectView.nextActionAt) : 'No callback scheduled yet.'}
-                  </div>
-                </form>
+                  <form action={scheduleProspectCallbackAction} className="panel panel-stack lead-action-panel">
+                    <div className="inline-row justify-between lead-panel-header">
+                      <div className="metric-label">Callback</div>
+                      <div className="tiny-muted">Current: {callbackSummary(selectedProspectView.nextActionAt, now)}</div>
+                    </div>
+                    <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                    <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
+                    <input type="hidden" name="q" value={searchQuery} />
+                    <input type="hidden" name="view" value={selectedView} />
+                    <input type="hidden" name="status" value={selectedStatus} />
+                    <input type="hidden" name="city" value={selectedCity} />
+                    <input type="hidden" name="nextActionDue" value={selectedDue} />
+                    <div className="lead-callback-grid">
+                      <button type="submit" className="button-secondary" name="preset" value="tomorrow">
+                        Tomorrow
+                      </button>
+                      <button type="submit" className="button-secondary" name="preset" value="3_days">
+                        3 days
+                      </button>
+                      <button type="submit" className="button-secondary" name="preset" value="1_week">
+                        1 week
+                      </button>
+                      <button type="submit" className="button-secondary" name="preset" value="1_month">
+                        1 month
+                      </button>
+                    </div>
+                    <div className="tiny-muted lead-callback-meta">
+                      {selectedProspectView.nextActionAt ? formatDateTime(selectedProspectView.nextActionAt) : 'No callback scheduled yet.'}
+                    </div>
+                  </form>
+                </div>
 
-                <form action={updateProspectDetailsAction} className="panel panel-stack">
+                <form action={updateProspectDetailsAction} className="panel panel-stack lead-notes-panel">
                   <div className="inline-row justify-between">
                     <div className="metric-label">Lead notes and follow-up</div>
                     <div className="tiny-muted">Tracked on this lead</div>
@@ -956,7 +962,8 @@ export default async function OurLeadsPage({
                   <input type="hidden" name="status" value={selectedStatus} />
                   <input type="hidden" name="city" value={selectedCity} />
                   <input type="hidden" name="nextActionDue" value={selectedDue} />
-                  <div className="field-stack">
+                  <div className="lead-notes-grid">
+                    <div className="field-stack">
                     <label className="key-value-label" htmlFor="lead-next-action-at">
                       Follow-up date
                     </label>
@@ -967,8 +974,8 @@ export default async function OurLeadsPage({
                       className="text-input"
                       defaultValue={formatDateTimeInput(selectedProspectView.nextActionAt)}
                     />
-                  </div>
-                  <div className="field-stack">
+                    </div>
+                    <div className="field-stack lead-notes-field">
                     <label className="key-value-label" htmlFor="lead-notes-editor">
                       Notes
                     </label>
@@ -979,8 +986,9 @@ export default async function OurLeadsPage({
                       defaultValue={selectedProspectView.plainNotes}
                       placeholder="Anything the next caller should know."
                     />
+                    </div>
                   </div>
-                  <div className="inline-actions">
+                  <div className="inline-actions lead-notes-actions">
                     <button type="submit" className="button-secondary button-secondary-strong">
                       Save note or date
                     </button>

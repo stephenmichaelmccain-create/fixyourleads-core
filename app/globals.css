@@ -852,6 +852,66 @@ select {
   overscroll-behavior: contain;
 }
 
+.lead-action-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.95fr);
+}
+
+.lead-action-panel,
+.lead-notes-panel {
+  gap: 10px;
+  padding: 14px;
+}
+
+.lead-panel-header {
+  align-items: center;
+  gap: 10px;
+}
+
+.lead-action-pill-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.lead-action-pill-grid .button-secondary,
+.lead-action-pill-grid .button-ghost,
+.lead-callback-grid .button-secondary {
+  width: 100%;
+  justify-content: center;
+}
+
+.lead-callback-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.lead-callback-meta {
+  margin-top: -2px;
+}
+
+.lead-notes-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
+  align-items: start;
+}
+
+.lead-notes-field {
+  min-width: 0;
+}
+
+.lead-notes-panel .text-area {
+  min-height: 120px;
+}
+
+.lead-notes-actions {
+  justify-content: flex-start;
+  padding-top: 2px;
+}
+
 .lead-call-layout .lead-sidebar-panel {
   max-height: none;
   overflow: visible;
@@ -2023,6 +2083,13 @@ select {
 }
 
 @media (max-width: 900px) {
+  .lead-action-grid,
+  .lead-notes-grid,
+  .lead-action-pill-grid,
+  .lead-callback-grid {
+    grid-template-columns: 1fr;
+  }
+
   .home-inline-bar {
     align-items: flex-start;
   }
