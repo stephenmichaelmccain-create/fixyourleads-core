@@ -590,16 +590,16 @@ export default async function OurLeadsPage({
                     <strong>{detailValue(selectedProspectView.city)}</strong>
                   </div>
                   <div className="lead-identity-item">
-                    <span className="key-value-label">Type</span>
-                    <strong>{detailValue(selectedProspectView.profile.clinicType)}</strong>
+                    <span className="key-value-label">Last touch</span>
+                    <strong>{formatDateTime(selectedProspectView.callLogs[0]?.createdAt || selectedProspectView.lastCallAt || selectedProspectView.updatedAt)}</strong>
+                  </div>
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Next action</span>
+                    <strong>{formatDateTime(selectedProspectView.nextActionAt)}</strong>
                   </div>
                   <div className="lead-identity-item">
                     <span className="key-value-label">Source</span>
                     <strong>{detailValue(selectedProspectView.profile.source, 'Manual add')}</strong>
-                  </div>
-                  <div className="lead-identity-item">
-                    <span className="key-value-label">Next callback</span>
-                    <strong>{formatDateTime(selectedProspectView.nextActionAt)}</strong>
                   </div>
                   <div className="lead-identity-item lead-identity-item-website">
                     <span className="key-value-label">Company website</span>
@@ -804,17 +804,6 @@ export default async function OurLeadsPage({
                     </button>
                   </div>
                 </form>
-
-                <div className="key-value-grid">
-                  <div className="key-value-card">
-                    <span className="key-value-label">Last touch</span>
-                    {formatDateTime(selectedProspectView.callLogs[0]?.createdAt || selectedProspectView.lastCallAt || selectedProspectView.updatedAt)}
-                  </div>
-                  <div className="key-value-card">
-                    <span className="key-value-label">Next action</span>
-                    {formatDateTime(selectedProspectView.nextActionAt)}
-                  </div>
-                </div>
 
                 <form action={updateProspectDetailsAction} className="panel panel-stack">
                   <div className="inline-row justify-between">
