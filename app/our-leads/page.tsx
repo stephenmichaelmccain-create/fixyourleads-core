@@ -884,52 +884,6 @@ export default async function OurLeadsPage({
               </div>
             ) : (
               <>
-                <div className="lead-dock-head">
-                  <div className="lead-dock-title">
-                    <div className="lead-dock-kicker">
-                      <span className="lead-selected-pill">Selected</span>
-                      <span className={statusChipClass(selectedProspectView.status)}>
-                        {humanizeStatus(selectedProspectView.status)}
-                      </span>
-                      <span className="tiny-muted">
-                        {visibleProspects.length === 1
-                          ? 'Only lead in view'
-                          : `Queue ${Math.max(selectedQueueIndex + 1, 1)}/${visibleProspects.length}`}
-                      </span>
-                    </div>
-                    <div className="lead-dock-name">{selectedProspectView.name}</div>
-                    <div className="lead-dock-meta">
-                      {[
-                        detailValue(selectedProspectView.ownerName, 'No contact name'),
-                        selectedProspectView.city || '',
-                        selectedProspectView.phone ? detailValue(selectedProspectView.phone) : 'No phone',
-                        selectedProspectView.website ? websiteLabel(selectedProspectView.website) : ''
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </div>
-                  </div>
-                  <div className="lead-dock-actions">
-                    <a className="button-ghost lead-dock-action" href="#selected-lead">
-                      Up to card
-                    </a>
-                    {selectedProspectView.phone ? (
-                      <a className="button lead-dock-action" href={`tel:${selectedProspectView.phone}`}>
-                        Call
-                      </a>
-                    ) : null}
-                    {selectedProspectView.website ? (
-                      <a
-                        className="button-secondary button-secondary-strong lead-dock-action"
-                        href={websiteHref(selectedProspectView.website)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Site
-                      </a>
-                    ) : null}
-                  </div>
-                </div>
                 <div className="lead-action-grid">
                   <form action={updateProspectOutcomeAction} className="panel panel-stack lead-action-panel">
                     <input type="hidden" name="prospectId" value={selectedProspectView.id} />
