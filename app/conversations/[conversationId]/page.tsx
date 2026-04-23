@@ -341,116 +341,119 @@ export default async function ConversationDetailPage({
             )}
             {associatedLead && (
               <a className="button-ghost" href={`/leads/${associatedLead.id}`}>
-                Lead record
+                Open lead
               </a>
             )}
           </div>
-        </section>
+          <section className="conversation-thread-panel">
+            <div className="record-header">
+              <div className="panel-stack">
+                <div className="metric-label">Thread</div>
+                <div className="inline-row">
+                  <span
+                    className={`status-chip ${
+                      threadState === 'Needs reply' ? 'status-chip-attention' : threadState === 'Waiting on contact' ? 'status-chip-muted' : ''
+                    }`}
+                  >
+                    <strong>Queue</strong> {threadState}
+                  </span>
+                  <span className="status-chip status-chip-muted">
+                    <strong>Messages</strong> {conversation.messages.length}
+                  </span>
+                </div>
+              </div>
+              <div className="tiny-muted">{lastMessage ? formatDateTime(lastMessage.createdAt) : 'No activity yet'}</div>
+            </div>
 
-        <section className="panel panel-stack">
-          <div className="record-header">
-            <div className="panel-stack">
-              <div className="metric-label">Thread status</div>
-              <div className="inline-row">
-                <span className={`status-chip ${threadState === 'Needs reply' ? 'status-chip-attention' : threadState === 'Waiting on contact' ? 'status-chip-muted' : ''}`}>
-                  <strong>Queue</strong> {threadState}
-                </span>
-                <span className="status-chip status-chip-muted">
-                  <strong>Messages</strong> {conversation.messages.length}
-                </span>
+            <div className="key-value-grid conversation-summary-grid">
+              <div className="key-value-card">
+                <span className="key-value-label">Phone</span>
+                {activeConversation.contact?.phone || 'No phone'}
+              </div>
+              <div className="key-value-card">
+                <span className="key-value-label">Client email</span>
+                {activeConversation.company?.notificationEmail || 'Not configured'}
               </div>
             </div>
-            <div className="tiny-muted">{lastMessage ? formatDateTime(lastMessage.createdAt) : 'No activity yet'}</div>
-          </div>
 
-          <div className="key-value-grid">
-            <div className="key-value-card">
-              <span className="key-value-label">Phone</span>
-              {activeConversation.contact?.phone || 'No phone'}
-            </div>
-            <div className="key-value-card">
-              <span className="key-value-label">Client notification email</span>
-              {activeConversation.company?.notificationEmail || 'Not configured'}
-            </div>
-            <div className="key-value-card">
-              <span className="key-value-label">Conversation ID</span>
-              <span className="tiny-muted">{activeConversation.id}</span>
-            </div>
-          </div>
-
-          <section className="context-alert is-compact">
-            <div className="panel-stack">
-              <div className="metric-label">Operator next step</div>
-              <div className="inline-row">
-                <span
-                  className={`status-chip ${
-                    nextAction.tone === 'error'
-                      ? 'status-chip-attention'
-                      : nextAction.tone === 'warn'
-                        ? 'status-chip-muted'
-                        : ''
-                  }`}
-                >
-                  {nextAction.title}
-                </span>
-                <span className="tiny-muted">
-                  Routing memory:{' '}
-                  {routingObservation.inboundNumber || routingObservation.outboundNumber
-                    ? 'observed from real thread events'
-                    : assignedRoutingNumbers.length > 1
-                      ? 'client-safe, exact sender line not observed yet'
-                      : activeSenderNumber
-                        ? 'single sender context is clear'
-                        : 'sender missing'}
-                </span>
+            <section className="context-alert is-compact">
+              <div className="panel-stack">
+                <div className="metric-label">Next step</div>
+                <div className="inline-row">
+                  <span
+                    className={`status-chip ${
+                      nextAction.tone === 'error'
+                        ? 'status-chip-attention'
+                        : nextAction.tone === 'warn'
+                          ? 'status-chip-muted'
+                          : ''
+                    }`}
+                  >
+                    {nextAction.title}
+                  </span>
+                  <span className="tiny-muted">
+                    Routing memory:{' '}
+                    {routingObservation.inboundNumber || routingObservation.outboundNumber
+                      ? 'observed from real thread events'
+                      : assignedRoutingNumbers.length > 1
+                        ? 'client-safe, exact sender line not observed yet'
+                        : activeSenderNumber
+                          ? 'single sender context is clear'
+                          : 'sender missing'}
+                  </span>
+                </div>
+                <div className="text-muted">{nextAction.body}</div>
               </div>
-              <div className="text-muted">{nextAction.body}</div>
+            </section>
+
+            <div className="message-thread">
+              {activeConversation.messages.length === 0 && <div className="empty-state">No messages yet.</div>}
+
+              {activeConversation.messages.map((message) => {
+                const outbound = message.direction === 'OUTBOUND';
+                const lifecycle = lifecycleForMessage(
+                  message,
+                  lifecycleByMessageId.get(message.id) || []
+                );
+
+                return (
+                  <div key={message.id} className={`message-row${outbound ? ' outbound' : ''}`}>
+                    <div className={`message-bubble${outbound ? ' outbound' : ''}`}>
+                      <div className="message-meta" style={{ justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                        <span>
+                          {message.direction} • {formatDateTime(message.createdAt)}
+                        </span>
+                        <span
+                          className={`status-chip ${
+                            lifecycle.tone === 'error'
+                              ? 'status-chip-attention'
+                              : lifecycle.tone === 'warn' || lifecycle.tone === 'muted'
+                                ? 'status-chip-muted'
+                                : ''
+                          }`}
+                        >
+                          <span
+                            className={`status-dot ${
+                              lifecycle.tone === 'error'
+                                ? 'error'
+                                : lifecycle.tone === 'warn'
+                                  ? 'warn'
+                                  : lifecycle.tone === 'muted'
+                                    ? 'warn'
+                                    : 'ok'
+                            }`}
+                          />
+                          {lifecycle.label}
+                        </span>
+                      </div>
+                      <div className="pre-wrap">{message.content}</div>
+                      <div className="tiny-muted">{lifecycle.detail}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
-
-          <div className="message-thread">
-            {activeConversation.messages.length === 0 && <div className="empty-state">No messages yet.</div>}
-
-            {activeConversation.messages.map((message) => {
-              const outbound = message.direction === 'OUTBOUND';
-              const lifecycle = lifecycleForMessage(
-                message,
-                lifecycleByMessageId.get(message.id) || []
-              );
-
-              return (
-                <div key={message.id} className={`message-row${outbound ? ' outbound' : ''}`}>
-                  <div className={`message-bubble${outbound ? ' outbound' : ''}`}>
-                    <div className="message-meta" style={{ justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                      <span>
-                        {message.direction} • {formatDateTime(message.createdAt)}
-                      </span>
-                      <span className={`status-chip ${
-                        lifecycle.tone === 'error'
-                          ? 'status-chip-attention'
-                          : lifecycle.tone === 'warn' || lifecycle.tone === 'muted'
-                            ? 'status-chip-muted'
-                            : ''
-                      }`}>
-                        <span className={`status-dot ${
-                          lifecycle.tone === 'error'
-                            ? 'error'
-                            : lifecycle.tone === 'warn'
-                              ? 'warn'
-                              : lifecycle.tone === 'muted'
-                                ? 'warn'
-                                : 'ok'
-                        }`} />
-                        {lifecycle.label}
-                      </span>
-                    </div>
-                    <div className="pre-wrap">{message.content}</div>
-                    <div className="tiny-muted">{lifecycle.detail}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </section>
 
         <div className="conversation-sidebar">

@@ -978,12 +978,6 @@ export default async function ClientWorkspacePage({
                 Work next
               </a>
             ) : null}
-            <a className="button-ghost" href="#transcript-panel">
-              Messages
-            </a>
-            <a className="button-ghost" href="#setup">
-              Edit profile
-            </a>
           </div>
         </div>
       </section>
@@ -993,7 +987,7 @@ export default async function ClientWorkspacePage({
         <div className="workspace-stats-strip">
           <div className="workspace-stats-item">
             <span className="workspace-stats-value">{weeklyStats.newLeadsThisWeek}</span>
-            <span className="workspace-stats-label">New leads</span>
+            <span className="workspace-stats-label">Leads</span>
           </div>
           <div className="workspace-stats-item">
             <span className="workspace-stats-value">{weeklyStats.appointmentsThisWeek}</span>
@@ -1001,13 +995,11 @@ export default async function ClientWorkspacePage({
           </div>
           <div className="workspace-stats-item">
             <span className="workspace-stats-value">{weeklyStats.messagesThisWeek}</span>
-            <span className="workspace-stats-label">Messages</span>
+            <span className="workspace-stats-label">Texts</span>
           </div>
           <div className="workspace-stats-item">
-            <span className="workspace-stats-value">
-              {replyRate(leadCounts.REPLIED + leadCounts.BOOKED, Math.max(1, allWindowLeads.length))}
-            </span>
-            <span className="workspace-stats-label">Reply rate</span>
+            <span className="workspace-stats-value">{leadCounts.REPLIED + leadCounts.BOOKED}</span>
+            <span className="workspace-stats-label">Replies</span>
           </div>
         </div>
       </section>

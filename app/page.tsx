@@ -22,59 +22,6 @@ function formatPlural(value: number, singular: string, plural = `${singular}s`) 
   return `${value} ${value === 1 ? singular : plural}`;
 }
 
-type HomeAction = {
-  label: string;
-  href: string;
-};
-
-function buildPrimaryAction(input: {
-  clients: number;
-  unreadClientMessages: number;
-  clientsNeedingAttention: number;
-  appointmentsToday: number;
-  newLeadsYesterday: number;
-}): HomeAction {
-  if (input.clients === 0) {
-    return {
-      label: 'Add a Client',
-      href: '/clients/intake'
-    };
-  }
-
-  if (input.unreadClientMessages > 0) {
-    return {
-      label: 'Open Messages',
-      href: '/messages'
-    };
-  }
-
-  if (input.clientsNeedingAttention > 0) {
-    return {
-      label: 'Open Clients',
-      href: '/clients'
-    };
-  }
-
-  if (input.appointmentsToday > 0) {
-    return {
-      label: 'Open Clients',
-      href: '/clients'
-    };
-  }
-
-  if (input.newLeadsYesterday > 0) {
-    return {
-      label: 'Open Leads',
-      href: '/leads'
-    };
-  }
-
-  return {
-    label: 'Check System Status',
-    href: '/admin/system'
-  };
-}
-
 export default async function HomePage() {
   const todayStart = startOfDay();
   const tomorrowStart = addDays(todayStart, 1);
@@ -186,14 +133,6 @@ export default async function HomePage() {
 
   const [newLeadsYesterday, appointmentsYesterday, messagesYesterday] = yesterdayCounts;
   const allClear = unreadClientMessages === 0 && appointmentsToday === 0 && clientsNeedingAttention === 0;
-  const primaryAction = buildPrimaryAction({
-    clients: companies.length,
-    unreadClientMessages,
-    clientsNeedingAttention,
-    appointmentsToday,
-    newLeadsYesterday
-  });
-
   return (
     <LayoutShell
       title="Home"
@@ -220,13 +159,29 @@ export default async function HomePage() {
           </span>
         </div>
 
-        <div className="inline-actions">
-          <a className="button" href={primaryAction.href}>
-            {primaryAction.label}
-          </a>
-          <span className="tiny-muted">
-            Yesterday {newLeadsYesterday} leads · {appointmentsYesterday} appointments · {messagesYesterday} messages
-          </span>
+        <span className="tiny-muted">
+          Yesterday {newLeadsYesterday} leads · {appointmentsYesterday} appointments · {messagesYesterday} messages
+        </span>
+      </section>
+
+      <section className="panel panel-stack home-guide-panel">
+        <div className="metric-label">How to use this system</div>
+        <div className="home-guide-grid">
+          <div className="home-guide-step">
+            <strong>1. Start in Leads</strong>
+            <span className="text-muted">Call clinics, save the outcome, and set the next callback date if they are not ready yet.</span>
+          </div>
+          <div className="home-guide-step">
+            <strong>2. Run paying clinics in Clients</strong>
+            <span className="text-muted">Use the client workspace for replies, bookings, profile updates, and anything that needs a human.</span>
+          </div>
+          <div className="home-guide-step">
+            <strong>3. Use Messages and System only when needed</strong>
+            <span className="text-muted">Messages is the cross-client queue. System and Activity are just for admin checks, not everyday work.</span>
+          </div>
+        </div>
+        <div className="tiny-muted">
+          A lead is not marked as contacted just by opening the page. It changes only when you save an outcome like no answer, voicemail, booked, sold, or callback.
         </div>
       </section>
     </LayoutShell>

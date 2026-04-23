@@ -463,8 +463,13 @@ export default async function OurLeadsPage({
                   Search
                 </button>
               </form>
+              {searchQuery || selectedStatus || selectedCity || selectedDue ? (
+                <a className="button-secondary prospect-reset-trigger" href="/leads">
+                  Reset view
+                </a>
+              ) : null}
               <details className="prospect-add-drawer" id="add-prospect">
-                <summary className="button-secondary">Add lead</summary>
+                <summary className="button-secondary prospect-add-trigger">Add lead</summary>
                 <form action={createProspectAction} className="workspace-filter-form" style={{ marginTop: 12 }}>
                   <div className="workspace-filter-row">
                     <div className="field-stack">
@@ -544,6 +549,67 @@ export default async function OurLeadsPage({
               </span>
             </div>
 
+            {selectedProspectView ? (
+              <section className="lead-master-card">
+                <div className="lead-master-header">
+                  <div className="record-stack">
+                    <span className="key-value-label">Selected clinic</span>
+                    <h2 className="form-title lead-company-name">{selectedProspectView.name}</h2>
+                    <div className="tiny-muted">
+                      {detailValue(selectedProspectView.ownerName, 'No contact name')}
+                      {selectedProspectView.city ? ` · ${selectedProspectView.city}` : ''}
+                      {selectedProspectView.profile.clinicType ? ` · ${selectedProspectView.profile.clinicType}` : ''}
+                    </div>
+                  </div>
+                  <div className="inline-row inline-actions-wrap">
+                    <span className={statusChipClass(selectedProspectView.status)}>{humanizeStatus(selectedProspectView.status)}</span>
+                    {selectedProspectView.website ? (
+                      <a
+                        className="button-secondary button-secondary-strong"
+                        href={websiteHref(selectedProspectView.website)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open website
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="lead-identity-grid lead-identity-grid-wide">
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Phone</span>
+                    <strong>{detailValue(selectedProspectView.phone)}</strong>
+                  </div>
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Contact</span>
+                    <strong>{detailValue(selectedProspectView.ownerName)}</strong>
+                  </div>
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Location</span>
+                    <strong>{detailValue(selectedProspectView.city)}</strong>
+                  </div>
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Type</span>
+                    <strong>{detailValue(selectedProspectView.profile.clinicType)}</strong>
+                  </div>
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Source</span>
+                    <strong>{detailValue(selectedProspectView.profile.source, 'Manual add')}</strong>
+                  </div>
+                  <div className="lead-identity-item">
+                    <span className="key-value-label">Next callback</span>
+                    <strong>{formatDateTime(selectedProspectView.nextActionAt)}</strong>
+                  </div>
+                  <div className="lead-identity-item lead-identity-item-website">
+                    <span className="key-value-label">Company website</span>
+                    <strong>{websiteLabel(selectedProspectView.website)}</strong>
+                    <span className="tiny-muted">{websiteHref(selectedProspectView.website) || 'No website set'}</span>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
             <div className="filter-bar">
               <a className={`filter-chip${!selectedStatus && !selectedDue ? ' is-active' : ''}`} href={buildPageHref({ q: searchQuery, city: selectedCity })}>
                 All
@@ -574,14 +640,6 @@ export default async function OurLeadsPage({
             {visibleProspects.length === 0 ? (
               <div className="empty-state">
                 <div>No leads in this view.</div>
-                <div className="inline-actions">
-                  <a className="button-secondary" href="/leads">
-                    Reset view
-                  </a>
-                  <a className="button-ghost" href="#add-prospect">
-                    Add one manually
-                  </a>
-                </div>
               </div>
             ) : (
               <div className="table-wrap">
@@ -668,83 +726,21 @@ export default async function OurLeadsPage({
 
         <div className="conversation-sidebar">
           <section className="panel panel-stack sticky-panel">
-            <div className="inline-row justify-between">
-              <div className="record-stack">
-                <h2 className="form-title">{selectedProspectView?.name || 'No lead selected'}</h2>
-                {selectedProspectView ? (
-                  <div className="tiny-muted">
-                    {selectedProspectView.phone || 'No phone'}
-                    {selectedProspectView.city ? ` · ${selectedProspectView.city}` : ''}
-                    {selectedProspectView.ownerName ? ` · ${selectedProspectView.ownerName}` : ''}
-                  </div>
-                ) : null}
-              </div>
-              <div className="inline-row">
-                {selectedProspectView && isDemoLabel(selectedProspectView.name) ? (
-                  <span className="status-chip status-chip-muted">Demo</span>
-                ) : null}
-                {selectedProspectView ? <span className={statusChipClass(selectedProspectView.status)}>{humanizeStatus(selectedProspectView.status)}</span> : null}
-              </div>
-            </div>
-
             {!selectedProspectView ? (
               <div className="empty-state">
                 Pick a clinic from the queue to call, schedule, or update.
               </div>
             ) : (
               <>
-                <div className="lead-identity-card">
+                <div className="inline-row justify-between lead-sidebar-header">
                   <div className="record-stack">
-                    <span className="key-value-label">Company</span>
-                    <h2 className="form-title lead-company-name">{selectedProspectView.name}</h2>
-                    <div className="tiny-muted">
-                      {detailValue(selectedProspectView.ownerName, 'No contact name')}
-                      {selectedProspectView.city ? ` · ${selectedProspectView.city}` : ''}
-                      {selectedProspectView.profile.clinicType ? ` · ${selectedProspectView.profile.clinicType}` : ''}
-                    </div>
+                    <span className="key-value-label">Lead actions</span>
+                    <h2 className="form-title">Call and follow-up</h2>
+                    <div className="tiny-muted">Update the outcome, callback date, notes, and history for the selected clinic.</div>
                   </div>
-                  <div className="lead-identity-grid">
-                    <div className="lead-identity-item">
-                      <span className="key-value-label">Phone</span>
-                      <strong>{detailValue(selectedProspectView.phone)}</strong>
-                    </div>
-                    <div className="lead-identity-item">
-                      <span className="key-value-label">Contact</span>
-                      <strong>{detailValue(selectedProspectView.ownerName)}</strong>
-                    </div>
-                    <div className="lead-identity-item">
-                      <span className="key-value-label">Location</span>
-                      <strong>{detailValue(selectedProspectView.city)}</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="lead-brand-row">
-                  {selectedProspectView.profile.logoUrl ? (
-                    <img
-                      src={selectedProspectView.profile.logoUrl}
-                      alt={`${selectedProspectView.name} logo`}
-                      className="lead-logo"
-                    />
-                  ) : (
-                    <div className="lead-logo lead-logo-fallback">{selectedProspectView.name.charAt(0).toUpperCase()}</div>
-                  )}
-                  <div className="record-stack">
-                    <span className="metric-label">Company website</span>
-                    <div className="inline-row inline-actions-wrap">
-                      <strong>{websiteLabel(selectedProspectView.website)}</strong>
-                      {selectedProspectView.website ? (
-                        <a
-                          className="button-secondary button-secondary-strong"
-                          href={websiteHref(selectedProspectView.website)}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Open website
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
+                  {selectedProspectView && isDemoLabel(selectedProspectView.name) ? (
+                    <span className="status-chip status-chip-muted">Demo</span>
+                  ) : null}
                 </div>
 
                 <div className="inline-actions inline-actions-wrap">
@@ -817,14 +813,6 @@ export default async function OurLeadsPage({
                   <div className="key-value-card">
                     <span className="key-value-label">Next action</span>
                     {formatDateTime(selectedProspectView.nextActionAt)}
-                  </div>
-                  <div className="key-value-card">
-                    <span className="key-value-label">Source</span>
-                    {selectedProspectView.profile.source || 'Manual add'}
-                  </div>
-                  <div className="key-value-card">
-                    <span className="key-value-label">Website</span>
-                    {websiteLabel(selectedProspectView.website)}
                   </div>
                 </div>
 

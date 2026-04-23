@@ -153,10 +153,16 @@ select {
 .app-nav-utility-group {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   flex-wrap: wrap;
-  padding-left: 10px;
+  padding-left: 14px;
   border-left: 1px solid var(--fyl-line);
+}
+
+.app-nav-utility-group > .nav-utility-link + .nav-utility-link {
+  padding-left: 14px;
+  margin-left: 2px;
+  border-left: 1px solid rgba(176, 137, 244, 0.22);
 }
 
 .nav-utility-link {
@@ -299,6 +305,25 @@ select {
   color: var(--fyl-muted);
   line-height: 1.4;
   flex: 1 1 280px;
+}
+
+.home-guide-panel {
+  gap: 14px;
+}
+
+.home-guide-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.home-guide-step {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(176, 137, 244, 0.18);
+  background: rgba(249, 242, 255, 0.72);
 }
 
 .client-health-cell {
@@ -585,6 +610,35 @@ select {
 
 .lead-company-name {
   font-size: 1.25rem;
+}
+
+.lead-master-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(176, 137, 244, 0.22);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 240, 255, 0.99));
+}
+
+.lead-master-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.lead-identity-grid-wide {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.lead-identity-item-website {
+  grid-column: span 2;
+}
+
+.lead-sidebar-header {
+  align-items: flex-start;
 }
 
 .lead-identity-grid {
@@ -1265,10 +1319,19 @@ select {
   align-items: start;
 }
 
+.conversation-thread-panel {
+  display: grid;
+  gap: 14px;
+}
+
 .conversation-sidebar {
   display: grid;
   gap: 16px;
   align-content: start;
+}
+
+.conversation-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .client-workspace-layout {
@@ -1429,6 +1492,7 @@ select {
 
 .prospect-add-drawer {
   min-width: fit-content;
+  flex: 0 0 auto;
 }
 
 .prospect-add-drawer summary {
@@ -1438,6 +1502,33 @@ select {
 
 .prospect-add-drawer summary::-webkit-details-marker {
   display: none;
+}
+
+.prospect-add-trigger,
+.prospect-reset-trigger {
+  min-width: 132px;
+}
+
+.prospect-add-drawer[open] {
+  flex-basis: 100%;
+}
+
+.prospect-add-drawer[open] summary {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #5f2bc8;
+  justify-content: flex-start;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.prospect-add-drawer[open] summary:hover {
+  transform: none;
 }
 
 .prospect-stats-strip {

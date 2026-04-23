@@ -127,21 +127,23 @@ export function intakeStageDetails(options: {
     };
   }
 
-  if (options.hasSignupReceived && (!options.hasRouting || !options.hasNotificationEmail)) {
+  if (!options.hasOnboardingReceived) {
     return {
       stage: 'workspace_created',
-      label: 'Signup received',
+      label: 'Onboarding not finished',
       tone: 'warn',
-      detail: 'Website signup landed. Finish routing and notification setup so the client can go live.'
+      detail: options.hasSignupReceived
+        ? 'Signup landed, but the onboarding form still has not been completed.'
+        : 'A workspace exists, but the clinic still has not finished onboarding.'
     };
   }
 
   if (options.hasOnboardingReceived && (!options.hasRouting || !options.hasNotificationEmail)) {
     return {
       stage: 'setup_pending',
-      label: 'Onboarding received',
+      label: 'Setup pending',
       tone: 'warn',
-      detail: 'Onboarding landed. Finish routing and notification setup so the client can go live.'
+      detail: 'Onboarding is in. Finish routing and notification setup so the client can go live.'
     };
   }
 
@@ -154,19 +156,10 @@ export function intakeStageDetails(options: {
     };
   }
 
-  if (!options.hasRouting || !options.hasNotificationEmail) {
-    return {
-      stage: 'setup_pending',
-      label: 'Setup pending',
-      tone: 'error',
-      detail: 'A client workspace exists, but routing or notification email is still missing.'
-    };
-  }
-
   return {
-    stage: 'ready',
-    label: 'Ready for onboarding',
-    tone: 'ok',
-    detail: 'The sold clinic already has a client workspace with the main setup pieces in place.'
+    stage: 'workspace_created',
+    label: 'Onboarding not finished',
+    tone: 'warn',
+    detail: 'The clinic still needs to complete onboarding.'
   };
 }

@@ -53,9 +53,7 @@ export default async function ClientIntakePage() {
     safeLoad(
       () =>
         db.eventLog.findMany({
-          where: {
-            eventType: 'client_signup_received'
-          },
+          where: { eventType: 'client_signup_received' },
           orderBy: { createdAt: 'desc' },
           take: 100,
           select: {
@@ -70,9 +68,7 @@ export default async function ClientIntakePage() {
     safeLoad(
       () =>
         db.eventLog.findMany({
-          where: {
-            eventType: 'client_onboarding_received'
-          },
+          where: { eventType: 'client_onboarding_received' },
           orderBy: { createdAt: 'desc' },
           take: 100,
           select: {
@@ -104,6 +100,7 @@ export default async function ClientIntakePage() {
       ] as const;
     })
   );
+
   const intakeRows = soldProspects.map((prospect) => {
     const matchedCompany = companyByKey.get(normalizeClinicKey(prospect.name)) || null;
     const profile = parseProspectMetadata(prospect.notes);
@@ -127,7 +124,6 @@ export default async function ClientIntakePage() {
       hasSignupReceived: Boolean(profile.signup_received_at),
       hasOnboardingReceived: Boolean(onboardingEvent)
     });
-    const inboundNumbers = matchedCompany ? allInboundNumbers(matchedCompany) : [];
 
     return {
       rowId: `prospect:${prospect.id}`,
@@ -135,7 +131,7 @@ export default async function ClientIntakePage() {
       profile: mergedProfile,
       matchedCompany,
       stage,
-      inboundNumbers,
+      inboundNumbers: matchedCompany ? allInboundNumbers(matchedCompany) : [],
       signupReceivedAt: mergedProfile.signup_received_at || null,
       onboardingReceivedAt: mergedProfile.onboarding_received_at || null
     };
@@ -148,7 +144,6 @@ export default async function ClientIntakePage() {
     }
 
     const matchedCompany = companies.find((company) => company.id === event.companyId) || null;
-
     if (!matchedCompany) {
       return [];
     }
@@ -157,15 +152,14 @@ export default async function ClientIntakePage() {
       event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
         ? (event.payload as Record<string, unknown>)
         : {};
-
+    const onboardingEvent = latestOnboardingByCompanyId.get(matchedCompany.id) || null;
     const stage = intakeStageDetails({
       hasWorkspace: true,
       hasRouting: hasInboundRouting(matchedCompany),
       hasNotificationEmail: Boolean(matchedCompany.notificationEmail),
       hasSignupReceived: true,
-      hasOnboardingReceived: Boolean(latestOnboardingByCompanyId.get(matchedCompany.id))
+      hasOnboardingReceived: Boolean(onboardingEvent)
     });
-    const onboardingEvent = latestOnboardingByCompanyId.get(matchedCompany.id) || null;
 
     return [
       {
@@ -173,10 +167,6 @@ export default async function ClientIntakePage() {
         prospect: null,
         profile: {
           source: String(payload.source || 'website'),
-          clinic_type: '',
-          predicted_revenue: '',
-          import_batch: '',
-          source_record: '',
           signup_contact_name: String(payload.contactName || ''),
           signup_notification_email: String(payload.notificationEmail || ''),
           signup_phone: String(payload.phone || ''),
@@ -200,124 +190,95 @@ export default async function ClientIntakePage() {
       }
     ];
   });
+
   const allRows = [...intakeRows, ...directSignupRows].sort((a, b) =>
     String(b.signupReceivedAt || '').localeCompare(String(a.signupReceivedAt || ''))
   );
 
   const waitingCount = allRows.filter((row) => row.stage.stage === 'waiting_signup').length;
+  const onboardingMissingCount = allRows.filter((row) => row.stage.stage === 'workspace_created').length;
   const setupPendingCount = allRows.filter((row) => row.stage.stage === 'setup_pending').length;
   const readyCount = allRows.filter((row) => row.stage.stage === 'ready').length;
 
   return (
-    <LayoutShell
-      title="Client Intake"
-      description="Sold clinics waiting to sign up or finish onboarding."
-      section="clients"
-    >
-      <div className="metric-grid">
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Sold clinics</div>
-          <div className="metric-value">{allRows.length}</div>
-          <div className="metric-copy">Sold prospects and direct signups moving toward client onboarding.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Waiting for signup</div>
-          <div className="metric-value">{waitingCount}</div>
-          <div className="metric-copy">No matching client workspace has been created yet.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Setup pending</div>
-          <div className="metric-value">{setupPendingCount}</div>
-          <div className="metric-copy">Workspace exists, but routing or notification email is still missing.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Ready</div>
-          <div className="metric-value">{readyCount}</div>
-          <div className="metric-copy">Sold clinics already have a usable client workspace.</div>
-        </section>
-      </div>
+    <LayoutShell title="Client Intake" section="clients">
+      <section className="panel panel-stack">
+        <div className="metric-label">Intake queue</div>
+        <h2 className="section-title">Waiting on signup, onboarding, or final setup.</h2>
+        <div className="prospect-stats-strip">
+          <span><strong>{allRows.length}</strong> total</span>
+          <span><strong>{waitingCount}</strong> waiting for signup</span>
+          <span><strong>{onboardingMissingCount}</strong> onboarding not finished</span>
+          <span><strong>{setupPendingCount}</strong> setup pending</span>
+          <span><strong>{readyCount}</strong> ready</span>
+        </div>
+      </section>
 
       <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">Sold to signup bridge</div>
-            <h2 className="section-title">Keep sold clinics from disappearing between the call and the website signup.</h2>
-            <p className="page-copy">
-              This queue is the handoff from outbound sales into real client setup. It combines sold prospects with direct signup events so nothing disappears between the close and onboarding.
-            </p>
-          </div>
-          <div className="inline-actions">
-            <a className="button-secondary" href="/leads">
-              Back to Leads
-            </a>
-            <a className="button" href="/clients">
-              Client workspaces
-            </a>
-          </div>
-        </div>
-
         <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
                 <th>Clinic</th>
                 <th>Stage</th>
-                <th>Matched workspace</th>
-                <th>Source</th>
+                <th>Signup</th>
+                <th>Onboarding</th>
+                <th>Workspace</th>
                 <th>Next action</th>
               </tr>
             </thead>
             <tbody>
               {allRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>
-                    <div className="empty-state">No sold prospects are waiting on signup or onboarding right now.</div>
+                  <td colSpan={6}>
+                    <div className="empty-state">No clinics are waiting on signup, onboarding, or setup right now.</div>
                   </td>
                 </tr>
               ) : (
                 allRows.map((row) => (
                   <tr key={row.rowId}>
                     <td>
-                      <div className="panel-stack" style={{ gap: 6 }}>
+                      <div className="record-stack">
                         <span className="inline-row">
                           <strong>{row.matchedCompany?.name || row.prospect?.name || 'Signup in flight'}</strong>
-                          {isDemoLabel(row.matchedCompany?.name || row.prospect?.name || '')
-                            ? <span className="status-chip status-chip-muted">Demo</span>
-                            : null}
+                          {isDemoLabel(row.matchedCompany?.name || row.prospect?.name || '') ? (
+                            <span className="status-chip status-chip-muted">Demo</span>
+                          ) : null}
                           {!row.prospect ? <span className="status-chip status-chip-muted">Direct signup</span> : null}
                         </span>
                         <span className="tiny-muted">
-                          {row.profile.clinic_type || row.profile.business_type || 'Clinic type not set'}
-                          {row.prospect?.city ? ` • ${row.prospect.city}` : ''}
-                          {row.profile.predicted_revenue ? ` • ${row.profile.predicted_revenue}` : ''}
+                          {row.profile.business_type || row.profile.clinic_type || 'Clinic'}
+                          {row.prospect?.city ? ` · ${row.prospect.city}` : ''}
                         </span>
                       </div>
                     </td>
                     <td>
-                      <div className="panel-stack" style={{ gap: 6 }}>
-                        <span
-                          className={`status-chip ${
-                            row.stage.tone === 'error'
-                              ? 'status-chip-attention'
-                              : row.stage.tone === 'warn' || row.stage.tone === 'muted'
-                                ? 'status-chip-muted'
-                                : ''
-                          }`}
-                        >
-                          {row.stage.label}
-                        </span>
+                      <div className="record-stack">
+                        <span className={`status-chip${row.stage.tone === 'ok' ? '' : ' status-chip-muted'}`}>{row.stage.label}</span>
                         <span className="tiny-muted">{row.stage.detail}</span>
                       </div>
                     </td>
                     <td>
+                      <div className="record-stack">
+                        <span>{row.signupReceivedAt ? formatDateTime(row.signupReceivedAt) : 'Not received yet'}</span>
+                        <span className="tiny-muted">{humanizeIntakeSource(row.profile.source)}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="record-stack">
+                        <span>{row.onboardingReceivedAt ? formatDateTime(row.onboardingReceivedAt) : 'Not finished yet'}</span>
+                        <span className="tiny-muted">{row.profile.campaign_use_case || 'Onboarding still needed'}</span>
+                      </div>
+                    </td>
+                    <td>
                       {row.matchedCompany ? (
-                        <div className="panel-stack" style={{ gap: 6 }}>
+                        <div className="record-stack">
                           <a className="table-link" href={`/clients/${row.matchedCompany.id}`}>
                             {row.matchedCompany.name}
                           </a>
                           <span className="tiny-muted">
                             {row.inboundNumbers.length > 0
-                              ? `${row.inboundNumbers.length} routing number${row.inboundNumbers.length === 1 ? '' : 's'}`
+                              ? `${row.inboundNumbers.length} number${row.inboundNumbers.length === 1 ? '' : 's'}`
                               : 'No routing number yet'}
                           </span>
                         </div>
@@ -326,51 +287,33 @@ export default async function ClientIntakePage() {
                       )}
                     </td>
                     <td>
-                      <div className="panel-stack" style={{ gap: 6 }}>
-                        <span>{humanizeIntakeSource(row.profile.source)}</span>
+                      <div className="record-stack">
                         <span className="tiny-muted">
-                          {row.onboardingReceivedAt
-                            ? `Onboarding received ${formatDateTime(row.onboardingReceivedAt)}`
-                            : row.signupReceivedAt
-                              ? `Signup received ${formatDateTime(row.signupReceivedAt)}`
-                            : row.profile.import_batch ||
-                              row.profile.source_record ||
-                              row.prospect?.lastCallOutcome ||
-                              'No source batch'}
+                          {!row.matchedCompany
+                            ? 'Create workspace'
+                            : row.stage.stage === 'workspace_created'
+                              ? 'Finish onboarding form'
+                              : row.stage.stage === 'setup_pending'
+                                ? 'Finish setup'
+                                : 'Open workspace'}
                         </span>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="panel-stack" style={{ gap: 6 }}>
-                        <span>{formatDateTime(row.prospect?.nextActionAt || row.signupReceivedAt)}</span>
-                        {row.profile.campaign_use_case ? (
-                          <span className="tiny-muted">{row.profile.campaign_use_case}</span>
-                        ) : null}
-                        <div className="inline-actions">
-                          {row.prospect ? (
-                            <a
-                              className="button-ghost"
-                              href={`/leads?prospectId=${encodeURIComponent(row.prospect.id)}`}
-                            >
-                              Open lead
-                            </a>
-                          ) : (
-                            <a className="button-ghost" href={`/clients/${row.matchedCompany?.id}#setup`}>
-                              Open signup
-                            </a>
-                          )}
+                        <div className="inline-actions inline-actions-wrap">
+                          {!row.matchedCompany && row.prospect ? (
+                            <form action={createClientFromProspectAction}>
+                              <input type="hidden" name="prospectId" value={row.prospect.id} />
+                              <button type="submit" className="button-secondary">Create workspace</button>
+                            </form>
+                          ) : null}
                           {row.matchedCompany ? (
                             <a className="button-ghost" href={`/clients/${row.matchedCompany.id}#setup`}>
-                              Open setup
+                              Open workspace
                             </a>
-                          ) : (
-                            <form action={createClientFromProspectAction}>
-                              <input type="hidden" name="prospectId" value={row.prospect?.id || ''} />
-                              <button type="submit" className="button-secondary">
-                                Create workspace
-                              </button>
-                            </form>
-                          )}
+                          ) : null}
+                          {row.prospect ? (
+                            <a className="button-ghost" href={`/leads?prospectId=${row.prospect.id}`}>
+                              Open lead
+                            </a>
+                          ) : null}
                         </div>
                       </div>
                     </td>
