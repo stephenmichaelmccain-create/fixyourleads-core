@@ -451,7 +451,7 @@ export default async function OurLeadsPage({
   const shouldOpenAddProspect = error !== 'duplicate' && Boolean(errorMessage || Object.values(draftValues).some((value) => value));
 
   return (
-    <LayoutShell title="Leads" section="leads" variant="workspace">
+    <LayoutShell title="Leads" section="leads" variant="workspace" hidePageHeader>
       {updated || added || errorMessage ? (
         <section className="panel prospect-update-bar">
           {updated ? (

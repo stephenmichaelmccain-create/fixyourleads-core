@@ -175,6 +175,7 @@ export default async function ClientsPage({
     <LayoutShell
       title="Clients"
       section="clients"
+      hidePageHeader
     >
       {notice && (
         <section className="panel panel-stack">
