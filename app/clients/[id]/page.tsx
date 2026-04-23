@@ -554,13 +554,7 @@ export default async function ClientWorkspacePage({
     ),
     safeLoad(
       async () => {
-        const [newLeadsThisWeek, appointmentsThisWeek, messagesThisWeek] = await Promise.all([
-          db.lead.count({
-            where: {
-              companyId: id,
-              createdAt: { gte: weekStart }
-            }
-          }),
+        const [appointmentsThisWeek, messagesThisWeek] = await Promise.all([
           db.appointment.count({
             where: {
               companyId: id,
@@ -576,15 +570,17 @@ export default async function ClientWorkspacePage({
         ]);
 
         return {
-          newLeadsThisWeek,
           appointmentsThisWeek,
-          messagesThisWeek
+          messagesThisWeek,
+          aiVoiceCallsThisWeek: 0,
+          emailsThisWeek: 0
         };
       },
       {
-        newLeadsThisWeek: 0,
         appointmentsThisWeek: 0,
-        messagesThisWeek: 0
+        messagesThisWeek: 0,
+        aiVoiceCallsThisWeek: 0,
+        emailsThisWeek: 0
       }
     )
   ]);
@@ -987,16 +983,16 @@ export default async function ClientWorkspacePage({
         <div className="metric-label">This week</div>
         <div className="workspace-stats-strip">
           <div className="workspace-stats-item">
-            <span className="workspace-stats-value">{weeklyStats.newLeadsThisWeek}</span>
-            <span className="workspace-stats-label">Leads</span>
+            <span className="workspace-stats-value">{weeklyStats.aiVoiceCallsThisWeek}</span>
+            <span className="workspace-stats-label">AI voice</span>
           </div>
           <div className="workspace-stats-item">
             <span className="workspace-stats-value">{weeklyStats.appointmentsThisWeek}</span>
             <span className="workspace-stats-label">Appointments</span>
           </div>
           <div className="workspace-stats-item">
-            <span className="workspace-stats-value">{weeklyStats.messagesThisWeek}</span>
-            <span className="workspace-stats-label">Texts</span>
+            <span className="workspace-stats-value">{weeklyStats.emailsThisWeek}</span>
+            <span className="workspace-stats-label">Emails</span>
           </div>
           <div className="workspace-stats-item">
             <span className="workspace-stats-value">{leadCounts.REPLIED + leadCounts.BOOKED}</span>
