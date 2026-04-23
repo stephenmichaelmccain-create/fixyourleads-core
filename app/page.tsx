@@ -164,26 +164,6 @@ export default async function HomePage() {
         </span>
       </section>
 
-      <section className="panel panel-stack home-guide-panel">
-        <div className="metric-label">How to use this system</div>
-        <div className="home-guide-grid">
-          <div className="home-guide-step">
-            <strong>1. Start in Leads</strong>
-            <span className="text-muted">Call clinics, save the outcome, and set the next callback date if they are not ready yet.</span>
-          </div>
-          <div className="home-guide-step">
-            <strong>2. Run paying clinics in Clients</strong>
-            <span className="text-muted">Use the client workspace for replies, bookings, profile updates, and anything that needs a human.</span>
-          </div>
-          <div className="home-guide-step">
-            <strong>3. Use Messages and System only when needed</strong>
-            <span className="text-muted">Messages is the cross-client queue. System and Activity are just for admin checks, not everyday work.</span>
-          </div>
-        </div>
-        <div className="tiny-muted">
-          A lead is not marked as contacted just by opening the page. It changes only when you save an outcome like no answer, voicemail, booked, sold, or callback.
-        </div>
-      </section>
     </LayoutShell>
   );
 }
