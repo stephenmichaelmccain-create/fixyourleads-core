@@ -1345,6 +1345,45 @@ select {
   display: none;
 }
 
+.prospect-update-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  padding-block: 10px;
+}
+
+.prospect-add-drawer {
+  min-width: fit-content;
+}
+
+.prospect-add-drawer summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.prospect-add-drawer summary::-webkit-details-marker {
+  display: none;
+}
+
+.prospect-stats-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  color: var(--fyl-muted);
+  font-size: 12px;
+}
+
+.prospect-stats-strip strong {
+  color: var(--fyl-black);
+  font-size: 14px;
+}
+
+.prospect-row-selected td {
+  background: rgba(124, 58, 237, 0.06);
+}
+
 .inline-actions-wrap {
   flex-wrap: wrap;
 }

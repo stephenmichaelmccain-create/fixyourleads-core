@@ -7,25 +7,6 @@ import { createProspectAction, scheduleProspectCallbackAction, updateProspectOut
 
 export const dynamic = 'force-dynamic';
 
-const statusOptions = [
-  { label: 'All statuses', value: '' },
-  { label: 'New', value: ProspectStatus.NEW },
-  { label: 'No answer', value: ProspectStatus.NO_ANSWER },
-  { label: 'Voicemail left', value: ProspectStatus.VM_LEFT },
-  { label: 'Call back later', value: ProspectStatus.GATEKEEPER },
-  { label: 'Booked', value: ProspectStatus.BOOKED_DEMO },
-  { label: 'Sold', value: ProspectStatus.CLOSED },
-  { label: 'Do not contact', value: ProspectStatus.DEAD }
-] as const;
-
-const dueOptions = [
-  { label: 'All follow-up windows', value: '' },
-  { label: 'Overdue', value: 'overdue' },
-  { label: 'Due today', value: 'today' },
-  { label: 'Due in next 7 days', value: 'next7' },
-  { label: 'No next action set', value: 'unset' }
-] as const;
-
 type SearchParamShape = Promise<{
   prospectId?: string;
   q?: string;
@@ -281,6 +262,27 @@ function statusChipClass(status: ProspectStatus) {
   return 'status-chip';
 }
 
+function queueChipLabel(status: ProspectStatus) {
+  switch (status) {
+    case ProspectStatus.NEW:
+      return 'New';
+    case ProspectStatus.NO_ANSWER:
+      return 'No answer';
+    case ProspectStatus.VM_LEFT:
+      return 'Voicemail';
+    case ProspectStatus.GATEKEEPER:
+      return 'Callback';
+    case ProspectStatus.BOOKED_DEMO:
+      return 'Booked';
+    case ProspectStatus.CLOSED:
+      return 'Sold';
+    case ProspectStatus.DEAD:
+      return 'Dead';
+    default:
+      return humanizeStatus(status);
+  }
+}
+
 export default async function OurLeadsPage({
   searchParams
 }: {
@@ -345,14 +347,6 @@ export default async function OurLeadsPage({
     };
   });
 
-  const cityOptions = Array.from(
-    new Set(
-      prospectRows
-        .map((prospect) => prospect.city?.trim())
-        .filter((value): value is string => Boolean(value))
-    )
-  ).sort((left, right) => left.localeCompare(right));
-
   const visibleProspects = [...prospectRows]
     .filter((prospect) => {
       if (!normalizedSearchQuery) {
@@ -382,6 +376,14 @@ export default async function OurLeadsPage({
     .filter((prospect) => dueBucketMatches(prospect.nextActionAt, selectedDue, now))
     .sort(compareProspects);
 
+  const queueCounts = {
+    all: prospectRows.length,
+    overdue: prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'overdue', now)).length,
+    today: prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'today', now)).length,
+    waiting: prospectRows.filter((prospect) => prospect.status === ProspectStatus.GATEKEEPER).length,
+    booked: prospectRows.filter((prospect) => prospect.status === ProspectStatus.BOOKED_DEMO).length
+  };
+
   const effectiveSelectedProspectId =
     (selectedProspectId && visibleProspects.some((prospect) => prospect.id === selectedProspectId)
       ? selectedProspectId
@@ -409,10 +411,6 @@ export default async function OurLeadsPage({
       }
     : null;
 
-  const activeSelection = selectedProspectView
-    ? `${selectedProspectView.name}${selectedProspectView.city ? ` • ${selectedProspectView.city}` : ''}`
-    : 'No prospect selected';
-
   const errorMessage =
     error === 'name_required'
       ? 'Name is required to add a prospect.'
@@ -429,332 +427,257 @@ export default async function OurLeadsPage({
           : '';
 
   return (
-    <LayoutShell
-      title="Leads"
-      description="Work the clinic call queue in one screen."
-      section="leads"
-      variant="workspace"
-    >
-      {updated && (
-        <section className="panel panel-stack">
-          <div className="inline-row">
-            <span className="status-dot ok" />
-            <strong>Call outcome saved.</strong>
-          </div>
-          <div className="text-muted">
-            {updated === 'no_answer'
-              ? 'Marked no answer and moved the next call to tomorrow morning.'
-              : updated === 'voicemail'
-                ? 'Logged voicemail and queued the next touch for tomorrow.'
-                : updated === 'not_interested'
-                  ? 'Marked not interested and scheduled a later retry.'
-                  : updated === 'callback'
-                    ? 'Scheduled the clinic to come back into the queue automatically.'
-                  : updated === 'do_not_contact'
-                    ? 'Suppressed this clinic from future outreach.'
-                    : updated === 'booked'
-                      ? 'Marked booked and moved it into meeting follow-up.'
-                      : updated === 'sold'
-                        ? 'Marked sold and scheduled waiting-for-signup follow-up.'
-                        : 'The prospect was updated.'}
-          </div>
-        </section>
-      )}
-
-      {added && (
-        <section className="panel panel-success panel-stack">
-          <div className="metric-label">Prospect added</div>
-          <div className="text-muted">The new prospect is live in the queue and opened in the detail rail.</div>
-        </section>
-      )}
-
-      {errorMessage && (
-        <section className="panel panel-attention panel-stack">
-          <div className="metric-label">Could not save prospect</div>
-          <div className="text-muted">{errorMessage}</div>
-          {error === 'duplicate' && selectedProspect ? (
-            <div className="tiny-muted">
-              Existing match opened in the detail rail: <strong>{selectedProspect.name}</strong>
-            </div>
+    <LayoutShell title="Leads" section="leads" variant="workspace">
+      {updated || added || errorMessage ? (
+        <section className="panel prospect-update-bar">
+          {updated ? (
+            <span className="inline-row">
+              <span className="status-dot ok" />
+              {updated === 'no_answer'
+                ? 'No answer saved'
+                : updated === 'voicemail'
+                  ? 'Voicemail saved'
+                  : updated === 'not_interested'
+                    ? 'Not interested saved'
+                    : updated === 'callback'
+                      ? 'Callback scheduled'
+                      : updated === 'do_not_contact'
+                        ? 'Suppressed'
+                        : updated === 'booked'
+                          ? 'Marked booked'
+                          : updated === 'sold'
+                            ? 'Marked sold'
+                            : 'Lead updated'}
+            </span>
+          ) : null}
+          {added ? (
+            <span className="inline-row">
+              <span className="status-dot ok" />
+              Lead added
+            </span>
+          ) : null}
+          {errorMessage ? (
+            <span className="inline-row">
+              <span className="status-dot error" />
+              {errorMessage}
+            </span>
           ) : null}
         </section>
-      )}
+      ) : null}
 
       <div className="conversation-layout">
         <div className="page-stack">
-          <section className="panel panel-stack" id="add-prospect">
-            <details>
-              <summary className="form-title">Add lead</summary>
-              <form action={createProspectAction} className="workspace-filter-form" style={{ marginTop: 16 }}>
-                <div className="workspace-filter-row">
-                  <div className="field-stack">
-                    <label className="key-value-label" htmlFor="prospect-name">
-                      Name
-                    </label>
-                    <input id="prospect-name" name="name" className="text-input" placeholder="Glow Med Spa" required />
-                  </div>
-                  <div className="field-stack">
-                    <label className="key-value-label" htmlFor="prospect-phone">
-                      Phone
-                    </label>
-                    <input id="prospect-phone" name="phone" className="text-input" placeholder="(555) 555-5555" />
-                  </div>
-                  <div className="field-stack">
-                    <label className="key-value-label" htmlFor="prospect-city">
-                      City
-                    </label>
-                    <input id="prospect-city" name="city" className="text-input" placeholder="Austin" />
-                  </div>
-                  <div className="field-stack">
-                    <label className="key-value-label" htmlFor="prospect-owner-name">
-                      Contact
-                    </label>
-                    <input id="prospect-owner-name" name="ownerName" className="text-input" placeholder="Jamie Reed" />
-                  </div>
-                  <div className="field-stack">
-                    <label className="key-value-label" htmlFor="prospect-website">
-                      Website
-                    </label>
-                    <input id="prospect-website" name="website" className="text-input" placeholder="glowmedspa.com" />
-                  </div>
-                  <div className="field-stack">
-                    <label className="key-value-label" htmlFor="prospect-status">
-                      Status
-                    </label>
-                    <select id="prospect-status" name="status" className="select-input" defaultValue={ProspectStatus.NEW}>
-                      {statusOptions
-                        .filter((option) => option.value)
-                        .map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                  <div className="field-stack">
-                    <label className="key-value-label" htmlFor="prospect-next-action">
-                      Next action
-                    </label>
-                    <input id="prospect-next-action" name="nextActionAt" type="datetime-local" className="text-input" />
-                  </div>
-                </div>
-
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="prospect-notes">
-                    Notes
-                  </label>
-                  <textarea
-                    id="prospect-notes"
-                    name="notes"
-                    className="text-area"
-                    placeholder="Front desk notes, objections, or anything the next caller should know."
-                  />
-                </div>
-
-                <div className="workspace-filter-actions">
-                  <button type="submit" className="button">
-                    Add lead
-                  </button>
-                </div>
-              </form>
-            </details>
-          </section>
-
           <section className="panel panel-stack">
-            <div className="inline-row justify-between">
-              <div className="panel-stack">
-                <div className="metric-label">Lead board</div>
-                <h2 className="section-title">Filter once, then click the next clinic to work.</h2>
-              </div>
-              <div className="status-chip">
-                <strong>Visible</strong> {visibleProspects.length}
-              </div>
+            <div className="workspace-search-bar">
+              <form action="/leads" className="workspace-search-bar" style={{ flex: 1 }}>
+                <input
+                  id="our-leads-search"
+                  name="q"
+                  className="text-input"
+                  defaultValue={searchQuery}
+                  placeholder="Search name, phone, website, owner, city"
+                />
+                {selectedCity ? <input type="hidden" name="city" value={selectedCity} /> : null}
+                <button type="submit" className="button-ghost">
+                  Search
+                </button>
+              </form>
+              <details className="prospect-add-drawer" id="add-prospect">
+                <summary className="button-secondary">Add lead</summary>
+                <form action={createProspectAction} className="workspace-filter-form" style={{ marginTop: 12 }}>
+                  <div className="workspace-filter-row">
+                    <div className="field-stack">
+                      <label className="key-value-label" htmlFor="prospect-name">
+                        Name
+                      </label>
+                      <input id="prospect-name" name="name" className="text-input" placeholder="Glow Med Spa" required />
+                    </div>
+                    <div className="field-stack">
+                      <label className="key-value-label" htmlFor="prospect-phone">
+                        Phone
+                      </label>
+                      <input id="prospect-phone" name="phone" className="text-input" placeholder="(555) 555-5555" />
+                    </div>
+                    <div className="field-stack">
+                      <label className="key-value-label" htmlFor="prospect-city">
+                        City
+                      </label>
+                      <input id="prospect-city" name="city" className="text-input" placeholder="Austin" />
+                    </div>
+                    <div className="field-stack">
+                      <label className="key-value-label" htmlFor="prospect-owner-name">
+                        Contact
+                      </label>
+                      <input id="prospect-owner-name" name="ownerName" className="text-input" placeholder="Jamie Reed" />
+                    </div>
+                    <div className="field-stack">
+                      <label className="key-value-label" htmlFor="prospect-website">
+                        Website
+                      </label>
+                      <input id="prospect-website" name="website" className="text-input" placeholder="glowmedspa.com" />
+                    </div>
+                    <div className="field-stack">
+                      <label className="key-value-label" htmlFor="prospect-next-action">
+                        Next action
+                      </label>
+                      <input id="prospect-next-action" name="nextActionAt" type="datetime-local" className="text-input" />
+                    </div>
+                  </div>
+
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="prospect-notes">
+                      Notes
+                    </label>
+                    <textarea
+                      id="prospect-notes"
+                      name="notes"
+                      className="text-area"
+                      placeholder="Anything the next caller should know."
+                    />
+                  </div>
+
+                  <div className="workspace-filter-actions">
+                    <button type="submit" className="button">
+                      Save lead
+                    </button>
+                  </div>
+                </form>
+              </details>
             </div>
 
-            <form action="/leads" className="workspace-filter-form">
-              <div className="workspace-filter-row">
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="our-leads-search">
-                    Search clinics
-                  </label>
-                  <input
-                    id="our-leads-search"
-                    name="q"
-                    className="text-input"
-                    defaultValue={searchQuery}
-                    placeholder="Name, phone, website, owner, or city"
-                  />
-                </div>
+            <div className="prospect-stats-strip">
+              <span>
+                <strong>{queueCounts.all}</strong> total
+              </span>
+              <span>
+                <strong>{queueCounts.overdue}</strong> overdue
+              </span>
+              <span>
+                <strong>{queueCounts.today}</strong> today
+              </span>
+              <span>
+                <strong>{queueCounts.waiting}</strong> waiting
+              </span>
+              <span>
+                <strong>{queueCounts.booked}</strong> booked
+              </span>
+            </div>
 
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="our-leads-status">
-                    Status
-                  </label>
-                  <select id="our-leads-status" name="status" className="select-input" defaultValue={selectedStatus}>
-                    {statusOptions.map((option) => (
-                      <option key={option.label} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="our-leads-city">
-                    City
-                  </label>
-                  <select id="our-leads-city" name="city" className="select-input" defaultValue={selectedCity}>
-                    <option value="">All cities</option>
-                    {cityOptions.map((city) => (
-                      <option key={city} value={city}>
-                        {city}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="our-leads-due">
-                    Next action due
-                  </label>
-                  <select id="our-leads-due" name="nextActionDue" className="select-input" defaultValue={selectedDue}>
-                    {dueOptions.map((option) => (
-                      <option key={option.label} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="workspace-filter-actions">
-                <button type="submit" className="button-secondary">
-                  Apply filters
-                </button>
-                <a className="button-ghost" href="/leads">
-                  Reset
+            <div className="filter-bar">
+              <a className={`filter-chip${!selectedStatus && !selectedDue ? ' is-active' : ''}`} href={buildPageHref({ q: searchQuery, city: selectedCity })}>
+                All
+              </a>
+              <a
+                className={`filter-chip${selectedDue === 'overdue' ? ' is-active' : ''}`}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, nextActionDue: 'overdue' })}
+              >
+                Overdue {queueCounts.overdue}
+              </a>
+              <a
+                className={`filter-chip${selectedDue === 'today' ? ' is-active' : ''}`}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, nextActionDue: 'today' })}
+              >
+                Today {queueCounts.today}
+              </a>
+              {Object.values(ProspectStatus).map((status) => (
+                <a
+                  key={status}
+                  className={`filter-chip${selectedStatus === status ? ' is-active' : ''}`}
+                  href={buildPageHref({ q: searchQuery, city: selectedCity, status })}
+                >
+                  {queueChipLabel(status)}
                 </a>
-              </div>
-            </form>
+              ))}
+            </div>
 
             {visibleProspects.length === 0 ? (
               <div className="empty-state">
-                No prospects match the current filters. Reset the board or add a new clinic at the top.
+                <div>No leads in this view.</div>
+                <div className="inline-actions">
+                  <a className="button-secondary" href="/leads">
+                    Reset view
+                  </a>
+                  <a className="button-ghost" href="#add-prospect">
+                    Add one manually
+                  </a>
+                </div>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <div
-                  style={{
-                    minWidth: 980,
-                    display: 'grid',
-                    gap: 8
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1.8fr 1.25fr 1.1fr 1.15fr 1fr 1fr',
-                      gap: 12,
-                      padding: '0 12px 8px',
-                      color: 'var(--fyl-muted)',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      letterSpacing: '0.12em',
-                      textTransform: 'uppercase'
-                    }}
-                  >
-                    <span>Prospect</span>
-                    <span>Profile</span>
-                    <span>Contact</span>
-                    <span>Status / source</span>
-                    <span>Last call</span>
-                    <span>Next action</span>
-                  </div>
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Clinic</th>
+                      <th>Contact</th>
+                      <th>Status</th>
+                      <th>Last touch</th>
+                      <th>Next action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleProspects.map((prospect) => {
+                      const rowHref = buildPageHref({
+                        prospectId: prospect.id,
+                        q: searchQuery,
+                        status: selectedStatus,
+                        city: selectedCity,
+                        nextActionDue: selectedDue
+                      });
+                      const lastTouch = prospect.callLogs[0]?.createdAt || prospect.lastCallAt || prospect.updatedAt;
+                      const selected = prospect.id === effectiveSelectedProspectId;
 
-                  {visibleProspects.map((prospect) => {
-                    const rowHref = buildPageHref({
-                      prospectId: prospect.id,
-                      q: searchQuery,
-                      status: selectedStatus,
-                      city: selectedCity,
-                      nextActionDue: selectedDue
-                    });
-                    const lastTouch = prospect.callLogs[0]?.createdAt || prospect.lastCallAt || prospect.updatedAt;
-                    const selected = prospect.id === effectiveSelectedProspectId;
-
-                    return (
-                      <a
-                        key={prospect.id}
-                        href={rowHref}
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: '1.8fr 1.25fr 1.1fr 1.15fr 1fr 1fr',
-                          gap: 12,
-                          alignItems: 'center',
-                          padding: '14px 16px',
-                          borderRadius: 20,
-                          border: selected
-                            ? '1px solid rgba(182, 50, 255, 0.48)'
-                            : '1px solid rgba(176, 137, 244, 0.18)',
-                          background: selected
-                            ? 'linear-gradient(180deg, rgba(250, 241, 255, 0.98), rgba(244, 232, 255, 0.98))'
-                            : 'linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 243, 255, 0.98))',
-                          boxShadow: selected ? '0 18px 40px rgba(52, 16, 88, 0.08)' : 'none',
-                          color: 'inherit',
-                          textDecoration: 'none'
-                        }}
-                      >
-                        <div className="record-stack">
-                          <span className="inline-row">
-                            <strong>{prospect.name}</strong>
-                            {isDemoLabel(prospect.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
-                          </span>
-                          <span className="tiny-muted">
-                            {prospect.profile.clinicType || 'Clinic type not set'} • {prospect.city || 'City not set'}
-                          </span>
-                        </div>
-                        <div className="record-stack">
-                          <span>{prospect.website || prospect.profile.logoUrl || 'No website or logo'}</span>
-                          <span className="tiny-muted">
-                            {prospect.profile.predictedRevenue || 'Revenue unknown'}
-                            {prospect.profile.zipCode ? ` • ZIP ${prospect.profile.zipCode}` : ''}
-                          </span>
-                        </div>
-                        <div className="record-stack">
-                          <span>{prospect.phone || 'No phone'}</span>
-                          <span className="tiny-muted">{prospect.ownerName || 'Owner not set'}</span>
-                        </div>
-                        <div className="record-stack">
-                          <span className={statusChipClass(prospect.status)}>
-                            <strong>Status</strong> {humanizeStatus(prospect.status)}
-                          </span>
-                          <span className="tiny-muted">
-                            {prospect.profile.source || 'Manual add'}
-                            {prospect.profile.importBatch ? ` • ${prospect.profile.importBatch}` : ''}
-                          </span>
-                        </div>
-                        <div className="record-stack">
-                          <span>{formatDateTime(lastTouch)}</span>
-                          <span className="tiny-muted">
-                            {prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || (prospect.lastCallAt ? 'Logged call' : 'Recent activity')}
-                          </span>
-                        </div>
-                        <div className="record-stack">
-                          <span>{formatDateTime(prospect.nextActionAt)}</span>
-                          <span className="tiny-muted">
-                            {prospect.nextActionAt
-                              ? dueBucketMatches(prospect.nextActionAt, 'overdue', now)
-                                ? 'Past due'
-                                : dueBucketMatches(prospect.nextActionAt, 'today', now)
-                                  ? 'Due today'
-                                  : 'Scheduled'
-                              : 'Needs scheduling'}
-                          </span>
-                        </div>
-                      </a>
-                    );
-                  })}
-                </div>
+                      return (
+                        <tr key={prospect.id} className={selected ? 'prospect-row-selected' : ''}>
+                          <td>
+                            <a className="table-link" href={rowHref}>
+                              <div className="record-stack">
+                                <span className="inline-row">
+                                  <strong>{prospect.name}</strong>
+                                  {isDemoLabel(prospect.name) ? <span className="status-chip status-chip-muted">Demo</span> : null}
+                                </span>
+                                <span className="tiny-muted">
+                                  {prospect.profile.clinicType || 'Clinic'}{prospect.city ? ` · ${prospect.city}` : ''}
+                                </span>
+                              </div>
+                            </a>
+                          </td>
+                          <td>
+                            <div className="record-stack">
+                              <span>{prospect.phone || 'No phone'}</span>
+                              <span className="tiny-muted">{prospect.ownerName || prospect.website || 'No contact info'}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="record-stack">
+                              <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
+                              <span className="tiny-muted">{prospect.profile.source || 'Manual add'}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="record-stack">
+                              <span>{formatDateTime(lastTouch)}</span>
+                              <span className="tiny-muted">{prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || 'Recent activity'}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="record-stack">
+                              <span>{formatDateTime(prospect.nextActionAt)}</span>
+                              <span className="tiny-muted">
+                                {prospect.nextActionAt
+                                  ? dueBucketMatches(prospect.nextActionAt, 'overdue', now)
+                                    ? 'Past due'
+                                    : dueBucketMatches(prospect.nextActionAt, 'today', now)
+                                      ? 'Due today'
+                                      : 'Scheduled'
+                                  : 'Needs scheduling'}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </section>
@@ -762,39 +685,32 @@ export default async function OurLeadsPage({
 
         <div className="conversation-sidebar">
           <section className="panel panel-stack sticky-panel">
-            <div className="metric-label">Prospect detail</div>
             <div className="inline-row justify-between">
+              <div className="record-stack">
+                <h2 className="form-title">{selectedProspectView?.name || 'No lead selected'}</h2>
+                {selectedProspectView ? (
+                  <div className="tiny-muted">
+                    {selectedProspectView.phone || 'No phone'}
+                    {selectedProspectView.city ? ` · ${selectedProspectView.city}` : ''}
+                    {selectedProspectView.ownerName ? ` · ${selectedProspectView.ownerName}` : ''}
+                  </div>
+                ) : null}
+              </div>
               <div className="inline-row">
-                <h2 className="form-title">{activeSelection}</h2>
                 {selectedProspectView && isDemoLabel(selectedProspectView.name) ? (
                   <span className="status-chip status-chip-muted">Demo</span>
                 ) : null}
-                {!selectedProspectId && selectedProspectView ? (
-                  <span className="status-chip status-chip-muted">Auto-opened</span>
-                ) : null}
+                {selectedProspectView ? <span className={statusChipClass(selectedProspectView.status)}>{humanizeStatus(selectedProspectView.status)}</span> : null}
               </div>
-              {selectedProspectId && selectedProspectView ? (
-                <a
-                  className="button-ghost"
-                  href={buildPageHref({
-                    q: searchQuery,
-                    status: selectedStatus,
-                    city: selectedCity,
-                    nextActionDue: selectedDue
-                  })}
-                >
-                  Close
-                </a>
-              ) : null}
             </div>
 
             {!selectedProspectView ? (
               <div className="empty-state">
-                Click any row in the prospect board to open notes, call history, and the next-action summary here.
+                Pick a clinic from the queue to call, schedule, or update.
               </div>
             ) : (
               <>
-                <div className="inline-actions">
+                <div className="inline-actions inline-actions-wrap">
                   {selectedProspectView.phone ? (
                     <a className="button" href={`tel:${selectedProspectView.phone}`}>
                       Call now
@@ -805,15 +721,9 @@ export default async function OurLeadsPage({
                       Open website
                     </a>
                   ) : null}
-                  {selectedProspectView.profile.logoUrl ? (
-                    <a className="button-ghost" href={selectedProspectView.profile.logoUrl} target="_blank" rel="noreferrer">
-                      View logo
-                    </a>
-                  ) : null}
                 </div>
 
                 <form action={updateProspectOutcomeAction} className="panel panel-stack">
-                  <div className="metric-label">Quick call outcome</div>
                   <input type="hidden" name="prospectId" value={selectedProspectView.id} />
                   <input type="hidden" name="q" value={searchQuery} />
                   <input type="hidden" name="status" value={selectedStatus} />
@@ -839,13 +749,13 @@ export default async function OurLeadsPage({
                       Do not contact
                     </button>
                   </div>
-                  <div className="tiny-muted">
-                    Each outcome updates the status, logs the call, and sets the next action automatically.
-                  </div>
                 </form>
 
                 <form action={scheduleProspectCallbackAction} className="panel panel-stack">
-                  <div className="metric-label">Schedule callback</div>
+                  <div className="inline-row justify-between">
+                    <div className="metric-label">Callback</div>
+                    <div className="tiny-muted">{formatDateOnly(selectedProspectView.nextActionAt)}</div>
+                  </div>
                   <input type="hidden" name="prospectId" value={selectedProspectView.id} />
                   <input type="hidden" name="q" value={searchQuery} />
                   <input type="hidden" name="status" value={selectedStatus} />
@@ -865,75 +775,46 @@ export default async function OurLeadsPage({
                       1 month
                     </button>
                   </div>
-                  <div className="tiny-muted">
-                    Use presets when a clinic should come back later and you do not want the team to remember it manually.
-                  </div>
                 </form>
 
                 <div className="key-value-grid">
                   <div className="key-value-card">
-                    <span className="key-value-label">Phone</span>
-                    {selectedProspectView.phone || 'Not set'}
+                    <span className="key-value-label">Last touch</span>
+                    {formatDateTime(selectedProspectView.callLogs[0]?.createdAt || selectedProspectView.lastCallAt || selectedProspectView.updatedAt)}
                   </div>
                   <div className="key-value-card">
-                    <span className="key-value-label">City</span>
-                    {selectedProspectView.city || 'Not set'}
+                    <span className="key-value-label">Next action</span>
+                    {formatDateTime(selectedProspectView.nextActionAt)}
                   </div>
                   <div className="key-value-card">
-                    <span className="key-value-label">Owner / lead contact</span>
-                    {selectedProspectView.ownerName || 'Not set'}
+                    <span className="key-value-label">Source</span>
+                    {selectedProspectView.profile.source || 'Manual add'}
                   </div>
                   <div className="key-value-card">
                     <span className="key-value-label">Website</span>
                     {selectedProspectView.website || 'Not set'}
                   </div>
-                  <div className="key-value-card">
-                    <span className="key-value-label">Next action</span>
-                    {formatDateOnly(selectedProspectView.nextActionAt)}
-                  </div>
-                  <div className="key-value-card">
-                    <span className="key-value-label">Last call outcome</span>
-                    {selectedProspectView.lastCallOutcome || 'No outcome logged'}
-                  </div>
-                  <div className="key-value-card">
-                    <span className="key-value-label">Clinic type</span>
-                    {selectedProspectView.profile.clinicType || 'Not set'}
-                  </div>
-                  <div className="key-value-card">
-                    <span className="key-value-label">ZIP focus</span>
-                    {selectedProspectView.profile.zipCode || 'Not set'}
-                  </div>
-                  <div className="key-value-card">
-                    <span className="key-value-label">Predicted revenue</span>
-                    {selectedProspectView.profile.predictedRevenue || 'Not set'}
-                  </div>
-                  <div className="key-value-card">
-                    <span className="key-value-label">Lead source</span>
-                    {selectedProspectView.profile.source || 'Manual add'}
-                  </div>
-                  <div className="key-value-card">
-                    <span className="key-value-label">Import batch</span>
-                    {selectedProspectView.profile.importBatch || 'Not set'}
-                  </div>
-                  <div className="key-value-card">
-                    <span className="key-value-label">Source record</span>
-                    {selectedProspectView.profile.sourceRecord || 'Not set'}
-                  </div>
                 </div>
 
-                <section className="panel-stack">
-                  <div className="metric-label">Notes</div>
+                <details className="routing-details" open={Boolean(selectedProspectView.plainNotes)}>
+                  <summary className="routing-summary">
+                    <span className="metric-label">Notes</span>
+                    <span className="tiny-muted">{selectedProspectView.plainNotes ? 'Open' : 'None'}</span>
+                  </summary>
                   {selectedProspectView.plainNotes ? (
                     <div className="key-value-card pre-wrap">{selectedProspectView.plainNotes}</div>
                   ) : (
-                    <div className="empty-state">No notes yet. Use the Add Prospect form to capture context on the next clinic.</div>
+                    <div className="empty-state">No notes yet.</div>
                   )}
-                </section>
+                </details>
 
-                <section className="panel-stack">
-                  <div className="metric-label">Call history</div>
+                <details className="routing-details" open={selectedProspectView.callLogs.length > 0}>
+                  <summary className="routing-summary">
+                    <span className="metric-label">Call history</span>
+                    <span className="tiny-muted">{selectedProspectView.callLogs.length}</span>
+                  </summary>
                   {selectedProspectView.callLogs.length === 0 ? (
-                    <div className="empty-state">No call history has been logged for this prospect yet.</div>
+                    <div className="empty-state">No calls logged yet.</div>
                   ) : (
                     <div className="status-list">
                       {selectedProspectView.callLogs.map((call) => (
@@ -953,14 +834,7 @@ export default async function OurLeadsPage({
                       ))}
                     </div>
                   )}
-                </section>
-
-                <section className="panel-stack">
-                  <div className="metric-label">SMS thread</div>
-                  <div className="empty-state">
-                    No SMS thread data is attached to this prospect yet. This screen will only show text history after the clinic is moved into a live contact and conversation flow.
-                  </div>
-                </section>
+                </details>
               </>
             )}
           </section>
