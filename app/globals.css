@@ -628,9 +628,20 @@ select {
 }
 
 .lead-master-card-selected {
-  border-color: rgba(124, 58, 237, 0.42);
-  box-shadow: 0 16px 34px rgba(124, 58, 237, 0.14);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(240, 229, 255, 0.99));
+  border-color: rgba(124, 58, 237, 0.6);
+  box-shadow:
+    0 0 0 3px rgba(124, 58, 237, 0.14),
+    0 18px 34px rgba(124, 58, 237, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(238, 225, 255, 0.99));
+}
+
+.lead-master-card-selected::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  border-radius: 16px 0 0 16px;
+  background: linear-gradient(180deg, rgba(182, 50, 255, 1), rgba(124, 58, 237, 1));
 }
 
 .lead-master-header {
@@ -655,6 +666,20 @@ select {
   justify-content: space-between;
   gap: 12px;
   min-width: 0;
+}
+
+.lead-selected-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(182, 50, 255, 0.16), rgba(124, 58, 237, 0.14));
+  color: #5d22bf;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .lead-queue-subline {
@@ -722,6 +747,10 @@ select {
   align-items: center;
   justify-content: flex-start;
   padding-top: 4px;
+}
+
+.lead-master-card-selected .lead-master-footer {
+  padding-top: 8px;
 }
 
 .lead-queue-list {

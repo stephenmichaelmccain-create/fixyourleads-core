@@ -709,9 +709,11 @@ export default async function OurLeadsPage({
                       <div className="lead-master-header">
                         <div className="lead-master-select">
                           <div className="lead-master-kicker">
-                            <span className="tiny-muted">
-                              {selected ? 'Active lead' : 'Queue lead'}
-                            </span>
+                            {selected ? (
+                              <span className="lead-selected-pill">Selected now</span>
+                            ) : (
+                              <span className="tiny-muted">Queue lead</span>
+                            )}
                             <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
                           </div>
                           <div className="record-stack">
