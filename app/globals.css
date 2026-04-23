@@ -722,6 +722,11 @@ select {
   align-items: flex-start;
 }
 
+.lead-sidebar-intro {
+  color: var(--fyl-muted);
+  line-height: 1.6;
+}
+
 .lead-identity-grid {
   display: grid;
   gap: 10px;

@@ -1,7 +1,6 @@
 import { ProspectStatus } from '@prisma/client';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
-import { isDemoLabel } from '@/lib/demo';
 import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoad } from '@/lib/ui-data';
 import {
@@ -768,7 +767,11 @@ export default async function OurLeadsPage({
                         </a>
 
                         <div className="inline-row inline-actions-wrap lead-master-actions">
-                          <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
+                          {prospect.phone ? (
+                            <a className="button" href={`tel:${prospect.phone}`}>
+                              Call now
+                            </a>
+                          ) : null}
                           {prospect.website ? (
                             <a
                               className="button-secondary button-secondary-strong"
@@ -779,6 +782,7 @@ export default async function OurLeadsPage({
                               Open website
                             </a>
                           ) : null}
+                          <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
                         </div>
                       </div>
                     </section>
@@ -798,24 +802,7 @@ export default async function OurLeadsPage({
               </div>
             ) : (
               <>
-                <div className="inline-row justify-between lead-sidebar-header">
-                  <div className="record-stack">
-                    <span className="key-value-label">Lead actions</span>
-                    <h2 className="form-title">Call and follow-up</h2>
-                    <div className="tiny-muted">Update the outcome, callback date, notes, and history for the selected clinic.</div>
-                  </div>
-                  {selectedProspectView && isDemoLabel(selectedProspectView.name) ? (
-                    <span className="status-chip status-chip-muted">Demo</span>
-                  ) : null}
-                </div>
-
-                <div className="inline-actions inline-actions-wrap">
-                  {selectedProspectView.phone ? (
-                    <a className="button" href={`tel:${selectedProspectView.phone}`}>
-                      Call now
-                    </a>
-                  ) : null}
-                </div>
+                <div className="lead-sidebar-intro">Update the outcome, callback date, notes, and history for the selected clinic.</div>
 
                 <form action={updateProspectOutcomeAction} className="panel panel-stack">
                   <input type="hidden" name="prospectId" value={selectedProspectView.id} />
