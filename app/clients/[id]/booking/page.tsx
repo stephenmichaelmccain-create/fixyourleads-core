@@ -187,8 +187,8 @@ export default async function ClientBookingPage({
             <div className="metric-label">Booking workspace</div>
             <h2 className="section-title">{company.name}</h2>
             <div className="record-subtitle">
-              Fix Your Leads should stay the booking source of truth first, then write bookings into Google Calendar,
-              a shared FYL calendar, or an existing booking platform.
+              Use this page to decide where bookings should land, store the connection details, and monitor what has
+              already been booked for this client.
             </div>
             <div className="inline-row client-record-chip-row">
               <span className={`readiness-pill ${progress.completed === progress.total ? 'is-ready' : 'is-warn'}`}>
@@ -241,41 +241,11 @@ export default async function ClientBookingPage({
           <section className="panel panel-stack">
             <div className="record-header">
               <div className="panel-stack">
-                <div className="metric-label">Recommended path</div>
-                <h3 className="section-title">How we should handle booking sync</h3>
-                <div className="record-subtitle">
-                  Default to the client&apos;s existing Google Calendar with OAuth. Use a shared FYL calendar only as fallback, and treat
-                  external booking software as a later sync target unless the client already lives there.
-                </div>
-              </div>
-            </div>
-
-            <div className="surface-link-grid">
-              <div className="surface-link-card">
-                <span className="metric-label">Best default</span>
-                <strong>Google Calendar via OAuth</strong>
-                <span className="tiny-muted">Lowest friction for small businesses and keeps bookings where they already work.</span>
-              </div>
-              <div className="surface-link-card">
-                <span className="metric-label">Fallback</span>
-                <strong>Shared Fix Your Leads calendar</strong>
-                <span className="tiny-muted">Useful when the client has no usable calendar yet and still needs visibility fast.</span>
-              </div>
-              <div className="surface-link-card">
-                <span className="metric-label">Later integration</span>
-                <strong>Existing booking platform</strong>
-                <span className="tiny-muted">Good for Jane, Calendly, Vagaro, Boulevard, or Mindbody after the launch path is stable.</span>
-              </div>
-            </div>
-          </section>
-
-          <section className="panel panel-stack">
-            <div className="record-header">
-              <div className="panel-stack">
                 <div className="metric-label">Booking setup</div>
                 <h3 className="section-title">Store the rollout plan</h3>
                 <div className="record-subtitle">
-                  This tab gives each client a visible booking integration plan now, even before full Google OAuth and writeback are automated.
+                  Keep the destination, sync mode, and visibility settings in one place so operators know exactly where
+                  confirmed appointments should go.
                 </div>
               </div>
             </div>
@@ -494,24 +464,6 @@ export default async function ClientBookingPage({
         </div>
 
         <aside className="client-record-sidebar">
-          <section className="panel panel-stack">
-            <div className="metric-label">Launch recommendation</div>
-            <div className="workspace-list">
-              <div className="workspace-list-item">
-                <strong>Use Google first</strong>
-                <span className="tiny-muted">Best default for most clinics because the front desk already lives there.</span>
-              </div>
-              <div className="workspace-list-item">
-                <strong>Fallback to shared FYL calendar</strong>
-                <span className="tiny-muted">Only when they have no workable calendar or refuse OAuth during launch.</span>
-              </div>
-              <div className="workspace-list-item">
-                <strong>External platform later</strong>
-                <span className="tiny-muted">Treat existing booking systems as follow-on sync targets unless they are mission-critical from day one.</span>
-              </div>
-            </div>
-          </section>
-
           <section className="panel panel-stack">
             <div className="metric-label">Recent booking events</div>
             <div className="workspace-list">

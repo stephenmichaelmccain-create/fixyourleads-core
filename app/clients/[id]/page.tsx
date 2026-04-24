@@ -318,9 +318,6 @@ export default async function ClientProfilePage({
   const sharedTelnyxSender = process.env.TELNYX_FROM_NUMBER?.trim() || null;
   const activeSenderNumber = primaryRoutingNumber || sharedTelnyxSender;
 
-  const setupGaps = setupGapsForCompany(company);
-  const missingSetup = setupGaps.length > 0;
-
   const workflowAgeMs = latestWorkflowRun ? Date.now() - latestWorkflowRun.updatedAt.getTime() : Number.POSITIVE_INFINITY;
   const workflowHealthy = Number.isFinite(workflowAgeMs) && workflowAgeMs <= 24 * 60 * 60 * 1000;
   const smsHealthy = Boolean(activeSenderNumber) && hasInboundRouting(company);
@@ -337,9 +334,6 @@ export default async function ClientProfilePage({
   const profileTotal = profileFields.length;
   const paymentsFilled = [company.retainerCents, company.downPaymentCents].filter((value) => typeof value === 'number')
     .length;
-
-  const readinessTone = missingSetup ? 'is-warn' : 'is-ready';
-  const readinessLabel = missingSetup ? `${setupGaps.length} setup gaps` : 'Launch ready';
 
   return (
     <LayoutShell
@@ -368,19 +362,18 @@ export default async function ClientProfilePage({
             <div className="metric-label">Client profile</div>
             <h2 className="section-title">{company.name}</h2>
             <div className="record-subtitle">
-              A cleaner record page for identity, routing, and launch readiness. The profile editor below stays the source
-              of truth for the operator workflow.
+              Keep the core client record accurate here. The other tabs can then focus on testing, carrier setup, booking,
+              and monitoring without duplicating these fields.
             </div>
             <div className="inline-row client-record-chip-row">
-              <span className={`readiness-pill ${readinessTone}`}>{readinessLabel}</span>
               <span className="status-chip status-chip-muted">
                 <strong>Profile</strong> {profileFilled}/{profileTotal}
               </span>
               <span className="status-chip status-chip-muted">
                 <strong>Payments</strong> {paymentsFilled}/2
               </span>
-              <span className={`status-chip ${smsHealthy ? '' : 'status-chip-attention'}`}>
-                <strong>Messaging</strong> {smsHealthy ? 'Routed' : 'Needs setup'}
+              <span className={`status-chip ${hasInboundRouting(company) ? '' : 'status-chip-attention'}`}>
+                <strong>Routing</strong> {hasInboundRouting(company) ? 'Assigned' : 'Needs line'}
               </span>
             </div>
           </div>
@@ -428,13 +421,13 @@ export default async function ClientProfilePage({
           <section className="panel panel-stack">
             <div className="record-header">
               <div className="panel-stack">
-                <div className="metric-label">Overview</div>
-                <h3 className="section-title">Identity, routing, and handoff</h3>
-                <div className="record-subtitle">
-                  The strongest CRM record pages keep the essentials visible first: who this client is, how replies route, and
-                  where the team should jump next.
-                </div>
+              <div className="metric-label">Overview</div>
+              <h3 className="section-title">Identity, routing, and handoff</h3>
+              <div className="record-subtitle">
+                  Keep this page focused on the information the rest of the workspace depends on: contact details, routing,
+                  notification inboxes, and pricing context.
               </div>
+            </div>
             </div>
 
             <div className="client-record-overview-grid">
@@ -451,7 +444,7 @@ export default async function ClientProfilePage({
                 <span className="tiny-muted">
                   {hasInboundRouting(company)
                     ? 'Replies map into this client workspace.'
-                    : 'Assign a dedicated inbound number so replies do not stay on fallback routing.'}
+                    : 'Assign a line in Telnyx Setup so replies stop living on fallback routing.'}
                 </span>
               </div>
               <div className="key-value-card client-record-overview-card">
@@ -641,67 +634,6 @@ export default async function ClientProfilePage({
 
         <aside className="client-record-sidebar">
           <section className="panel panel-stack">
-            <div className="metric-label">Launch readiness</div>
-            <h3 className="section-title">What still needs attention</h3>
-            <div className="record-subtitle">
-              CRM leaders like HubSpot and Attio keep setup gaps compact and scannable rather than burying them inside the edit
-              form.
-            </div>
-            <div className="readiness-pills">
-              {setupGaps.length > 0 ? (
-                setupGaps.map((gap) => (
-                  <span key={gap} className="readiness-pill is-warn">
-                    {gap}
-                  </span>
-                ))
-              ) : (
-                <span className="readiness-pill is-ready">Routing, contact, website, and email are in place</span>
-              )}
-            </div>
-          </section>
-
-          <section className="panel panel-stack">
-            <div className="metric-label">Recent signals</div>
-            <div className="workspace-list">
-              <div className="workspace-list-item">
-                <div className="workspace-list-header">
-                  <strong>Messaging status</strong>
-                  <span className={`status-dot ${smsHealthy ? 'ok' : activeSenderNumber ? 'warn' : 'error'}`} />
-                </div>
-                <span className="tiny-muted">
-                  Sender {activeSenderNumber || 'missing'} • Last inbound {formatCompactDateTime(latestInboundMessage?.createdAt)} •
-                  Last outbound {formatCompactDateTime(latestOutboundMessage?.createdAt)}
-                </span>
-              </div>
-              <div className="workspace-list-item">
-                <div className="workspace-list-header">
-                  <strong>Workflow status</strong>
-                  <span className={`status-dot ${workflowHealthy ? 'ok' : 'warn'}`} />
-                </div>
-                <span className="tiny-muted">
-                  {latestWorkflowRun
-                    ? `${latestWorkflowRun.workflowType} • ${latestWorkflowRun.status} • ${formatCompactDateTime(latestWorkflowRun.updatedAt)}`
-                    : 'No workflow activity logged yet.'}
-                </span>
-              </div>
-              <div className="workspace-list-item">
-                <div className="workspace-list-header">
-                  <strong>Intake provenance</strong>
-                  <span className="metric-label">{importedSourceLabel || 'Manual or unknown'}</span>
-                </div>
-                <span className="tiny-muted">
-                  {latestSignupEvent
-                    ? `Signup received ${formatCompactDateTime(latestSignupEvent.createdAt)}`
-                    : 'No signup event recorded yet.'}
-                  {importedContactName ? ` • Contact ${importedContactName}` : ''}
-                  {importedNotificationEmail ? ` • ${importedNotificationEmail}` : ''}
-                  {latestOnboardingEvent ? ` • Onboarding ${formatCompactDateTime(latestOnboardingEvent.createdAt)}` : ''}
-                </span>
-              </div>
-            </div>
-          </section>
-
-          <section className="panel panel-stack">
             <div className="metric-label">Snapshot</div>
             <div className="client-record-sidebar-grid">
               <div className="client-record-sidebar-item">
@@ -713,12 +645,24 @@ export default async function ClientProfilePage({
                 <strong>{primaryRoutingNumber ? 'Dedicated' : activeSenderNumber ? 'Shared fallback' : 'Missing'}</strong>
               </div>
               <div className="client-record-sidebar-item">
+                <span className="key-value-label">Messaging status</span>
+                <strong>{smsHealthy ? 'Routed' : activeSenderNumber ? 'Fallback only' : 'Missing sender'}</strong>
+              </div>
+              <div className="client-record-sidebar-item">
                 <span className="key-value-label">Inbound lines</span>
                 <strong>{allInboundNumbers(company).length || 0}</strong>
               </div>
               <div className="client-record-sidebar-item">
                 <span className="key-value-label">Revenue context</span>
                 <strong>{formatUsd(company.retainerCents)}</strong>
+              </div>
+              <div className="client-record-sidebar-item">
+                <span className="key-value-label">Last workflow</span>
+                <strong>{latestWorkflowRun ? latestWorkflowRun.workflowType : 'None yet'}</strong>
+              </div>
+              <div className="client-record-sidebar-item">
+                <span className="key-value-label">Intake source</span>
+                <strong>{importedSourceLabel || 'Manual or unknown'}</strong>
               </div>
             </div>
           </section>
