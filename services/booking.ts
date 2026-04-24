@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 import { sendBookingNotification } from '@/lib/notifications';
 import { sendSms } from '@/lib/telnyx';
-import { activateWorkflowRun, completeWorkflowRuns } from '@/lib/workflows';
+import { activateWorkflowRun, completeWorkflowRuns, touchWorkflowActivity } from '@/lib/workflows';
 
 type CreateAppointmentInput = {
   companyId: string;
@@ -13,6 +13,7 @@ type CreateAppointmentInput = {
 
 type BookingStatus = 'created' | 'existing';
 type ConfirmationStatus = 'sent' | 'failed' | 'skipped';
+type BookingRequestStatus = 'sent' | 'failed' | 'skipped';
 
 type CreateAppointmentResult = {
   appointment: Appointment;
@@ -23,8 +24,24 @@ type CreateAppointmentResult = {
   confirmationMessageId: string | null;
 };
 
+type RequestBookingDetailsInput = {
+  companyId: string;
+  contactId: string;
+  inboundText?: string | null;
+};
+
+type RequestBookingDetailsResult = {
+  status: BookingRequestStatus;
+  detail: string;
+  messageId: string | null;
+};
+
 function defaultAppointmentStartTime() {
   return new Date(Date.now() + 24 * 60 * 60 * 1000);
+}
+
+function bookingDetailsRequestText(companyName: string) {
+  return `Thanks for reaching back out to ${companyName}. What day and time works best for your appointment? Reply with something like "Tuesday at 2pm" and we will confirm it.`;
 }
 
 export function resolveAppointmentStartTime(startTime?: Date) {
@@ -39,6 +56,214 @@ export function resolveAppointmentStartTime(startTime?: Date) {
   }
 
   return appointmentTime;
+}
+
+export async function requestBookingDetailsFlow({
+  companyId,
+  contactId,
+  inboundText
+}: RequestBookingDetailsInput): Promise<RequestBookingDetailsResult> {
+  const company = await db.company.findUniqueOrThrow({
+    where: { id: companyId },
+    select: {
+      id: true,
+      name: true,
+      telnyxInboundNumber: true,
+      telnyxInboundNumbers: {
+        select: { number: true }
+      }
+    }
+  });
+  const contact = await db.contact.findFirst({
+    where: {
+      id: contactId,
+      companyId
+    }
+  });
+
+  if (!contact) {
+    throw new Error('contact_not_found_for_company');
+  }
+
+  const conversation = await db.conversation.findUniqueOrThrow({
+    where: { companyId_contactId: { companyId, contactId } }
+  });
+
+  const existingAppointment = await db.appointment.findFirst({
+    where: {
+      companyId,
+      contactId,
+      status: {
+        in: [AppointmentStatus.BOOKED, AppointmentStatus.CONFIRMED, AppointmentStatus.RESCHEDULED]
+      },
+      startTime: {
+        gte: new Date()
+      }
+    },
+    orderBy: { startTime: 'asc' }
+  });
+
+  if (existingAppointment) {
+    await db.eventLog.create({
+      data: {
+        companyId,
+        eventType: 'booking_details_request_skipped',
+        payload: {
+          contactId,
+          conversationId: conversation.id,
+          reason: 'appointment_already_exists',
+          appointmentId: existingAppointment.id,
+          inboundText: inboundText || null
+        }
+      }
+    });
+
+    await activateWorkflowRun({
+      companyId,
+      contactId,
+      conversationId: conversation.id,
+      workflowType: WorkflowType.BOOKING,
+      reason: 'appointment_already_exists'
+    });
+
+    return {
+      status: 'skipped',
+      detail: 'appointment_already_exists',
+      messageId: null
+    };
+  }
+
+  const recentPrompt = await db.message.findFirst({
+    where: {
+      companyId,
+      conversationId: conversation.id,
+      direction: MessageDirection.OUTBOUND,
+      content: {
+        contains: 'Reply with something like "Tuesday at 2pm"'
+      },
+      createdAt: {
+        gte: new Date(Date.now() - 15 * 60 * 1000)
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  if (recentPrompt) {
+    await db.eventLog.create({
+      data: {
+        companyId,
+        eventType: 'booking_details_request_skipped',
+        payload: {
+          contactId,
+          conversationId: conversation.id,
+          reason: 'recent_prompt_already_sent',
+          recentPromptMessageId: recentPrompt.id,
+          inboundText: inboundText || null
+        }
+      }
+    });
+
+    await activateWorkflowRun({
+      companyId,
+      contactId,
+      conversationId: conversation.id,
+      workflowType: WorkflowType.BOOKING,
+      reason: 'booking_details_already_requested'
+    });
+
+    return {
+      status: 'skipped',
+      detail: 'recent_prompt_already_sent',
+      messageId: recentPrompt.externalId || recentPrompt.id
+    };
+  }
+
+  const text = bookingDetailsRequestText(company.name);
+  const fromNumber = companyPrimaryInboundNumber(company);
+
+  try {
+    const telnyxResult = await sendSms(contact.phone, text, fromNumber);
+    const externalId = telnyxResult?.data?.id || null;
+    const message = await db.message.create({
+      data: {
+        companyId,
+        conversationId: conversation.id,
+        direction: MessageDirection.OUTBOUND,
+        content: text,
+        externalId
+      }
+    });
+
+    await db.eventLog.create({
+      data: {
+        companyId,
+        eventType: 'booking_details_requested',
+        payload: {
+          contactId,
+          conversationId: conversation.id,
+          inboundText: inboundText || null,
+          messageId: message.id,
+          from: fromNumber,
+          to: contact.phone
+        }
+      }
+    });
+
+    await activateWorkflowRun({
+      companyId,
+      contactId,
+      conversationId: conversation.id,
+      workflowType: WorkflowType.BOOKING,
+      reason: 'booking_details_requested'
+    });
+    await completeWorkflowRuns({
+      companyId,
+      contactId,
+      workflowTypes: [WorkflowType.NEW_LEAD_FOLLOW_UP],
+      reason: 'booking_details_requested'
+    });
+    await touchWorkflowActivity({
+      companyId,
+      contactId,
+      direction: 'outbound',
+      when: message.createdAt
+    });
+
+    return {
+      status: 'sent',
+      detail: 'booking_details_requested',
+      messageId: externalId
+    };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'booking_details_request_failed';
+
+    await db.eventLog.create({
+      data: {
+        companyId,
+        eventType: 'booking_details_request_failed',
+        payload: {
+          contactId,
+          conversationId: conversation.id,
+          inboundText: inboundText || null,
+          detail
+        }
+      }
+    });
+
+    await activateWorkflowRun({
+      companyId,
+      contactId,
+      conversationId: conversation.id,
+      workflowType: WorkflowType.BOOKING,
+      reason: 'booking_details_request_failed'
+    });
+
+    return {
+      status: 'failed',
+      detail,
+      messageId: null
+    };
+  }
 }
 
 export async function createAppointmentFlow({ companyId, contactId, startTime }: CreateAppointmentInput): Promise<CreateAppointmentResult> {

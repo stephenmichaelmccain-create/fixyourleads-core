@@ -9,6 +9,7 @@
 - Tighten diagnostics around queues, events, and client health only where they speed up debugging.
 - Improve conversation workflows further with even fewer clicks and better thread-level operator controls.
 - Make multi-number client routing fully explicit per conversation/message, not just per client.
+- Finish the client-1 launch checklist in `docs/CLIENT_1_LAUNCH_CHECKLIST.md`, especially SMTP setup and one real end-to-end smoke test.
 
 ## Blocked
 - None yet.

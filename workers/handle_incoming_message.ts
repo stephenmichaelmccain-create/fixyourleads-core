@@ -95,7 +95,7 @@ new Worker('message_queue', async (job) => {
       reason: 'booking_intent_detected',
       lastInboundAt: new Date()
     });
-    await getBookingQueue().add('booking_worker', { companyId, contactId });
+    await getBookingQueue().add('booking_worker', { companyId, contactId, text });
     await db.eventLog.create({ data: { companyId, eventType: 'booking_intent_detected', payload: { contactId, text } } });
   }
 }, { connection: getRedis() });
