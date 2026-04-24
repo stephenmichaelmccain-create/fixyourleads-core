@@ -129,6 +129,24 @@ function setupGapsForCompany(company: {
   return gaps;
 }
 
+type CompanySetupSnapshot = {
+  website: string | null;
+  primaryContactName: string | null;
+  primaryContactEmail: string | null;
+  primaryContactPhone: string | null;
+  retainerCents: number | null;
+  downPaymentCents: number | null;
+};
+
+const emptyCompanySetup: CompanySetupSnapshot = {
+  website: null,
+  primaryContactName: null,
+  primaryContactEmail: null,
+  primaryContactPhone: null,
+  retainerCents: null,
+  downPaymentCents: null
+};
+
 export default async function ClientSetupPage({
   params,
   searchParams
@@ -145,73 +163,50 @@ export default async function ClientSetupPage({
 
   const notice = query.notice || '';
 
-  let companyLoadError: unknown = null;
-  let company =
-    (await (async () => {
-      try {
-        return await db.company.findUnique({
+  const companyBase = await safeLoad(
+    () =>
+      db.company.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          notificationEmail: true,
+          telnyxInboundNumber: true,
+          createdAt: true,
+          telnyxInboundNumbers: {
+            select: { number: true },
+            orderBy: { createdAt: 'asc' }
+          }
+        }
+      }),
+    null
+  );
+
+  if (!companyBase) {
+    notFound();
+  }
+
+  const companySetup =
+    (await safeLoad<CompanySetupSnapshot | null>(
+      () =>
+        db.company.findUnique({
           where: { id },
           select: {
-            id: true,
-            name: true,
-            notificationEmail: true,
             website: true,
             primaryContactName: true,
             primaryContactEmail: true,
             primaryContactPhone: true,
             retainerCents: true,
-            downPaymentCents: true,
-            telnyxInboundNumber: true,
-            createdAt: true,
-            telnyxInboundNumbers: {
-              select: { number: true },
-              orderBy: { createdAt: 'asc' }
-            }
+            downPaymentCents: true
           }
-        });
-      } catch (error) {
-        console.error('Failed to load company workspace:', error);
-        companyLoadError = error;
-        return null;
-      }
-    })()) ?? null;
+        }),
+      null
+    )) ?? emptyCompanySetup;
 
-  if (!company) {
-    if (companyLoadError) {
-      const errorText = String(companyLoadError);
-      const looksLikeMissingMigration =
-        /column/i.test(errorText) &&
-        /Company/i.test(errorText) &&
-        /(primaryContact|retainerCents|downPaymentCents|website)/i.test(errorText);
-
-      return (
-        <LayoutShell title="Client" section="clients">
-          <section className="panel panel-stack">
-            <div className="panel-stack">
-              <strong>Could not load this client workspace.</strong>
-              <div className="tiny-muted">
-                {looksLikeMissingMigration
-                  ? 'This usually means the database migrations have not been applied in this environment.'
-                  : 'Check server logs for the underlying error.'}
-              </div>
-              {looksLikeMissingMigration && (
-                <div className="tiny-muted">
-                  Fix: run <code>npm run db:migrate</code> (or <code>./node_modules/.bin/prisma migrate deploy</code>) on
-                  the deployed service.
-                </div>
-              )}
-              <details>
-                <summary className="tiny-muted">Error details</summary>
-                <pre className="code-block pre-wrap">{errorText}</pre>
-              </details>
-            </div>
-          </section>
-        </LayoutShell>
-      );
-    }
-
-    notFound();
-  }
+  const company = {
+    ...companyBase,
+    ...companySetup
+  };
 
   const [intakeEvents, activeWorkflowRunCount, latestWorkflowRun, latestInboundMessage, latestOutboundMessage] =
     await Promise.all([

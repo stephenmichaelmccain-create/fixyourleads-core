@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "test": "vitest run",
-    "start": "next start -p ${PORT:-3000} -H 0.0.0.0",
+    "start": "prisma migrate deploy && next start -p ${PORT:-3000} -H 0.0.0.0",
     "check:health": "node -e \"fetch((process.env.APP_BASE_URL || 'http://localhost:3000') + '/api/health').then(async (response) => { console.log(await response.text()); process.exit(response.ok ? 0 : 1); }).catch((error) => { console.error(error); process.exit(1); });\"",
     "env:bootstrap": "node scripts/bootstrap-openclaw-env.mjs",
     "env:openclaw": "node scripts/bootstrap-openclaw-env.mjs",
