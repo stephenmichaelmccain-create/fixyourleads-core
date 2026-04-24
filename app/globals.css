@@ -2056,6 +2056,37 @@ select {
   background: rgba(250, 244, 255, 0.72);
 }
 
+.client-status-page {
+  gap: 18px;
+}
+
+.client-status-hero {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(176, 137, 244, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 241, 255, 0.96));
+}
+
+.client-status-hero.is-ready {
+  border-color: rgba(42, 151, 88, 0.26);
+  background: linear-gradient(180deg, rgba(246, 255, 249, 0.98), rgba(236, 250, 242, 0.96));
+}
+
+.client-status-hero.is-warn {
+  border-color: rgba(218, 137, 26, 0.24);
+  background: linear-gradient(180deg, rgba(255, 251, 244, 0.98), rgba(254, 242, 222, 0.96));
+}
+
+.client-status-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.8fr);
+  align-items: start;
+}
+
 .telnyx-checklist-grid {
   display: grid;
   gap: 10px;
@@ -2394,7 +2425,8 @@ select {
   }
 
   .client-record-layout,
-  .comms-lab-grid {
+  .comms-lab-grid,
+  .client-status-grid {
     grid-template-columns: 1fr;
   }
 
