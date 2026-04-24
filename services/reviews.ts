@@ -279,6 +279,24 @@ export async function enqueueReviewRequestFromCompletion(input: {
   };
 }
 
+export async function enqueueReviewRequestTest(input: {
+  companyId: string;
+  contactName?: string | null;
+  contactPhone: string;
+}) {
+  const settings = await getReviewAutomationSettings(input.companyId);
+  const completedAt = new Date(Date.now() - settings.delayHours * 60 * 60 * 1000 - 60 * 1000);
+
+  return enqueueReviewRequestFromCompletion({
+    companyId: input.companyId,
+    contactName: input.contactName,
+    contactPhone: input.contactPhone,
+    completedAt,
+    appointmentId: `review-test-${Date.now()}`,
+    optInSource: 'operator_review_test'
+  });
+}
+
 export async function executeReviewRequestWorkflow(workflowRunId: string) {
   const workflowRun = await db.workflowRun.findUnique({
     where: { id: workflowRunId },

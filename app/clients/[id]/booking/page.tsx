@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
 import { LayoutShell } from '@/app/components/LayoutShell';
+import { sendReviewAutomationTestAction } from '@/app/clients/[id]/booking/actions';
 import { saveClientCalendarSetupAction } from '@/app/clients/[id]/calendar/actions';
 import { db } from '@/lib/db';
 import {
@@ -16,6 +17,7 @@ export const dynamic = 'force-dynamic';
 
 type SearchParamShape = Promise<{
   notice?: string;
+  detail?: string;
 }>;
 
 function formatCompactDateTime(value: Date | string | null | undefined) {
@@ -293,6 +295,26 @@ export default async function ClientBookingPage({
             <strong>Booking setup saved.</strong>
           </div>
           <div className="text-muted">The booking sync plan, connection mode, and rollout notes are now stored on this client.</div>
+        </section>
+      )}
+
+      {query.notice === 'review-test-queued' && (
+        <section className="panel panel-stack">
+          <div className="inline-row">
+            <span className="status-dot ok" />
+            <strong>Review automation test queued.</strong>
+          </div>
+          <div className="text-muted">The test request is scheduled and should show up in recent review activity as soon as the queue runs it.</div>
+        </section>
+      )}
+
+      {query.notice === 'review-test-failed' && (
+        <section className="panel panel-stack">
+          <div className="inline-row">
+            <span className="status-dot warn" />
+            <strong>Review automation test failed.</strong>
+          </div>
+          <div className="text-muted">{query.detail || 'Check the review settings and try again.'}</div>
         </section>
       )}
 
@@ -620,6 +642,45 @@ export default async function ClientBookingPage({
                 </button>
               </div>
             </form>
+
+            <div className="client-profile-section">
+              <div className="metric-label">Run a test now</div>
+              <div className="record-subtitle">
+                Queue a sample completed appointment so you can prove the review request flow without waiting on a live booking integration.
+              </div>
+              <form action={sendReviewAutomationTestAction} className="panel-stack">
+                <input type="hidden" name="companyId" value={company.id} />
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="booking-review-test-name">
+                      Customer name
+                    </label>
+                    <input
+                      id="booking-review-test-name"
+                      className="text-input"
+                      name="contactName"
+                      placeholder="Test Customer"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="booking-review-test-phone">
+                      Destination phone
+                    </label>
+                    <input
+                      id="booking-review-test-phone"
+                      className="text-input"
+                      name="contactPhone"
+                      placeholder="+13035551234"
+                    />
+                  </div>
+                </div>
+                <div className="inline-actions">
+                  <button type="submit" className="button-secondary">
+                    Send test review request
+                  </button>
+                </div>
+              </form>
+            </div>
           </section>
 
           <section className="panel panel-stack">
