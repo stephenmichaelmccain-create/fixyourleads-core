@@ -79,7 +79,7 @@ export async function ClientWorkspaceTabs({ companyId, active }: ClientWorkspace
           </a>
           <a
             className={`workspace-tab-link ${active === 'comms' ? 'is-active' : ''}`}
-            href={`/clients/${companyId}/operator?lab=sms#comms-lab`}
+            href={`/clients/${companyId}/operator?lab=sms`}
           >
             Comms Lab
           </a>

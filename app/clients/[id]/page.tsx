@@ -378,7 +378,7 @@ export default async function ClientProfilePage({
             </div>
           </div>
           <div className="workspace-action-rail">
-            <a className="button" href={`/clients/${company.id}/operator?lab=sms#comms-lab`}>
+            <a className="button" href={`/clients/${company.id}/operator?lab=sms`}>
               Open Comms Lab
             </a>
             <a className="button-secondary" href={`/events?companyId=${encodeURIComponent(company.id)}`}>
@@ -465,7 +465,7 @@ export default async function ClientProfilePage({
             </div>
 
             <div className="surface-link-grid">
-              <a className="surface-link-card" href={`/clients/${company.id}/operator?lab=sms#comms-lab`}>
+              <a className="surface-link-card" href={`/clients/${company.id}/operator?lab=sms`}>
                 <span className="metric-label">Comms Lab</span>
                 <strong>Test SMS routing and review message activity</strong>
                 <span className="tiny-muted">Use the live terminal without leaving the client record.</span>

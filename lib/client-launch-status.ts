@@ -108,7 +108,7 @@ export function buildLaunchStatusItems(input: {
         : smsTone === 'warn'
           ? 'Recent send or delivery activity still needs operator attention.'
           : 'Use Comms Lab to send a live test and confirm the reply path.',
-    href: `/clients/${companyId}/operator?lab=sms#comms-lab`
+    href: `/clients/${companyId}/operator?lab=sms`
   };
 
   const bookingReady =

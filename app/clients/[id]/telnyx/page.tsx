@@ -134,7 +134,7 @@ export default async function ClientTelnyxSetupPage({
             </div>
           </div>
           <div className="workspace-action-rail">
-            <a className="button" href={`/clients/${company.id}/operator?lab=sms#comms-lab`}>
+            <a className="button" href={`/clients/${company.id}/operator?lab=sms`}>
               Run Comms Lab test
             </a>
             <a className="button-secondary" href={`/events?companyId=${encodeURIComponent(company.id)}`}>

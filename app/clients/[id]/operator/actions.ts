@@ -65,7 +65,7 @@ export async function sendClientMessagingTestAction(formData: FormData) {
         lab: 'sms',
         test: 'error',
         testDetail: 'companyId_targetPhone_text_required'
-      })}#comms-lab`
+      })}`
     );
   }
 
@@ -80,7 +80,7 @@ export async function sendClientMessagingTestAction(formData: FormData) {
         lab: 'sms',
         test: 'error',
         testDetail: 'company_not_found'
-      })}#comms-lab`
+      })}`
     );
   }
 
@@ -97,7 +97,7 @@ export async function sendClientMessagingTestAction(formData: FormData) {
         test: 'sent',
         testDetail: result.telnyxResult?.data?.id ? 'accepted_by_telnyx' : 'logged_without_external_id',
         testTarget: targetPhone
-      })}#comms-lab`
+      })}`
     );
   } catch (error) {
     if (isRedirectError(error)) {
@@ -127,7 +127,7 @@ export async function sendClientMessagingTestAction(formData: FormData) {
         test: 'error',
         testDetail: classifyMessagingTestError(error),
         testTarget: targetPhone
-      })}#comms-lab`
+      })}`
     );
   }
 }
