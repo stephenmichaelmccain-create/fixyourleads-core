@@ -23,10 +23,10 @@ export function ClientViewLinkActions({ clientViewPath, appBaseUrl }: ClientView
 
   return (
     <div className="client-view-actions">
-      <a className="button-secondary" href={clientViewPath} target="_blank" rel="noreferrer">
-        Open client view
+      <a className="button-secondary button-secondary-compact" href={clientViewPath} target="_blank" rel="noreferrer">
+        Client view
       </a>
-      <button type="button" className="button-secondary" onClick={copyLink}>
+      <button type="button" className="button-secondary button-secondary-compact" onClick={copyLink}>
         {copied ? 'Copied link' : 'Copy client view link'}
       </button>
     </div>

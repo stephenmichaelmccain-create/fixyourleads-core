@@ -96,6 +96,7 @@ export default async function ClientStatusPage({
 }) {
   const { id } = await params;
   const sevenDaysAgo = startOfDaysAgo(6);
+  const thirtyDaysAgo = startOfDaysAgo(29);
 
   const company = await safeLoad(
     () =>
@@ -115,13 +116,24 @@ export default async function ClientStatusPage({
     notFound();
   }
 
-  const [leadsThisWeek, bookingsThisWeek, lastInbound, lastOutbound, lastBooking, recentFailure, recentEvents] = await Promise.all([
+  const [leadsThisWeek, repliesThisMonth, bookingsThisWeek, lastInbound, lastOutbound, lastBooking, recentFailure, recentEvents, recentConversations, sourceBreakdown] = await Promise.all([
     safeLoad(
       () =>
         db.lead.count({
           where: {
             companyId: id,
             createdAt: { gte: sevenDaysAgo }
+          }
+        }),
+      0
+    ),
+    safeLoad(
+      () =>
+        db.message.count({
+          where: {
+            companyId: id,
+            direction: 'INBOUND',
+            createdAt: { gte: thirtyDaysAgo }
           }
         }),
       0
@@ -209,6 +221,53 @@ export default async function ClientStatusPage({
           }
         }),
       []
+    ),
+    safeLoad(
+      () =>
+        db.conversation.findMany({
+          where: { companyId: id },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          select: {
+            id: true,
+            createdAt: true,
+            contact: {
+              select: {
+                name: true,
+                phone: true
+              }
+            },
+            messages: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                content: true,
+                direction: true,
+                createdAt: true
+              }
+            }
+          }
+        }),
+      []
+    ),
+    safeLoad(
+      () =>
+        db.lead.groupBy({
+          by: ['source'],
+          where: {
+            companyId: id,
+            createdAt: { gte: thirtyDaysAgo }
+          },
+          _count: {
+            source: true
+          },
+          orderBy: {
+            _count: {
+              source: 'desc'
+            }
+          }
+        }),
+      []
     )
   ]);
 
@@ -245,14 +304,14 @@ export default async function ClientStatusPage({
               <span className="tiny-muted">New lead records created in the last 7 days.</span>
             </div>
             <div className="client-record-stat">
+              <span className="metric-label">Replies this month</span>
+              <strong className="workspace-stats-value">{repliesThisMonth}</strong>
+              <span className="tiny-muted">Inbound responses captured in the last 30 days.</span>
+            </div>
+            <div className="client-record-stat">
               <span className="metric-label">Bookings this week</span>
               <strong className="workspace-stats-value">{bookingsThisWeek}</strong>
               <span className="tiny-muted">Appointments created in the last 7 days.</span>
-            </div>
-            <div className="client-record-stat">
-              <span className="metric-label">Last SMS sent</span>
-              <strong className="workspace-stats-value">{formatCompactDateTime(lastOutbound?.createdAt)}</strong>
-              <span className="tiny-muted">Most recent outbound message logged.</span>
             </div>
             <div className="client-record-stat">
               <span className="metric-label">Last reply received</span>
@@ -262,6 +321,28 @@ export default async function ClientStatusPage({
           </div>
 
           <div className="client-status-grid">
+            <section className="panel panel-stack">
+              <div className="metric-label">Lead flow</div>
+              <h2 className="section-title">How leads are showing up</h2>
+              <div className="workspace-list">
+                {sourceBreakdown.length === 0 ? (
+                  <div className="workspace-list-item">
+                    <span className="tiny-muted">No tracked lead sources yet in the last 30 days.</span>
+                  </div>
+                ) : (
+                  sourceBreakdown.map((sourceRow, index) => (
+                    <div key={`${sourceRow.source || 'unknown'}-${index}`} className="workspace-list-item">
+                      <div className="workspace-list-header">
+                        <strong>{sourceRow.source || 'Unknown source'}</strong>
+                        <span className="tiny-muted">{sourceRow._count.source} leads</span>
+                      </div>
+                      <span className="tiny-muted">Tracked inside Fix Your Leads from this source in the last 30 days.</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
             <section className="panel panel-stack">
               <div className="metric-label">Recent activity</div>
               <h2 className="section-title">What happened lately</h2>
@@ -278,6 +359,32 @@ export default async function ClientStatusPage({
                         <span className="tiny-muted">{formatCompactDateTime(event.createdAt)}</span>
                       </div>
                       <span className="tiny-muted">{activityDetail(event.payload)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="panel panel-stack">
+              <div className="metric-label">Recent conversations</div>
+              <h2 className="section-title">Latest threads</h2>
+              <div className="workspace-list">
+                {recentConversations.length === 0 ? (
+                  <div className="workspace-list-item">
+                    <span className="tiny-muted">No conversation threads have been recorded yet.</span>
+                  </div>
+                ) : (
+                  recentConversations.map((conversation) => (
+                    <div key={conversation.id} className="workspace-list-item">
+                      <div className="workspace-list-header">
+                        <strong>{conversation.contact.name || conversation.contact.phone || 'Unnamed contact'}</strong>
+                        <span className="tiny-muted">{formatCompactDateTime(conversation.messages[0]?.createdAt || conversation.createdAt)}</span>
+                      </div>
+                      <span className="tiny-muted">
+                        {conversation.messages[0]
+                          ? `${conversation.messages[0].direction === 'INBOUND' ? 'Reply' : 'Outbound'}: ${conversation.messages[0].content}`
+                          : 'Conversation created with no messages yet.'}
+                      </span>
                     </div>
                   ))
                 )}

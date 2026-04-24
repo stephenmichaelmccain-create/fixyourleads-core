@@ -212,14 +212,9 @@ export default async function ClientProfilePage({
 
   const [
     intakeEvents,
-    activeWorkflowRunCount,
     latestWorkflowRun,
-    latestInboundMessage,
-    latestOutboundMessage,
     leadCount,
-    activeLeadCount,
     conversationCount,
-    messageCount,
     upcomingAppointmentCount
   ] = await Promise.all([
     safeLoad(
@@ -243,13 +238,6 @@ export default async function ClientProfilePage({
     ),
     safeLoad(
       () =>
-        db.workflowRun.count({
-          where: { companyId: id, status: 'ACTIVE' }
-        }),
-      0
-    ),
-    safeLoad(
-      () =>
         db.workflowRun.findFirst({
           where: { companyId: id },
           orderBy: { updatedAt: 'desc' },
@@ -257,39 +245,8 @@ export default async function ClientProfilePage({
         }),
       null
     ),
-    safeLoad(
-      () =>
-        db.message.findFirst({
-          where: { companyId: id, direction: 'INBOUND' },
-          orderBy: { createdAt: 'desc' },
-          select: { createdAt: true }
-        }),
-      null
-    ),
-    safeLoad(
-      () =>
-        db.message.findFirst({
-          where: { companyId: id, direction: 'OUTBOUND' },
-          orderBy: { createdAt: 'desc' },
-          select: { createdAt: true }
-        }),
-      null
-    ),
     safeLoad(() => db.lead.count({ where: { companyId: id } }), 0),
-    safeLoad(
-      () =>
-        db.lead.count({
-          where: {
-            companyId: id,
-            status: {
-              in: ['NEW', 'CONTACTED', 'REPLIED']
-            }
-          }
-        }),
-      0
-    ),
     safeLoad(() => db.conversation.count({ where: { companyId: id } }), 0),
-    safeLoad(() => db.message.count({ where: { companyId: id } }), 0),
     safeLoad(
       () =>
         db.appointment.count({
@@ -321,8 +278,6 @@ export default async function ClientProfilePage({
   const appBaseUrl = process.env.APP_BASE_URL?.trim() || null;
   const clientViewPath = `/c/${company.id}`;
 
-  const workflowAgeMs = latestWorkflowRun ? Date.now() - latestWorkflowRun.updatedAt.getTime() : Number.POSITIVE_INFINITY;
-  const workflowHealthy = Number.isFinite(workflowAgeMs) && workflowAgeMs <= 24 * 60 * 60 * 1000;
   const smsHealthy = Boolean(activeSenderNumber) && hasInboundRouting(company);
 
   const profileFields = [
@@ -335,8 +290,6 @@ export default async function ClientProfilePage({
   ];
   const profileFilled = profileFields.filter((value) => String(value || '').trim()).length;
   const profileTotal = profileFields.length;
-  const paymentsFilled = [company.retainerCents, company.downPaymentCents].filter((value) => typeof value === 'number')
-    .length;
 
   return (
     <LayoutShell
@@ -368,55 +321,34 @@ export default async function ClientProfilePage({
               Keep the core client record accurate here. The other tabs can then focus on testing, carrier setup, booking,
               and monitoring without duplicating these fields.
             </div>
-            <div className="inline-row client-record-chip-row">
-              <span className="status-chip status-chip-muted">
-                <strong>Profile</strong> {profileFilled}/{profileTotal}
-              </span>
-              <span className="status-chip status-chip-muted">
-                <strong>Payments</strong> {paymentsFilled}/2
-              </span>
-              <span className={`status-chip ${hasInboundRouting(company) ? '' : 'status-chip-attention'}`}>
-                <strong>Routing</strong> {hasInboundRouting(company) ? 'Assigned' : 'Needs line'}
-              </span>
-            </div>
           </div>
           <div className="workspace-action-rail">
             <ClientViewLinkActions clientViewPath={clientViewPath} appBaseUrl={appBaseUrl} />
             <a className="button" href={`/clients/${company.id}/operator?lab=sms`}>
-              Open Comms Lab
+              Comms Lab
             </a>
             <a className="button-secondary" href={`/events?companyId=${encodeURIComponent(company.id)}`}>
-              View activity
+              Activity
             </a>
             <a className="button-secondary" href="#setup">
-              Edit profile
+              Edit
             </a>
           </div>
         </div>
 
-        <div className="client-record-stats">
-          <div className="client-record-stat">
-            <span className="metric-label">Leads</span>
-            <strong className="workspace-stats-value">{leadCount}</strong>
-            <span className="tiny-muted">{activeLeadCount} active in the pipeline</span>
-          </div>
-          <div className="client-record-stat">
-            <span className="metric-label">Conversations</span>
-            <strong className="workspace-stats-value">{conversationCount}</strong>
-            <span className="tiny-muted">{messageCount} total messages on record</span>
-          </div>
-          <div className="client-record-stat">
-            <span className="metric-label">Upcoming appointments</span>
-            <strong className="workspace-stats-value">{upcomingAppointmentCount}</strong>
-            <span className="tiny-muted">Booked, confirmed, or rescheduled</span>
-          </div>
-          <div className="client-record-stat">
-            <span className="metric-label">Workflows</span>
-            <strong className="workspace-stats-value">{activeWorkflowRunCount}</strong>
-            <span className="tiny-muted">
-              {latestWorkflowRun ? `${latestWorkflowRun.workflowType} touched ${formatCompactDateTime(latestWorkflowRun.updatedAt)}` : 'No runs yet'}
-            </span>
-          </div>
+        <div className="client-record-inline-stats">
+          <span className="status-chip status-chip-muted">
+            <strong>Leads</strong> {leadCount}
+          </span>
+          <span className="status-chip status-chip-muted">
+            <strong>Conversations</strong> {conversationCount}
+          </span>
+          <span className="status-chip status-chip-muted">
+            <strong>Bookings</strong> {upcomingAppointmentCount}
+          </span>
+          <span className={`status-chip ${hasInboundRouting(company) ? '' : 'status-chip-attention'}`}>
+            <strong>Routing</strong> {hasInboundRouting(company) ? 'Assigned' : 'Needs line'}
+          </span>
         </div>
       </section>
 
