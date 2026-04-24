@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
 import { normalizePhone } from '@/lib/phone';
-import { normalizeClinicKey, normalizeWebsiteKey } from '@/lib/client-intake';
+import { normalizeWebsiteKey } from '@/lib/client-intake';
+import { findMatchingCompany } from '@/lib/intake-matching';
 import {
   readWebsitePayload,
   websiteOnboardingSchema,
@@ -90,29 +91,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_payload' }, { status: 400, headers: corsHeaders(request) });
   }
 
-  const clinicKey = normalizeClinicKey(parsed.data.clinicName);
-  const websiteKey = normalizeWebsiteKey(parsed.data.website);
   const normalizedPhone = normalizePhone(parsed.data.phone || '');
-
-  const companies = await db.company.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 500,
-    select: {
-      id: true,
-      name: true,
-      notificationEmail: true
-    }
+  const websiteKey = normalizeWebsiteKey(parsed.data.website);
+  const matchedCompany = await findMatchingCompany({
+    clinicName: parsed.data.clinicName,
+    notificationEmail: parsed.data.notificationEmail,
+    website: parsed.data.website
   });
-  type MatchedCompany = (typeof companies)[number];
-
-  const matchedCompany =
-    companies.find((company: MatchedCompany) => normalizeClinicKey(company.name) === clinicKey) ||
-    companies.find(
-      (company: MatchedCompany) =>
-        parsed.data.notificationEmail &&
-        String(company.notificationEmail || '').toLowerCase() === parsed.data.notificationEmail.toLowerCase()
-    ) ||
-    null;
 
   const company =
     matchedCompany ||

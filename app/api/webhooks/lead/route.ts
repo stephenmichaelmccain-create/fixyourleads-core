@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { leadWebhookSchema } from '@/lib/security';
 import { getLeadQueue } from '@/lib/queue';
+import { requireApiKey } from '@/lib/api-auth';
 import { createLeadFlow } from '@/services/leads';
 
 export async function POST(request: NextRequest) {
+  if (!requireApiKey(request)) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
   let body: unknown;
 
   try {

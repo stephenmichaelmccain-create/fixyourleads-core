@@ -2,11 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
 import { normalizePhone } from '@/lib/phone';
-import {
-  normalizeClinicKey,
-  normalizeWebsiteKey,
-  upsertProspectMetadata
-} from '@/lib/client-intake';
+import { upsertProspectMetadata } from '@/lib/client-intake';
+import { findMatchingClosedProspect, findMatchingCompany } from '@/lib/intake-matching';
 import {
   readWebsitePayload,
   websiteIntakeSchema,
@@ -40,30 +37,6 @@ function logWebsiteWebhook(
   }
 
   console.info(entry);
-}
-
-function matchProspectByPriority(
-  prospects: Array<{
-    id: string;
-    name: string;
-    phone: string | null;
-    website: string | null;
-    notes: string | null;
-  }>,
-  input: {
-    clinicKey: string;
-    phone: string;
-    websiteKey: string;
-  }
-) {
-  return (
-    prospects.find((prospect) => normalizeClinicKey(prospect.name) === input.clinicKey) ||
-    (input.phone ? prospects.find((prospect) => normalizePhone(prospect.phone || '') === input.phone) : null) ||
-    (input.websiteKey
-      ? prospects.find((prospect) => normalizeWebsiteKey(prospect.website || '') === input.websiteKey)
-      : null) ||
-    null
-  );
 }
 
 function corsHeaders(request: NextRequest) {
@@ -116,41 +89,18 @@ export async function POST(request: NextRequest) {
 
   const signupReceivedAt = new Date().toISOString();
   const normalizedPhone = normalizePhone(parsed.data.phone || '');
-  const clinicKey = normalizeClinicKey(parsed.data.clinicName);
-  const websiteKey = normalizeWebsiteKey(parsed.data.website);
-
-  const [soldProspects, companies] = await Promise.all([
-    db.prospect.findMany({
-      where: { status: 'CLOSED' },
-      orderBy: { updatedAt: 'desc' },
-      take: 500,
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        website: true,
-        notes: true
-      }
+  const [matchedProspect, matchedCompany] = await Promise.all([
+    findMatchingClosedProspect({
+      clinicName: parsed.data.clinicName,
+      phone: normalizedPhone,
+      website: parsed.data.website
     }),
-    db.company.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 500,
-      select: {
-        id: true,
-        name: true,
-        notificationEmail: true
-      }
+    findMatchingCompany({
+      clinicName: parsed.data.clinicName,
+      notificationEmail: parsed.data.notificationEmail,
+      website: parsed.data.website
     })
   ]);
-
-  const matchedProspect = matchProspectByPriority(soldProspects, {
-    clinicKey,
-    phone: normalizedPhone,
-    websiteKey
-  });
-
-  const matchedCompany =
-    companies.find((company) => normalizeClinicKey(company.name) === clinicKey) || null;
 
   const company =
     matchedCompany ||

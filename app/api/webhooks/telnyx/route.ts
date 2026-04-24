@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { normalizeTelnyxWebhook, verifyTelnyxWebhookSignature } from '@/lib/security';
 import { getMessageQueue } from '@/lib/queue';
 import { db } from '@/lib/db';
@@ -13,19 +14,22 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 async function isDuplicateTelnyxEvent(companyId: string, key: string) {
-  const existing = await db.idempotencyKey.findUnique({
-    where: { companyId_key: { companyId, key } }
-  });
+  try {
+    await db.idempotencyKey.create({
+      data: { companyId, key }
+    });
 
-  if (existing) {
-    return true;
+    return false;
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      return true;
+    }
+
+    throw error;
   }
-
-  await db.idempotencyKey.create({
-    data: { companyId, key }
-  });
-
-  return false;
 }
 
 function logTelnyxWebhook(level: 'info' | 'warn' | 'error', event: string, detail: Record<string, unknown>) {
