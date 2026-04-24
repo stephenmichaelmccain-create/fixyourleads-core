@@ -23,6 +23,8 @@ type SearchParamShape = Promise<{
   added?: string;
   bulkAdded?: string;
   bulkSkipped?: string;
+  bulkSkippedDuplicates?: string;
+  bulkSkippedInvalid?: string;
   bulkError?: string;
   updated?: string;
   error?: string;
@@ -350,7 +352,10 @@ export default async function OurLeadsPage({
   const selectedProspectId = String(params.prospectId || '').trim();
   const added = params.added === '1';
   const bulkAdded = Number.parseInt(String(params.bulkAdded || '0'), 10) || 0;
-  const bulkSkipped = Number.parseInt(String(params.bulkSkipped || '0'), 10) || 0;
+  const bulkSkippedLegacy = Number.parseInt(String(params.bulkSkipped || '0'), 10) || 0;
+  const bulkSkippedDuplicates = Number.parseInt(String(params.bulkSkippedDuplicates || '0'), 10) || bulkSkippedLegacy;
+  const bulkSkippedInvalid = Number.parseInt(String(params.bulkSkippedInvalid || '0'), 10) || 0;
+  const bulkSkipped = bulkSkippedDuplicates + bulkSkippedInvalid;
   const bulkError = String(params.bulkError || '').trim();
   const updated = String(params.updated || '').trim();
   const error = String(params.error || '').trim();
@@ -493,6 +498,8 @@ export default async function OurLeadsPage({
       ? 'Name is required to add a prospect.'
       : error === 'invalid_next_action'
         ? 'Next action must be a valid date and time.'
+      : error === 'invalid_phone'
+        ? 'Phone number must be valid (10–15 digits). Leave it blank if unknown.'
       : error === 'duplicate'
           ? duplicateReason === 'website'
             ? 'This clinic is already in the leads queue with the same website.'
@@ -544,7 +551,10 @@ export default async function OurLeadsPage({
             <span className="inline-row">
               <span className={`status-dot ${bulkAdded ? 'ok' : 'error'}`} />
               Imported {bulkAdded} lead{bulkAdded === 1 ? '' : 's'}
-              {bulkSkipped ? ` • skipped ${bulkSkipped} duplicate${bulkSkipped === 1 ? '' : 's'}` : ''}
+              {bulkSkippedDuplicates
+                ? ` • skipped ${bulkSkippedDuplicates} duplicate${bulkSkippedDuplicates === 1 ? '' : 's'}`
+                : ''}
+              {bulkSkippedInvalid ? ` • skipped ${bulkSkippedInvalid} invalid row${bulkSkippedInvalid === 1 ? '' : 's'}` : ''}
             </span>
           ) : null}
           {bulkError ? (

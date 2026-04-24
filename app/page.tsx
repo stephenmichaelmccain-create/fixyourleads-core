@@ -1,4 +1,4 @@
-import { ActivityPage, dynamic, type ActivitySearchParamShape } from './events/page';
+import { ActivityPage, dynamic, type ActivitySearchParamShape } from './events/ActivityPage';
 
 export { dynamic };
 
