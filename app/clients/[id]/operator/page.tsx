@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { LeadStatus } from '@prisma/client';
 import { LayoutShell } from '@/app/components/LayoutShell';
+import { sendClientMessagingTestAction } from '@/app/clients/[id]/operator/actions';
 import { updateCompanyAction } from '@/app/companies/actions';
 import { bookConversationAction, sendConversationMessageAction } from '@/app/conversations/[conversationId]/actions';
 import { LeadStatusButton } from '@/app/leads/LeadStatusButton';
@@ -356,6 +357,46 @@ function buildLeadStatusFlash(searchParams: { statusUpdated?: string }) {
   };
 }
 
+function buildCommsLabFlash(searchParams: {
+  test?: string;
+  testDetail?: string;
+  testTarget?: string;
+}) {
+  const test = searchParams.test;
+
+  if (!test) {
+    return null;
+  }
+
+  const targetLabel = searchParams.testTarget || 'the destination number';
+
+  if (test === 'error') {
+    return {
+      tone: 'error',
+      title: 'SMS terminal did not send',
+      body:
+        searchParams.testDetail === 'companyId_targetPhone_text_required'
+          ? 'Add a destination phone number and message before sending the test.'
+          : searchParams.testDetail === 'company_not_found'
+            ? 'This client workspace no longer exists, so the terminal cannot send.'
+            : searchParams.testDetail === 'sender_missing'
+              ? 'Add a dedicated or shared Telnyx sender before using the SMS terminal.'
+              : searchParams.testDetail === 'telnyx_send_failed'
+                ? `Telnyx rejected the SMS test to ${targetLabel}.`
+                : `The SMS terminal failed before the test could leave the app for ${targetLabel}.`
+    };
+  }
+
+  return {
+    tone: 'ok',
+    title: 'SMS terminal sent',
+    body:
+      searchParams.testDetail === 'accepted_by_telnyx'
+        ? `Telnyx accepted the test message to ${targetLabel}. Watch for the delivery event and reply path below.`
+        : `The test message for ${targetLabel} was logged successfully.`
+  };
+}
+
 function sequenceState(status: string) {
   if (status === 'NEW') {
     return 'Speed-to-Lead step 0 of 3';
@@ -383,6 +424,7 @@ function buildClientHref(
     sort?: string;
     dir?: string;
     page?: number;
+    lab?: string;
   },
   update: Record<string, string | number | undefined>
 ) {
@@ -397,7 +439,8 @@ function buildClientHref(
     queue: update.queue ?? base.queue,
     sort: update.sort ?? base.sort,
     dir: update.dir ?? base.dir,
-    page: update.page ?? base.page
+    page: update.page ?? base.page,
+    lab: update.lab ?? base.lab
   };
 
   for (const [key, value] of Object.entries(values)) {
@@ -432,6 +475,7 @@ export default async function ClientWorkspacePage({
     sort?: string;
     dir?: string;
     page?: string;
+    lab?: string;
     conversationId?: string;
     leadId?: string;
     notice?: string;
@@ -443,6 +487,9 @@ export default async function ClientWorkspacePage({
     confirmation?: string;
     confirmationDetail?: string;
     statusUpdated?: string;
+    test?: string;
+    testDetail?: string;
+    testTarget?: string;
   }>;
 }) {
   const { id } = await params;
@@ -459,12 +506,14 @@ export default async function ClientWorkspacePage({
   const sort = query.sort || 'activity';
   const dir = query.dir === 'asc' ? 'asc' : 'desc';
   const page = Math.max(1, Number(query.page || '1') || 1);
+  const lab = query.lab === 'voice' ? 'voice' : 'sms';
   const selectedConversationId = query.conversationId || '';
   const selectedLeadId = query.leadId || '';
   const notice = query.notice || '';
   const sendFlash = buildSendFlash(query);
   const bookingFlash = buildBookingFlash(query);
   const leadStatusFlash = buildLeadStatusFlash(query);
+  const commsLabFlash = buildCommsLabFlash(query);
   const windowStart = startOfTrailingDays(windowDays);
   const weekStart = startOfTrailingDays(7);
 
@@ -519,7 +568,7 @@ export default async function ClientWorkspacePage({
     ...companySetup
   };
 
-  const [allWindowLeads, upcomingBookings, sequenceLeadCounts, intakeEvents, weeklyStats] = await Promise.all([
+  const [allWindowLeads, upcomingBookings, sequenceLeadCounts, intakeEvents, weeklyStats, recentCommsEvents] = await Promise.all([
     safeLoad(
       () =>
         db.lead.findMany({
@@ -631,6 +680,34 @@ export default async function ClientWorkspacePage({
         aiVoiceCallsThisWeek: 0,
         emailsThisWeek: 0
       }
+    ),
+    safeLoad(
+      () =>
+        db.eventLog.findMany({
+          where: {
+            companyId: id,
+            eventType: {
+              in: [
+                'operator_messaging_test_sent',
+                'operator_messaging_test_failed',
+                'message_received',
+                'manual_message_sent',
+                'telnyx_message_sent',
+                'telnyx_message_finalized',
+                'telnyx_message_delivery_failed',
+                'telnyx_message_delivery_unconfirmed'
+              ]
+            }
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 8,
+          select: {
+            eventType: true,
+            createdAt: true,
+            payload: true
+          }
+        }),
+      []
     )
   ]);
 
@@ -1014,6 +1091,16 @@ export default async function ClientWorkspacePage({
         </section>
       )}
 
+      {commsLabFlash && (
+        <section className="panel panel-stack">
+          <div className="inline-row">
+            <span className={`status-dot ${commsLabFlash.tone}`} />
+            <strong>{commsLabFlash.title}</strong>
+          </div>
+          <div className="text-muted">{commsLabFlash.body}</div>
+        </section>
+      )}
+
       <section className="panel panel-stack">
         <div className="record-header">
           <div className="panel-stack">
@@ -1102,6 +1189,226 @@ export default async function ClientWorkspacePage({
           </div>
         </section>
       ) : null}
+
+      <section id="comms-lab" className="panel panel-stack">
+        <div className="record-header">
+          <div className="panel-stack">
+            <div className="metric-label">Comms Lab</div>
+            <h2 className="section-title">Launch tools for texting and voice.</h2>
+            <div className="text-muted">
+              Run a live programmable SMS test from this client workspace, verify the routing line, and keep voice staged here when we turn it on.
+            </div>
+          </div>
+        </div>
+
+        <div className="workspace-tab-row">
+          <a
+            className={`workspace-tab-link ${lab === 'sms' ? 'is-active' : ''}`}
+            href={`${buildClientHref(
+              company.id,
+              { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage, lab },
+              { lab: 'sms' }
+            )}#comms-lab`}
+          >
+            SMS terminal
+          </a>
+          <a
+            className={`workspace-tab-link ${lab === 'voice' ? 'is-active' : ''}`}
+            href={`${buildClientHref(
+              company.id,
+              { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage, lab },
+              { lab: 'voice' }
+            )}#comms-lab`}
+          >
+            AI voice
+          </a>
+        </div>
+
+        {lab === 'sms' ? (
+          <div className="comms-lab-grid">
+            <section id="sms-lab" className="panel panel-stack comms-lab-card">
+              <div className="inline-row">
+                <span className="status-chip">
+                  <strong>Sender</strong> {activeSenderNumber || 'Missing'}
+                </span>
+                <span className={`status-chip ${telnyxMode === 'missing' ? 'status-chip-attention' : 'status-chip-muted'}`}>
+                  <strong>Mode</strong> {telnyxMode === 'dedicated' ? 'Dedicated' : telnyxMode === 'shared' ? 'Shared fallback' : 'Unconfigured'}
+                </span>
+                <span
+                  className={`status-chip ${
+                    process.env.TELNYX_VERIFY_SIGNATURES === 'true' ? 'status-chip-muted' : 'status-chip-attention'
+                  }`}
+                >
+                  <strong>Webhook verify</strong> {process.env.TELNYX_VERIFY_SIGNATURES === 'true' ? 'On' : 'Off'}
+                </span>
+              </div>
+
+              <div className="key-value-grid">
+                <div className="key-value-card">
+                  <span className="key-value-label">Webhook URL</span>
+                  {process.env.APP_BASE_URL?.trim()
+                    ? `${process.env.APP_BASE_URL.trim().replace(/\/$/, '')}/api/webhooks/telnyx`
+                    : 'APP_BASE_URL missing'}
+                </div>
+                <div className="key-value-card">
+                  <span className="key-value-label">Assigned lines</span>
+                  {assignedRoutingNumbers.length > 0 ? assignedRoutingNumbers.join(', ') : 'No dedicated numbers assigned'}
+                </div>
+                <div className="key-value-card">
+                  <span className="key-value-label">Reply path</span>
+                  {telnyxTrustCopy}
+                </div>
+              </div>
+
+              <form action={sendClientMessagingTestAction} className="panel-stack">
+                <input type="hidden" name="companyId" value={company.id} />
+                <input
+                  type="hidden"
+                  name="returnTo"
+                  value={buildClientHref(
+                    company.id,
+                    { window: windowDays, status, source, q: searchQuery, queue, sort, dir, page: currentPage, lab },
+                    {}
+                  )}
+                />
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="client-messaging-test-phone">
+                      Destination phone
+                    </label>
+                    <input
+                      id="client-messaging-test-phone"
+                      className="text-input"
+                      name="targetPhone"
+                      defaultValue={selectedConversation?.contact?.phone || selectedLead?.contact.phone || ''}
+                      placeholder="+14155551234"
+                    />
+                  </div>
+                </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="client-messaging-test-text">
+                    Test message
+                  </label>
+                  <textarea
+                    id="client-messaging-test-text"
+                    name="text"
+                    className="text-area comms-terminal-text"
+                    rows={5}
+                    defaultValue={`Hi, this is a live Fix Your Leads SMS test for ${company.name}. Reply to this message so we can verify routing and thread capture.`}
+                  />
+                </div>
+                <div className="inline-actions inline-actions-wrap">
+                  <button type="submit" className="button-secondary">
+                    Send live SMS test
+                  </button>
+                  <span className="tiny-muted">
+                    Sends through the client&apos;s active Telnyx line and records the result in events.
+                  </span>
+                </div>
+              </form>
+            </section>
+
+            <section className="panel panel-stack comms-lab-card">
+              <div className="metric-label">Recent messaging activity</div>
+              {recentCommsEvents.length === 0 ? (
+                <div className="empty-state">No SMS activity logged for this client yet.</div>
+              ) : (
+                <div className="status-list">
+                  {recentCommsEvents.map((event, index) => {
+                    const payload =
+                      event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
+                        ? (event.payload as Record<string, unknown>)
+                        : {};
+                    const tone =
+                      event.eventType.includes('failed')
+                        ? 'error'
+                        : event.eventType.includes('unconfirmed')
+                          ? 'warn'
+                          : 'ok';
+                    const label =
+                      event.eventType === 'operator_messaging_test_sent'
+                        ? 'Terminal test sent'
+                        : event.eventType === 'operator_messaging_test_failed'
+                          ? 'Terminal test failed'
+                          : event.eventType === 'message_received'
+                            ? 'Inbound reply received'
+                            : event.eventType === 'manual_message_sent'
+                              ? 'Operator message sent'
+                              : event.eventType === 'telnyx_message_sent'
+                                ? 'Telnyx accepted send'
+                                : event.eventType === 'telnyx_message_finalized'
+                                  ? 'Telnyx finalized send'
+                                  : event.eventType === 'telnyx_message_delivery_failed'
+                                    ? 'Delivery failed'
+                                    : 'Delivery unconfirmed';
+                    const target =
+                      typeof payload.targetPhone === 'string'
+                        ? payload.targetPhone
+                        : typeof payload.to === 'string'
+                          ? payload.to
+                          : typeof payload.from === 'string'
+                            ? payload.from
+                            : null;
+
+                    return (
+                      <div key={`${event.eventType}-${event.createdAt.toISOString()}-${index}`} className="status-item">
+                        <div className="panel-stack">
+                          <div className="inline-row">
+                            <span className={`status-dot ${tone}`} />
+                            <strong>{label}</strong>
+                          </div>
+                          <div className="tiny-muted">
+                            {target ? `${target} • ` : ''}
+                            {formatCompactDateTime(event.createdAt)}
+                          </div>
+                        </div>
+                        <span className="status-chip status-chip-muted">{event.eventType}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </div>
+        ) : (
+          <div id="voice-lab" className="comms-lab-grid">
+            <section className="panel panel-stack comms-lab-card">
+              <div className="inline-row">
+                <span className="status-chip status-chip-muted">
+                  <strong>AI voice</strong> Planned
+                </span>
+              </div>
+              <h3 className="section-title">Voice test bay is staged for the next batch.</h3>
+              <div className="text-muted">
+                Keep this in the same client workspace so SMS and voice live together when we switch on AI calls.
+              </div>
+              <ul className="list-clean tiny-muted">
+                <li>Route test calls through the client&apos;s assigned line.</li>
+                <li>Play the live AI opener and capture transcript events.</li>
+                <li>Log call outcome, transfer, voicemail, and booking handoff.</li>
+              </ul>
+            </section>
+
+            <section className="panel panel-stack comms-lab-card">
+              <div className="metric-label">Voice readiness</div>
+              <div className="key-value-grid">
+                <div className="key-value-card">
+                  <span className="key-value-label">Assigned line</span>
+                  {activeSenderNumber || 'Missing'}
+                </div>
+                <div className="key-value-card">
+                  <span className="key-value-label">This week</span>
+                  {weeklyStats.aiVoiceCallsThisWeek} AI voice calls
+                </div>
+                <div className="key-value-card">
+                  <span className="key-value-label">Next step</span>
+                  Add provider wiring and call transcript storage
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+      </section>
 
       <div className="client-workspace-layout">
         <section id="leads" className="panel panel-stack">

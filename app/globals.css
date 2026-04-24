@@ -1876,6 +1876,50 @@ select {
   min-width: 220px;
 }
 
+.workspace-tab-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.workspace-tab-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--fyl-border-soft);
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--fyl-muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.workspace-tab-link:hover,
+.workspace-tab-link.is-active {
+  border-color: rgba(176, 137, 244, 0.3);
+  background: rgba(244, 235, 255, 0.96);
+  color: #5d24a8;
+}
+
+.comms-lab-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+}
+
+.comms-lab-card {
+  align-content: start;
+}
+
+.comms-terminal-text {
+  min-height: 140px;
+}
+
 .routing-details {
   display: grid;
   gap: 10px;
@@ -2148,6 +2192,10 @@ select {
 
   .workspace-action-rail {
     width: 100%;
+  }
+
+  .comms-lab-grid {
+    grid-template-columns: 1fr;
   }
 
   .prospect-drawer-panel,
