@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
+import { ClientViewLinkActions } from '@/app/clients/[id]/ClientViewLinkActions';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { updateCompanyAction } from '@/app/companies/actions';
 import { db } from '@/lib/db';
@@ -317,6 +318,8 @@ export default async function ClientProfilePage({
   const primaryRoutingNumber = companyPrimaryInboundNumber(company);
   const sharedTelnyxSender = process.env.TELNYX_FROM_NUMBER?.trim() || null;
   const activeSenderNumber = primaryRoutingNumber || sharedTelnyxSender;
+  const appBaseUrl = process.env.APP_BASE_URL?.trim() || null;
+  const clientViewPath = `/c/${company.id}`;
 
   const workflowAgeMs = latestWorkflowRun ? Date.now() - latestWorkflowRun.updatedAt.getTime() : Number.POSITIVE_INFINITY;
   const workflowHealthy = Number.isFinite(workflowAgeMs) && workflowAgeMs <= 24 * 60 * 60 * 1000;
@@ -378,6 +381,7 @@ export default async function ClientProfilePage({
             </div>
           </div>
           <div className="workspace-action-rail">
+            <ClientViewLinkActions clientViewPath={clientViewPath} appBaseUrl={appBaseUrl} />
             <a className="button" href={`/clients/${company.id}/operator?lab=sms`}>
               Open Comms Lab
             </a>
@@ -474,6 +478,11 @@ export default async function ClientProfilePage({
                 <span className="metric-label">Activity log</span>
                 <strong>Review webhook, booking, and delivery events</strong>
                 <span className="tiny-muted">Useful when QAing intake, workflows, or carrier delivery.</span>
+              </a>
+              <a className="surface-link-card" href={clientViewPath} target="_blank" rel="noreferrer">
+                <span className="metric-label">Client view</span>
+                <strong>Share the simple status page with this client</strong>
+                <span className="tiny-muted">Use the button in the header to copy the exact link.</span>
               </a>
               <a className="surface-link-card" href="#setup">
                 <span className="metric-label">Profile editor</span>
