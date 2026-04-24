@@ -29,6 +29,11 @@ export async function saveClientCalendarSetupAction(formData: FormData) {
     externalCalendarId: optionalText(formData.get('externalCalendarId')),
     timezone: optionalText(formData.get('timezone')),
     defaultDurationMinutes: optionalText(formData.get('defaultDurationMinutes')),
+    reviewAutomationEnabled: formData.get('reviewAutomationEnabled') === 'on',
+    reviewGoogleReviewUrl: optionalText(formData.get('reviewGoogleReviewUrl')),
+    reviewOwnerAlertContact: optionalText(formData.get('reviewOwnerAlertContact')),
+    reviewWebhookSecret: optionalText(formData.get('reviewWebhookSecret')),
+    reviewDelayHours: optionalText(formData.get('reviewDelayHours')),
     notes: optionalText(formData.get('notes')),
     updatedAt: new Date().toISOString()
   };

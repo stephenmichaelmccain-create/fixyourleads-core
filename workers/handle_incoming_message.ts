@@ -4,6 +4,7 @@ import { getBookingQueue } from '@/lib/queue';
 import { getRedis } from '@/lib/redis';
 import { db } from '@/lib/db';
 import { activateWorkflowRun, cancelWorkflowRunsForContact } from '@/lib/workflows';
+import { handleReviewAutomationReply } from '@/services/reviews';
 
 const STOP_KEYWORDS = new Set(['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit', 'unsub']);
 const START_KEYWORDS = new Set(['start', 'unstop']);
@@ -84,6 +85,16 @@ new Worker('message_queue', async (job) => {
       reason: 'contact_requested_help',
       lastInboundAt: new Date()
     });
+    return;
+  }
+
+  const reviewReply = await handleReviewAutomationReply({
+    companyId,
+    contactId,
+    text: String(text || '')
+  });
+
+  if (reviewReply.handled) {
     return;
   }
 

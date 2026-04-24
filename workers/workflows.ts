@@ -5,6 +5,7 @@ import { getRedis } from '@/lib/redis';
 import { scheduleWorkflowRun } from '@/lib/workflow-jobs';
 import { activateWorkflowRun, completeWorkflowRuns } from '@/lib/workflows';
 import { sendOutboundMessage } from '@/services/messaging';
+import { executeReviewRequestWorkflow } from '@/services/reviews';
 
 const NEW_LEAD_FOLLOW_UP_DELAY_MS = 48 * 60 * 60 * 1000;
 const NEW_LEAD_FOLLOW_UP_MAX_TOUCHES = 2;
@@ -175,6 +176,9 @@ new Worker(
     }
 
     switch (workflowRun.workflowType) {
+      case WorkflowType.REVIEW_REQUEST:
+        await executeReviewRequestWorkflow(workflowRunId);
+        return;
       case WorkflowType.NEW_LEAD_FOLLOW_UP:
         await handleNewLeadFollowUp(workflowRunId);
         return;

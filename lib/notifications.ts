@@ -8,6 +8,16 @@ type BookingNotificationInput = {
   to?: string | null;
 };
 
+type ReviewAlertNotificationInput = {
+  companyName: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  score: number;
+  feedbackText?: string | null;
+  appointmentId?: string | null;
+  to?: string | null;
+};
+
 type NotificationResult =
   | {
       status: 'sent';
@@ -140,6 +150,65 @@ export async function sendBookingNotification(input: BookingNotificationInput): 
     return {
       status: 'failed',
       detail: error instanceof Error ? error.message : 'notification_send_failed'
+    };
+  }
+}
+
+export async function sendReviewAlertNotification(input: ReviewAlertNotificationInput): Promise<NotificationResult> {
+  if (!input.to) {
+    return {
+      status: 'skipped',
+      detail: 'review_alert_destination_missing'
+    };
+  }
+
+  const config = smtpConfig();
+
+  if (!config.user || !config.pass || !config.from) {
+    return {
+      status: 'skipped',
+      detail: 'smtp_not_configured'
+    };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass
+    }
+  });
+
+  const customerName = input.customerName || 'Unnamed customer';
+
+  try {
+    const info = await transporter.sendMail({
+      from: config.from,
+      to: input.to,
+      subject: `Low visit rating for ${input.companyName}`,
+      text: [
+        `A recent customer sent a low satisfaction rating for ${input.companyName}.`,
+        '',
+        `Customer: ${customerName}`,
+        `Phone: ${input.customerPhone || 'Unknown'}`,
+        `Score: ${input.score}/10`,
+        `Appointment ID: ${input.appointmentId || 'Unknown'}`,
+        '',
+        `Latest reply: ${input.feedbackText || 'No message captured'}`
+      ].join('\n')
+    });
+
+    return {
+      status: 'sent',
+      detail: `review alert sent to ${input.to}`,
+      messageId: info.messageId
+    };
+  } catch (error) {
+    return {
+      status: 'failed',
+      detail: error instanceof Error ? error.message : 'review_alert_send_failed'
     };
   }
 }

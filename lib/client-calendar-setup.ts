@@ -31,6 +31,11 @@ export type ClientCalendarSetupState = {
   externalCalendarId: string | null;
   timezone: string | null;
   defaultDurationMinutes: string | null;
+  reviewAutomationEnabled: boolean;
+  reviewGoogleReviewUrl: string | null;
+  reviewOwnerAlertContact: string | null;
+  reviewWebhookSecret: string | null;
+  reviewDelayHours: string | null;
   notes: string | null;
   updatedAt: string | null;
 };
@@ -67,6 +72,11 @@ export const emptyClientCalendarSetupState: ClientCalendarSetupState = {
   externalCalendarId: null,
   timezone: null,
   defaultDurationMinutes: null,
+  reviewAutomationEnabled: false,
+  reviewGoogleReviewUrl: null,
+  reviewOwnerAlertContact: null,
+  reviewWebhookSecret: null,
+  reviewDelayHours: null,
   notes: null,
   updatedAt: null
 };
@@ -112,6 +122,11 @@ export function parseClientCalendarSetupPayload(payload: unknown): ClientCalenda
     externalCalendarId: payloadText(record, 'externalCalendarId'),
     timezone: payloadText(record, 'timezone'),
     defaultDurationMinutes: payloadText(record, 'defaultDurationMinutes'),
+    reviewAutomationEnabled: record.reviewAutomationEnabled === true,
+    reviewGoogleReviewUrl: payloadText(record, 'reviewGoogleReviewUrl'),
+    reviewOwnerAlertContact: payloadText(record, 'reviewOwnerAlertContact'),
+    reviewWebhookSecret: payloadText(record, 'reviewWebhookSecret'),
+    reviewDelayHours: payloadText(record, 'reviewDelayHours'),
     notes: payloadText(record, 'notes'),
     updatedAt: payloadText(record, 'updatedAt')
   };

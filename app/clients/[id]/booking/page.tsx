@@ -9,6 +9,7 @@ import {
   emptyClientCalendarSetupState,
   parseClientCalendarSetupPayload
 } from '@/lib/client-calendar-setup';
+import { reviewWebhookUrl } from '@/services/reviews';
 import { safeLoad } from '@/lib/ui-data';
 
 export const dynamic = 'force-dynamic';
@@ -82,7 +83,10 @@ export default async function ClientBookingPage({
         select: {
           id: true,
           name: true,
-          createdAt: true
+          createdAt: true,
+          notificationEmail: true,
+          primaryContactEmail: true,
+          primaryContactPhone: true
         }
       }),
     null
@@ -159,6 +163,13 @@ export default async function ClientBookingPage({
 
   const state = latestSetupEvent ? parseClientCalendarSetupPayload(latestSetupEvent.payload) : emptyClientCalendarSetupState;
   const progress = clientCalendarSetupProgress(state);
+  const ownerAlertFallback =
+    state.reviewOwnerAlertContact ||
+    company.notificationEmail ||
+    company.primaryContactEmail ||
+    company.primaryContactPhone ||
+    'No alert contact saved yet';
+  const reviewEndpoint = reviewWebhookUrl(company.id);
 
   return (
     <LayoutShell
@@ -232,6 +243,11 @@ export default async function ClientBookingPage({
             <span className="metric-label">Last saved</span>
             <strong className="workspace-stats-value">{formatCompactDateTime(state.updatedAt || latestSetupEvent?.createdAt)}</strong>
             <span className="tiny-muted">This page stores the rollout plan before full OAuth is wired.</span>
+          </div>
+          <div className="client-record-stat">
+            <span className="metric-label">Review automation</span>
+            <strong className="workspace-stats-value">{state.reviewAutomationEnabled ? 'Enabled' : 'Off'}</strong>
+            <span className="tiny-muted">{state.reviewGoogleReviewUrl || 'Add the review link, secret, and alert destination.'}</span>
           </div>
         </div>
       </section>
@@ -397,6 +413,77 @@ export default async function ClientBookingPage({
                       name="externalCalendarId"
                       defaultValue={state.externalCalendarId || ''}
                     />
+                  </div>
+                </div>
+              </div>
+
+              <div className="client-profile-section">
+                <div className="metric-label">Review automation</div>
+                <div className="panel-stack">
+                  <label className="telnyx-checklist-item">
+                    <input type="checkbox" name="reviewAutomationEnabled" defaultChecked={state.reviewAutomationEnabled} />
+                    <span>Automatically text for a 1-10 review score after completed appointments</span>
+                  </label>
+                  <div className="workspace-filter-row">
+                    <div className="field-stack">
+                      <label className="key-value-label" htmlFor="booking-review-delay">
+                        Delay after completion (hours)
+                      </label>
+                      <input
+                        id="booking-review-delay"
+                        className="text-input"
+                        name="reviewDelayHours"
+                        defaultValue={state.reviewDelayHours || '2'}
+                        placeholder="2"
+                      />
+                    </div>
+                    <div className="field-stack">
+                      <label className="key-value-label" htmlFor="booking-review-owner-alert">
+                        Owner alert destination
+                      </label>
+                      <input
+                        id="booking-review-owner-alert"
+                        className="text-input"
+                        name="reviewOwnerAlertContact"
+                        defaultValue={state.reviewOwnerAlertContact || ''}
+                        placeholder={String(ownerAlertFallback)}
+                      />
+                    </div>
+                  </div>
+                  <div className="workspace-filter-row">
+                    <div className="field-stack">
+                      <label className="key-value-label" htmlFor="booking-review-url">
+                        Google review URL
+                      </label>
+                      <input
+                        id="booking-review-url"
+                        className="text-input"
+                        name="reviewGoogleReviewUrl"
+                        defaultValue={state.reviewGoogleReviewUrl || ''}
+                        placeholder="https://g.page/r/.../review"
+                      />
+                    </div>
+                    <div className="field-stack">
+                      <label className="key-value-label" htmlFor="booking-review-secret">
+                        Booking webhook secret
+                      </label>
+                      <input
+                        id="booking-review-secret"
+                        className="text-input"
+                        name="reviewWebhookSecret"
+                        defaultValue={state.reviewWebhookSecret || ''}
+                        placeholder="Paste the secret your booking system or Make will send"
+                      />
+                    </div>
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="booking-review-webhook">
+                      Completed appointment webhook URL
+                    </label>
+                    <input id="booking-review-webhook" className="text-input" value={reviewEndpoint} readOnly />
+                    <span className="tiny-muted">
+                      Post completed appointments here with the <code>x-review-webhook-secret</code> header. Quiet hours follow the saved timezone.
+                    </span>
                   </div>
                 </div>
               </div>
