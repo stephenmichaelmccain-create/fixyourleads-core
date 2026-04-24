@@ -1,6 +1,6 @@
 type ClientWorkspaceTabsProps = {
   companyId: string;
-  active: 'profile' | 'comms';
+  active: 'profile' | 'comms' | 'telnyx';
 };
 
 export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsProps) {
@@ -18,6 +18,12 @@ export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsPr
           href={`/clients/${companyId}/operator?lab=sms#comms-lab`}
         >
           Comms Lab
+        </a>
+        <a
+          className={`workspace-tab-link ${active === 'telnyx' ? 'is-active' : ''}`}
+          href={`/clients/${companyId}/telnyx`}
+        >
+          Telnyx Setup
         </a>
       </div>
     </section>

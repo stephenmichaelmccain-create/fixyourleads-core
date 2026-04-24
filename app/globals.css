@@ -2014,6 +2014,29 @@ select {
   background: rgba(250, 244, 255, 0.72);
 }
 
+.telnyx-checklist-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.telnyx-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 58px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(176, 137, 244, 0.16);
+  background: linear-gradient(180deg, rgba(250, 244, 255, 0.96), rgba(244, 236, 255, 0.9));
+  color: var(--fyl-black);
+  font-weight: 600;
+}
+
+.telnyx-checklist-item input {
+  margin-top: 3px;
+}
+
 .comms-lab-grid {
   display: grid;
   gap: 16px;
@@ -2338,6 +2361,10 @@ select {
   }
 
   .client-record-sidebar-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .telnyx-checklist-grid {
     grid-template-columns: 1fr;
   }
 

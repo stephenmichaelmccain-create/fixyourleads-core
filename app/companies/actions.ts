@@ -133,6 +133,7 @@ export async function createCompanyAction(formData: FormData) {
   revalidatePath('/clients');
   revalidatePath('/');
   revalidatePath(`/clients/${company.id}`);
+  revalidatePath(`/clients/${company.id}/telnyx`);
 
   if (nextSurface === 'conversations') {
     redirect(`/clients/${company.id}`);
@@ -223,6 +224,7 @@ export async function updateCompanyAction(formData: FormData) {
   revalidatePath('/clients');
   revalidatePath('/');
   revalidatePath(`/clients/${companyId}`);
+  revalidatePath(`/clients/${companyId}/telnyx`);
   revalidatePath(`/leads?companyId=${companyId}`);
   revalidatePath(`/conversations?companyId=${companyId}`);
   revalidatePath(`/bookings?companyId=${companyId}`);
