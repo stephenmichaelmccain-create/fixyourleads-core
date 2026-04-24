@@ -1,6 +1,6 @@
 type ClientWorkspaceTabsProps = {
   companyId: string;
-  active: 'profile' | 'comms' | 'telnyx' | 'calendar';
+  active: 'profile' | 'crm' | 'comms' | 'telnyx' | 'booking';
 };
 
 export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsProps) {
@@ -12,6 +12,12 @@ export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsPr
           href={`/clients/${companyId}`}
         >
           Client profile
+        </a>
+        <a
+          className={`workspace-tab-link ${active === 'crm' ? 'is-active' : ''}`}
+          href={`/clients/${companyId}/crm`}
+        >
+          CRM
         </a>
         <a
           className={`workspace-tab-link ${active === 'comms' ? 'is-active' : ''}`}
@@ -26,10 +32,10 @@ export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsPr
           Telnyx Setup
         </a>
         <a
-          className={`workspace-tab-link ${active === 'calendar' ? 'is-active' : ''}`}
-          href={`/clients/${companyId}/calendar`}
+          className={`workspace-tab-link ${active === 'booking' ? 'is-active' : ''}`}
+          href={`/clients/${companyId}/booking`}
         >
-          Calendar
+          Booking
         </a>
       </div>
     </section>

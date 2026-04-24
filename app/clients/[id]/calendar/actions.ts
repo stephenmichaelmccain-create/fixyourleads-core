@@ -43,9 +43,10 @@ export async function saveClientCalendarSetupAction(formData: FormData) {
 
   revalidatePath(`/clients/${companyId}`);
   revalidatePath(`/clients/${companyId}/calendar`);
+  revalidatePath(`/clients/${companyId}/booking`);
   revalidatePath(`/clients/${companyId}/operator`);
   revalidatePath(`/events?companyId=${companyId}`);
   revalidatePath(`/bookings?companyId=${companyId}`);
 
-  redirect(`/clients/${companyId}/calendar?notice=updated`);
+  redirect(`/clients/${companyId}/booking?notice=updated`);
 }
