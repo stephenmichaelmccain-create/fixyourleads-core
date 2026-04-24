@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { updateCompanyAction } from '@/app/companies/actions';
 import { db } from '@/lib/db';
@@ -312,6 +313,8 @@ export default async function ClientSetupPage({
       variant="workspace"
       hidePageHeader
     >
+      <ClientWorkspaceTabs companyId={company.id} active="profile" />
+
       {notice === 'updated' && (
         <section className="panel panel-stack">
           <div className="inline-row">

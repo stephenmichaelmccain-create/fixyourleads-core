@@ -3,9 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 import { normalizePhone } from '@/lib/phone';
-import { sendSms } from '@/lib/telnyx';
+import { sendOperatorMessagingTest } from '@/services/messaging';
 
 function sanitizeReturnTo(value: string | null | undefined, fallback: string) {
   if (!value || !value.startsWith('/') || value.startsWith('//')) {
@@ -41,6 +40,10 @@ function classifyMessagingTestError(error: unknown) {
     return 'sender_missing';
   }
 
+  if (error.message === 'target_phone_invalid') {
+    return 'target_phone_invalid';
+  }
+
   if (error.message.startsWith('Telnyx send failed:')) {
     return 'telnyx_send_failed';
   }
@@ -67,13 +70,7 @@ export async function sendClientMessagingTestAction(formData: FormData) {
 
   const company = await db.company.findUnique({
     where: { id: companyId },
-    select: {
-      id: true,
-      telnyxInboundNumber: true,
-      telnyxInboundNumbers: {
-        select: { number: true }
-      }
-    }
+    select: { id: true }
   });
 
   if (!company) {
@@ -86,48 +83,8 @@ export async function sendClientMessagingTestAction(formData: FormData) {
     );
   }
 
-  const senderNumber = companyPrimaryInboundNumber(company) || process.env.TELNYX_FROM_NUMBER?.trim() || null;
-
-  if (!senderNumber) {
-    await db.eventLog.create({
-      data: {
-        companyId,
-        eventType: 'operator_messaging_test_failed',
-        payload: {
-          targetPhone,
-          text,
-          detail: 'sender_missing'
-        }
-      }
-    });
-
-    revalidatePath(`/clients/${companyId}`);
-    revalidatePath(`/clients/${companyId}/operator`);
-
-    redirect(
-      `${redirectPathWithValues(returnTo, {
-        lab: 'sms',
-        test: 'error',
-        testDetail: 'sender_missing'
-      })}#comms-lab`
-    );
-  }
-
   try {
-    const telnyxResult = await sendSms(targetPhone, text, senderNumber);
-
-    await db.eventLog.create({
-      data: {
-        companyId,
-        eventType: 'operator_messaging_test_sent',
-        payload: {
-          targetPhone,
-          text,
-          from: senderNumber,
-          externalId: telnyxResult?.data?.id || null
-        }
-      }
-    });
+    const result = await sendOperatorMessagingTest(companyId, targetPhone, text);
 
     revalidatePath(`/clients/${companyId}`);
     revalidatePath(`/clients/${companyId}/operator`);
@@ -137,7 +94,7 @@ export async function sendClientMessagingTestAction(formData: FormData) {
       `${redirectPathWithValues(returnTo, {
         lab: 'sms',
         test: 'sent',
-        testDetail: telnyxResult?.data?.id ? 'accepted_by_telnyx' : 'logged_without_external_id',
+        testDetail: result.telnyxResult?.data?.id ? 'accepted_by_telnyx' : 'logged_without_external_id',
         testTarget: targetPhone
       })}#comms-lab`
     );
@@ -149,7 +106,6 @@ export async function sendClientMessagingTestAction(formData: FormData) {
         payload: {
           targetPhone,
           text,
-          from: senderNumber,
           detail: classifyMessagingTestError(error),
           error: error instanceof Error ? error.message : 'unknown error'
         }

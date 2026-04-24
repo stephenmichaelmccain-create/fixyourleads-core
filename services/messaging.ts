@@ -179,6 +179,74 @@ export async function sendOutboundMessage(companyId: string, contactId: string, 
   return { conversation, message, telnyxResult };
 }
 
+export async function sendOperatorMessagingTest(companyId: string, phone: string, content: string) {
+  const normalizedPhone = normalizePhone(phone);
+
+  if (!normalizedPhone) {
+    throw new Error('target_phone_invalid');
+  }
+
+  const company = await db.company.findUniqueOrThrow({
+    where: { id: companyId },
+    select: {
+      telnyxInboundNumber: true,
+      telnyxInboundNumbers: {
+        select: { number: true }
+      }
+    }
+  });
+
+  const contact = await db.contact.upsert({
+    where: { companyId_phone: { companyId, phone: normalizedPhone } },
+    update: { phone: normalizedPhone },
+    create: { companyId, phone: normalizedPhone }
+  });
+
+  const conversation = await db.conversation.upsert({
+    where: { companyId_contactId: { companyId, contactId: contact.id } },
+    update: {},
+    create: { companyId, contactId: contact.id }
+  });
+
+  const senderNumber = companyPrimaryInboundNumber(company);
+  const telnyxResult = await sendSms(normalizedPhone, content, senderNumber);
+
+  const message = await db.message.create({
+    data: {
+      companyId,
+      conversationId: conversation.id,
+      direction: MessageDirection.OUTBOUND,
+      content,
+      externalId: telnyxResult?.data?.id || null
+    }
+  });
+
+  await db.eventLog.create({
+    data: {
+      companyId,
+      eventType: 'operator_messaging_test_sent',
+      payload: {
+        messageId: message.id,
+        contactId: contact.id,
+        conversationId: conversation.id,
+        from: senderNumber,
+        to: normalizedPhone,
+        externalId: telnyxResult?.data?.id || null
+      }
+    }
+  });
+
+  await ensurePhoneChannelIdentities(companyId, contact.id, normalizedPhone);
+  await touchWorkflowActivity({
+    companyId,
+    contactId: contact.id,
+    direction: 'outbound',
+    when: message.createdAt
+  });
+
+  return { contact, conversation, message, telnyxResult };
+}
+
 type TelnyxDeliveryContext = {
   companyId: string | null;
   internalMessageId: string | null;

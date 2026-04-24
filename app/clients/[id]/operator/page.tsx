@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
 import { LeadStatus } from '@prisma/client';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { sendClientMessagingTestAction } from '@/app/clients/[id]/operator/actions';
@@ -377,6 +378,8 @@ function buildCommsLabFlash(searchParams: {
       body:
         searchParams.testDetail === 'companyId_targetPhone_text_required'
           ? 'Add a destination phone number and message before sending the test.'
+          : searchParams.testDetail === 'target_phone_invalid'
+            ? 'Use a valid destination phone number in E.164 or standard US format.'
           : searchParams.testDetail === 'company_not_found'
             ? 'This client workspace no longer exists, so the terminal cannot send.'
             : searchParams.testDetail === 'sender_missing'
@@ -395,6 +398,58 @@ function buildCommsLabFlash(searchParams: {
         ? `Telnyx accepted the test message to ${targetLabel}. Watch for the delivery event and reply path below.`
         : `The test message for ${targetLabel} was logged successfully.`
   };
+}
+
+function describeCommsEvent(eventType: string, payload: Record<string, unknown>) {
+  if (eventType === 'operator_messaging_test_failed') {
+    const detail = typeof payload.detail === 'string' ? payload.detail : '';
+    const error = typeof payload.error === 'string' ? payload.error : '';
+
+    if (detail === 'telnyx_send_failed' && error) {
+      return error;
+    }
+
+    if (detail === 'target_phone_invalid') {
+      return 'Destination phone format was invalid.';
+    }
+
+    if (detail === 'sender_missing') {
+      return 'No active Telnyx sender is configured for this client.';
+    }
+
+    return error || 'The terminal failed before Telnyx accepted the request.';
+  }
+
+  if (eventType === 'telnyx_message_delivery_failed') {
+    const errors = Array.isArray(payload.errors) ? payload.errors : [];
+    const firstError =
+      errors[0] && typeof errors[0] === 'object' && !Array.isArray(errors[0]) ? (errors[0] as Record<string, unknown>) : null;
+
+    return (
+      (typeof firstError?.detail === 'string' && firstError.detail) ||
+      (typeof firstError?.title === 'string' && firstError.title) ||
+      'Carrier delivery failed after Telnyx accepted the message.'
+    );
+  }
+
+  if (eventType === 'telnyx_message_finalized') {
+    const deliveryStatus = typeof payload.deliveryStatus === 'string' ? payload.deliveryStatus : '';
+    return deliveryStatus ? `Finalized as ${deliveryStatus}.` : 'Carrier finalized the delivery event.';
+  }
+
+  if (eventType === 'telnyx_message_sent') {
+    return 'Telnyx accepted the send and is waiting on carrier delivery.';
+  }
+
+  if (eventType === 'operator_messaging_test_sent') {
+    return 'The terminal created a CRM message record and sent it to Telnyx.';
+  }
+
+  if (eventType === 'message_received') {
+    return 'Inbound reply captured and attached to the client thread.';
+  }
+
+  return 'Recent messaging event recorded.';
 }
 
 function sequenceState(status: string) {
@@ -1051,6 +1106,8 @@ export default async function ClientWorkspacePage({
       variant="workspace"
       hidePageHeader
     >
+      <ClientWorkspaceTabs companyId={company.id} active="comms" />
+
       {notice && (
         <section className="panel panel-stack">
           <div className="inline-row">
@@ -1349,6 +1406,7 @@ export default async function ClientWorkspacePage({
                           : typeof payload.from === 'string'
                             ? payload.from
                             : null;
+                    const detailText = describeCommsEvent(event.eventType, payload);
 
                     return (
                       <div key={`${event.eventType}-${event.createdAt.toISOString()}-${index}`} className="status-item">
@@ -1361,6 +1419,7 @@ export default async function ClientWorkspacePage({
                             {target ? `${target} • ` : ''}
                             {formatCompactDateTime(event.createdAt)}
                           </div>
+                          <div className="tiny-muted">{detailText}</div>
                         </div>
                         <span className="status-chip status-chip-muted">{event.eventType}</span>
                       </div>
