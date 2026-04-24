@@ -27,7 +27,7 @@ function buildMessagesHref(filter?: string) {
 }
 
 function buildClientThreadHref(companyId: string, conversationId: string) {
-  return `/clients/${companyId}?conversationId=${encodeURIComponent(conversationId)}`;
+  return `/clients/${companyId}/operator?conversationId=${encodeURIComponent(conversationId)}`;
 }
 
 export default async function MessagesPage({

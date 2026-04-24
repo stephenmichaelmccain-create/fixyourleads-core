@@ -23,6 +23,7 @@ function revalidateConversationPaths(companyId: string, conversationId: string) 
   revalidatePath(`/events?companyId=${companyId}`);
   revalidatePath(`/leads?companyId=${companyId}`);
   revalidatePath(`/clients/${companyId}`);
+  revalidatePath(`/clients/${companyId}/operator`);
 }
 
 function redirectPathWithValues(path: string, values: Record<string, string | null | undefined>) {
@@ -45,7 +46,7 @@ export async function sendConversationMessageAction(formData: FormData) {
   const text = String(formData.get('text') || '').trim();
   const returnTo = sanitizeReturnTo(
     String(formData.get('returnTo') || '').trim(),
-    conversationId ? `/conversations/${conversationId}` : `/clients/${companyId}`
+    conversationId ? `/conversations/${conversationId}` : `/clients/${companyId}/operator`
   );
 
   if (!companyId || !contactId || !text) {

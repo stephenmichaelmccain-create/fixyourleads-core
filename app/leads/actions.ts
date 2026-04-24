@@ -40,6 +40,7 @@ export async function updateLeadStatusAction(formData: FormData) {
   revalidatePath(`/leads?companyId=${companyId}`);
   revalidatePath(`/leads/${leadId}`);
   revalidatePath(`/clients/${companyId}`);
+  revalidatePath(`/clients/${companyId}/operator`);
 
   if (returnTo) {
     const url = new URL(returnTo, 'http://localhost');

@@ -13,7 +13,7 @@ export default async function LegacyBookingsPage({
   const companyId = params.companyId || '';
 
   if (companyId) {
-    redirect(`/clients/${companyId}#bookings`);
+    redirect(`/clients/${companyId}/operator#bookings`);
   }
 
   redirect('/clients');
