@@ -8,4 +8,4 @@ cmds = ['npm install']
 cmds = ['npm run build']
 
 [start]
-cmd = "sh -lc '/mise/shims/node node_modules/next/dist/bin/next start -p ${PORT:-3000} -H 0.0.0.0'"
+cmd = "sh -lc './node_modules/.bin/prisma migrate deploy && /mise/shims/node node_modules/next/dist/bin/next start -p ${PORT:-3000} -H 0.0.0.0'"

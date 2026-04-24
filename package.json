@@ -11,6 +11,7 @@
     "env:bootstrap": "node scripts/bootstrap-openclaw-env.mjs",
     "env:openclaw": "node scripts/bootstrap-openclaw-env.mjs",
     "lint": "echo 'lint not configured yet'",
+    "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "demo:seed": "tsx scripts/demo-data.ts seed",
     "demo:clear": "tsx scripts/demo-data.ts clear",

@@ -21,6 +21,6 @@ Default: `npm run start`
 ## First deploy steps
 1. Deploy app service from repo root
 2. Set env vars
-3. Run `npm run db:push` once against the database
+3. Apply migrations (`npm run db:migrate`) once against the database
 4. Create second service from same repo for workers
 5. Set worker start command to `npm run worker`
