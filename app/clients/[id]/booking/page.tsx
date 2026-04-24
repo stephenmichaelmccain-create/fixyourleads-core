@@ -66,6 +66,49 @@ function bookingEventDetail(payload: unknown) {
   return 'Booking event logged';
 }
 
+function reviewEventLabel(eventType: string) {
+  switch (eventType) {
+    case 'review_request_queued':
+      return 'Review queued';
+    case 'review_request_sent':
+      return 'Review request sent';
+    case 'review_score_received':
+      return 'Score received';
+    case 'review_positive_follow_up_sent':
+      return 'Review link sent';
+    case 'review_negative_follow_up_sent':
+      return 'Private recovery sent';
+    case 'review_owner_alert_processed':
+      return 'Owner alert processed';
+    case 'review_score_clarification_sent':
+      return 'Clarification sent';
+    default:
+      return eventType.replace(/_/g, ' ');
+  }
+}
+
+function reviewEventDetail(payload: unknown) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return 'Review automation event logged.';
+  }
+
+  const record = payload as Record<string, unknown>;
+  const score = typeof record.score === 'number' ? record.score : null;
+  const detail = typeof record.alertDetail === 'string' ? record.alertDetail : typeof record.detail === 'string' ? record.detail : '';
+  const destination = typeof record.destination === 'string' ? record.destination : '';
+  const scheduledFor = typeof record.nextRunAt === 'string' ? record.nextRunAt : '';
+
+  if (score !== null) {
+    return `Score ${score}/10${detail ? ` • ${detail}` : ''}`;
+  }
+
+  if (destination) {
+    return `${destination}${detail ? ` • ${detail}` : ''}`;
+  }
+
+  return detail || scheduledFor || 'Review automation event logged.';
+}
+
 export default async function ClientBookingPage({
   params,
   searchParams
@@ -96,7 +139,15 @@ export default async function ClientBookingPage({
     notFound();
   }
 
-  const [latestSetupEvent, recentSetupEvents, upcomingAppointments, recentBookedEvents] = await Promise.all([
+  const [
+    latestSetupEvent,
+    recentSetupEvents,
+    upcomingAppointments,
+    recentBookedEvents,
+    recentReviewEvents,
+    reviewRequestsThisMonth,
+    reviewScoresThisMonth
+  ] = await Promise.all([
     safeLoad(
       () =>
         db.eventLog.findFirst({
@@ -158,6 +209,59 @@ export default async function ClientBookingPage({
           }
         }),
       []
+    ),
+    safeLoad(
+      () =>
+        db.eventLog.findMany({
+          where: {
+            companyId: id,
+            eventType: {
+              in: [
+                'review_request_queued',
+                'review_request_sent',
+                'review_score_received',
+                'review_positive_follow_up_sent',
+                'review_negative_follow_up_sent',
+                'review_owner_alert_processed',
+                'review_score_clarification_sent'
+              ]
+            }
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 8,
+          select: {
+            eventType: true,
+            createdAt: true,
+            payload: true
+          }
+        }),
+      []
+    ),
+    safeLoad(
+      () =>
+        db.eventLog.count({
+          where: {
+            companyId: id,
+            eventType: 'review_request_sent',
+            createdAt: {
+              gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+            }
+          }
+        }),
+      0
+    ),
+    safeLoad(
+      () =>
+        db.eventLog.count({
+          where: {
+            companyId: id,
+            eventType: 'review_score_received',
+            createdAt: {
+              gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+            }
+          }
+        }),
+      0
     )
   ]);
 
@@ -248,6 +352,11 @@ export default async function ClientBookingPage({
             <span className="metric-label">Review automation</span>
             <strong className="workspace-stats-value">{state.reviewAutomationEnabled ? 'Enabled' : 'Off'}</strong>
             <span className="tiny-muted">{state.reviewGoogleReviewUrl || 'Add the review link, secret, and alert destination.'}</span>
+          </div>
+          <div className="client-record-stat">
+            <span className="metric-label">Review responses this month</span>
+            <strong className="workspace-stats-value">{reviewScoresThisMonth}</strong>
+            <span className="tiny-muted">{reviewRequestsThisMonth} requests sent this month.</span>
           </div>
         </div>
       </section>
@@ -566,6 +675,27 @@ export default async function ClientBookingPage({
                       <span className="tiny-muted">{formatCompactDateTime(event.createdAt)}</span>
                     </div>
                     <span className="tiny-muted">{bookingEventDetail(event.payload)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="panel panel-stack">
+            <div className="metric-label">Recent review activity</div>
+            <div className="workspace-list">
+              {recentReviewEvents.length === 0 ? (
+                <div className="workspace-list-item">
+                  <span className="tiny-muted">No review automation events yet for this client.</span>
+                </div>
+              ) : (
+                recentReviewEvents.map((event, index) => (
+                  <div key={`${event.createdAt.toISOString()}-${index}`} className="workspace-list-item">
+                    <div className="workspace-list-header">
+                      <strong>{reviewEventLabel(event.eventType)}</strong>
+                      <span className="tiny-muted">{formatCompactDateTime(event.createdAt)}</span>
+                    </div>
+                    <span className="tiny-muted">{reviewEventDetail(event.payload)}</span>
                   </div>
                 ))
               )}

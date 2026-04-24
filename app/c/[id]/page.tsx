@@ -40,6 +40,14 @@ function activityLabel(eventType: string) {
       return 'Booking confirmed';
     case 'review_request_sent':
       return 'Review request sent';
+    case 'review_score_received':
+      return 'Score received';
+    case 'review_positive_follow_up_sent':
+      return 'Google review sent';
+    case 'review_negative_follow_up_sent':
+      return 'Private follow-up sent';
+    case 'review_owner_alert_processed':
+      return 'Owner notified';
     default:
       return eventType.replace(/_/g, ' ');
   }
@@ -52,8 +60,13 @@ function activityDetail(payload: unknown) {
 
   const record = payload as Record<string, unknown>;
   const detail = typeof record.detail === 'string' ? record.detail : '';
+  const score = typeof record.score === 'number' ? record.score : null;
   const deliveryStatus = typeof record.deliveryStatus === 'string' ? record.deliveryStatus : '';
   const targetPhone = typeof record.targetPhone === 'string' ? record.targetPhone : '';
+
+  if (score !== null) {
+    return `Score ${score}/10`;
+  }
 
   return detail || deliveryStatus || targetPhone || 'Recent activity recorded.';
 }
@@ -116,7 +129,19 @@ export default async function ClientStatusPage({
     notFound();
   }
 
-  const [leadsThisWeek, repliesThisMonth, bookingsThisWeek, lastInbound, lastOutbound, lastBooking, recentFailure, recentEvents, recentConversations, sourceBreakdown] = await Promise.all([
+  const [
+    leadsThisWeek,
+    repliesThisMonth,
+    bookingsThisWeek,
+    reviewScoresThisMonth,
+    lastInbound,
+    lastOutbound,
+    lastBooking,
+    recentFailure,
+    recentEvents,
+    recentConversations,
+    sourceBreakdown
+  ] = await Promise.all([
     safeLoad(
       () =>
         db.lead.count({
@@ -144,6 +169,17 @@ export default async function ClientStatusPage({
           where: {
             companyId: id,
             createdAt: { gte: sevenDaysAgo }
+          }
+        }),
+      0
+    ),
+    safeLoad(
+      () =>
+        db.eventLog.count({
+          where: {
+            companyId: id,
+            eventType: 'review_score_received',
+            createdAt: { gte: thirtyDaysAgo }
           }
         }),
       0
@@ -208,7 +244,11 @@ export default async function ClientStatusPage({
                 'telnyx_message_delivery_failed',
                 'appointment_booked',
                 'booking_confirmation_sent',
-                'review_request_sent'
+                'review_request_sent',
+                'review_score_received',
+                'review_positive_follow_up_sent',
+                'review_negative_follow_up_sent',
+                'review_owner_alert_processed'
               ]
             }
           },
@@ -317,6 +357,11 @@ export default async function ClientStatusPage({
               <span className="metric-label">Last reply received</span>
               <strong className="workspace-stats-value">{formatCompactDateTime(lastInbound?.createdAt)}</strong>
               <span className="tiny-muted">Most recent inbound reply captured.</span>
+            </div>
+            <div className="client-record-stat">
+              <span className="metric-label">Review replies this month</span>
+              <strong className="workspace-stats-value">{reviewScoresThisMonth}</strong>
+              <span className="tiny-muted">Customer ratings captured in the last 30 days.</span>
             </div>
           </div>
 
