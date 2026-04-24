@@ -118,7 +118,7 @@ function setupGapsForCompany(company: {
   telnyxInboundNumber: string | null;
   telnyxInboundNumbers: Array<{ number: string }>;
 }) {
-  const gaps = [
+  return [
     !hasInboundRouting(company) ? 'Inbound routing number' : null,
     !company.notificationEmail ? 'Business email' : null,
     !company.primaryContactName ? 'Primary contact name' : null,
@@ -126,8 +126,6 @@ function setupGapsForCompany(company: {
     !company.primaryContactPhone ? 'Primary contact phone' : null,
     !company.website ? 'Website' : null
   ].filter(Boolean) as string[];
-
-  return gaps;
 }
 
 type CompanySetupSnapshot = {
@@ -148,7 +146,7 @@ const emptyCompanySetup: CompanySetupSnapshot = {
   downPaymentCents: null
 };
 
-export default async function ClientSetupPage({
+export default async function ClientProfilePage({
   params,
   searchParams
 }: {
@@ -209,62 +207,100 @@ export default async function ClientSetupPage({
     ...companySetup
   };
 
-  const [intakeEvents, activeWorkflowRunCount, latestWorkflowRun, latestInboundMessage, latestOutboundMessage] =
-    await Promise.all([
-      safeLoad(
-        () =>
-          db.eventLog.findMany({
-            where: {
-              companyId: id,
-              eventType: {
-                in: ['client_signup_received', 'client_onboarding_received']
-              }
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 4,
-            select: {
-              eventType: true,
-              createdAt: true,
-              payload: true
+  const now = new Date();
+
+  const [
+    intakeEvents,
+    activeWorkflowRunCount,
+    latestWorkflowRun,
+    latestInboundMessage,
+    latestOutboundMessage,
+    leadCount,
+    activeLeadCount,
+    conversationCount,
+    messageCount,
+    upcomingAppointmentCount
+  ] = await Promise.all([
+    safeLoad(
+      () =>
+        db.eventLog.findMany({
+          where: {
+            companyId: id,
+            eventType: {
+              in: ['client_signup_received', 'client_onboarding_received']
             }
-          }),
-        []
-      ),
-      safeLoad(
-        () =>
-          db.workflowRun.count({
-            where: { companyId: id, status: 'ACTIVE' }
-          }),
-        0
-      ),
-      safeLoad(
-        () =>
-          db.workflowRun.findFirst({
-            where: { companyId: id },
-            orderBy: { updatedAt: 'desc' },
-            select: { updatedAt: true, status: true, workflowType: true }
-          }),
-        null
-      ),
-      safeLoad(
-        () =>
-          db.message.findFirst({
-            where: { companyId: id, direction: 'INBOUND' },
-            orderBy: { createdAt: 'desc' },
-            select: { createdAt: true }
-          }),
-        null
-      ),
-      safeLoad(
-        () =>
-          db.message.findFirst({
-            where: { companyId: id, direction: 'OUTBOUND' },
-            orderBy: { createdAt: 'desc' },
-            select: { createdAt: true }
-          }),
-        null
-      )
-    ]);
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 4,
+          select: {
+            eventType: true,
+            createdAt: true,
+            payload: true
+          }
+        }),
+      []
+    ),
+    safeLoad(
+      () =>
+        db.workflowRun.count({
+          where: { companyId: id, status: 'ACTIVE' }
+        }),
+      0
+    ),
+    safeLoad(
+      () =>
+        db.workflowRun.findFirst({
+          where: { companyId: id },
+          orderBy: { updatedAt: 'desc' },
+          select: { updatedAt: true, status: true, workflowType: true }
+        }),
+      null
+    ),
+    safeLoad(
+      () =>
+        db.message.findFirst({
+          where: { companyId: id, direction: 'INBOUND' },
+          orderBy: { createdAt: 'desc' },
+          select: { createdAt: true }
+        }),
+      null
+    ),
+    safeLoad(
+      () =>
+        db.message.findFirst({
+          where: { companyId: id, direction: 'OUTBOUND' },
+          orderBy: { createdAt: 'desc' },
+          select: { createdAt: true }
+        }),
+      null
+    ),
+    safeLoad(() => db.lead.count({ where: { companyId: id } }), 0),
+    safeLoad(
+      () =>
+        db.lead.count({
+          where: {
+            companyId: id,
+            status: {
+              in: ['NEW', 'CONTACTED', 'REPLIED']
+            }
+          }
+        }),
+      0
+    ),
+    safeLoad(() => db.conversation.count({ where: { companyId: id } }), 0),
+    safeLoad(() => db.message.count({ where: { companyId: id } }), 0),
+    safeLoad(
+      () =>
+        db.appointment.count({
+          where: {
+            companyId: id,
+            startTime: { gte: now },
+            status: { in: ['BOOKED', 'CONFIRMED', 'RESCHEDULED'] }
+          }
+        }),
+      0
+    )
+  ]);
 
   const latestSignupEvent = intakeEvents.find((event) => event.eventType === 'client_signup_received') || null;
   const latestOnboardingEvent = intakeEvents.find((event) => event.eventType === 'client_onboarding_received') || null;
@@ -287,7 +323,6 @@ export default async function ClientSetupPage({
 
   const workflowAgeMs = latestWorkflowRun ? Date.now() - latestWorkflowRun.updatedAt.getTime() : Number.POSITIVE_INFINITY;
   const workflowHealthy = Number.isFinite(workflowAgeMs) && workflowAgeMs <= 24 * 60 * 60 * 1000;
-
   const smsHealthy = Boolean(activeSenderNumber) && hasInboundRouting(company);
 
   const profileFields = [
@@ -300,9 +335,11 @@ export default async function ClientSetupPage({
   ];
   const profileFilled = profileFields.filter((value) => String(value || '').trim()).length;
   const profileTotal = profileFields.length;
+  const paymentsFilled = [company.retainerCents, company.downPaymentCents].filter((value) => typeof value === 'number')
+    .length;
 
-  const paymentFields = [company.retainerCents, company.downPaymentCents];
-  const paymentsFilled = paymentFields.filter((value) => typeof value === 'number').length;
+  const readinessTone = missingSetup ? 'is-warn' : 'is-ready';
+  const readinessLabel = missingSetup ? `${setupGaps.length} setup gaps` : 'Launch ready';
 
   return (
     <LayoutShell
@@ -319,243 +356,374 @@ export default async function ClientSetupPage({
         <section className="panel panel-stack">
           <div className="inline-row">
             <span className="status-dot ok" />
-            <strong>Client setup updated.</strong>
+            <strong>Client profile updated.</strong>
           </div>
-          <div className="text-muted">Profile edits are live (routing + notifications + operator context).</div>
+          <div className="text-muted">Routing, notifications, and operator context are now using the latest values.</div>
         </section>
       )}
 
-      <section className="panel panel-stack">
+      <section className="panel panel-stack client-record-hero">
         <div className="record-header">
           <div className="panel-stack">
-            <div className="metric-label">Workspace</div>
+            <div className="metric-label">Client profile</div>
             <h2 className="section-title">{company.name}</h2>
-            <div className="inline-row">
-              <span className={`status-chip ${missingSetup ? 'status-chip-attention' : ''}`}>
-                <strong>Setup</strong> {missingSetup ? 'Needs attention' : 'Ready'}
-              </span>
+            <div className="record-subtitle">
+              A cleaner record page for identity, routing, and launch readiness. The profile editor below stays the source
+              of truth for the operator workflow.
+            </div>
+            <div className="inline-row client-record-chip-row">
+              <span className={`readiness-pill ${readinessTone}`}>{readinessLabel}</span>
               <span className="status-chip status-chip-muted">
                 <strong>Profile</strong> {profileFilled}/{profileTotal}
               </span>
               <span className="status-chip status-chip-muted">
-                <strong>Payments</strong> {paymentsFilled}/{paymentFields.length}
+                <strong>Payments</strong> {paymentsFilled}/2
+              </span>
+              <span className={`status-chip ${smsHealthy ? '' : 'status-chip-attention'}`}>
+                <strong>Messaging</strong> {smsHealthy ? 'Routed' : 'Needs setup'}
               </span>
             </div>
           </div>
-          <div className="inline-actions">
-            <a className="button" href={`/clients/${company.id}/operator`}>
-              Operator workspace
+          <div className="workspace-action-rail">
+            <a className="button" href={`/clients/${company.id}/operator?lab=sms#comms-lab`}>
+              Open Comms Lab
             </a>
             <a className="button-secondary" href={`/events?companyId=${encodeURIComponent(company.id)}`}>
-              Activity
+              View activity
+            </a>
+            <a className="button-secondary" href="#setup">
+              Edit profile
             </a>
           </div>
         </div>
 
-        <div className="key-value-grid">
-          <div className="key-value-card">
-            <span className="key-value-label">AI agent health</span>
-            <div className="record-stack" style={{ gap: 6 }}>
-              <span className="inline-row">
-                <span className={`status-dot ${workflowHealthy ? 'ok' : 'warn'}`} />
-                <strong>{workflowHealthy ? 'Active' : latestWorkflowRun ? 'Stale' : 'No runs yet'}</strong>
-              </span>
-              <span className="tiny-muted">
-                {latestWorkflowRun
-                  ? `${activeWorkflowRunCount} active • Last touched ${formatCompactDateTime(latestWorkflowRun.updatedAt)}`
-                  : `${activeWorkflowRunCount} active • No workflow activity logged yet.`}
-              </span>
-            </div>
+        <div className="client-record-stats">
+          <div className="client-record-stat">
+            <span className="metric-label">Leads</span>
+            <strong className="workspace-stats-value">{leadCount}</strong>
+            <span className="tiny-muted">{activeLeadCount} active in the pipeline</span>
           </div>
-
-          <div className="key-value-card">
-            <span className="key-value-label">SMS health</span>
-            <div className="record-stack" style={{ gap: 6 }}>
-              <span className="inline-row">
-                <span className={`status-dot ${smsHealthy ? 'ok' : activeSenderNumber ? 'warn' : 'error'}`} />
-                <strong>{smsHealthy ? 'Routed' : activeSenderNumber ? 'Sender set, routing missing' : 'No sender configured'}</strong>
-              </span>
-              <span className="tiny-muted">
-                Sender: {activeSenderNumber || '—'} • Last inbound {formatCompactDateTime(latestInboundMessage?.createdAt)} • Last outbound{' '}
-                {formatCompactDateTime(latestOutboundMessage?.createdAt)}
-              </span>
-            </div>
+          <div className="client-record-stat">
+            <span className="metric-label">Conversations</span>
+            <strong className="workspace-stats-value">{conversationCount}</strong>
+            <span className="tiny-muted">{messageCount} total messages on record</span>
           </div>
-
-          <div className="key-value-card">
-            <span className="key-value-label">Google Calendar</span>
-            <div className="record-stack" style={{ gap: 6 }}>
-              <span className="inline-row">
-                <span className="status-dot warn" />
-                <strong>Not connected</strong>
-              </span>
-              <span className="tiny-muted">Connection UI not implemented yet.</span>
-            </div>
+          <div className="client-record-stat">
+            <span className="metric-label">Upcoming appointments</span>
+            <strong className="workspace-stats-value">{upcomingAppointmentCount}</strong>
+            <span className="tiny-muted">Booked, confirmed, or rescheduled</span>
           </div>
-
-          <div className="key-value-card">
-            <span className="key-value-label">Payments</span>
-            <div className="record-stack" style={{ gap: 6 }}>
-              <span>
-                Retainer: <strong>{formatUsd(company.retainerCents)}</strong> • Down payment: <strong>{formatUsd(company.downPaymentCents)}</strong>
-              </span>
-              <span className="tiny-muted">Store retainer + down payment for operator context (does not bill yet).</span>
-            </div>
+          <div className="client-record-stat">
+            <span className="metric-label">Workflows</span>
+            <strong className="workspace-stats-value">{activeWorkflowRunCount}</strong>
+            <span className="tiny-muted">
+              {latestWorkflowRun ? `${latestWorkflowRun.workflowType} touched ${formatCompactDateTime(latestWorkflowRun.updatedAt)}` : 'No runs yet'}
+            </span>
           </div>
         </div>
       </section>
 
-      <details id="setup" className="panel panel-stack" open={notice === 'updated' || missingSetup}>
-        <summary className="details-summary">
-          Client profile {setupGaps.length > 0 ? `(${setupGaps.join(', ')})` : '(source of truth)'}
-        </summary>
+      <div className="client-record-layout">
         <div className="panel-stack">
-          <div className="panel-stack" style={{ gap: 8 }}>
-            <div className="metric-label">Source of truth</div>
-            <div className="page-copy">
-              Website signup gets this client into the system. From this point forward, edit the profile here and the CRM becomes the live source of truth for notifications, routing, and how the team works this clinic.
-            </div>
-            {(latestSignupEvent || latestOnboardingEvent) && (
-              <div className="tiny-muted">
-                {latestSignupEvent
-                  ? `Imported from ${importedSourceLabel || 'website signup'} on ${formatCompactDateTime(latestSignupEvent.createdAt)}`
-                  : 'No signup event recorded yet.'}
-                {importedContactName ? ` • Contact: ${importedContactName}` : ''}
-                {importedNotificationEmail ? ` • Email: ${importedNotificationEmail}` : ''}
-                {latestOnboardingEvent ? ` • Onboarding received ${formatCompactDateTime(latestOnboardingEvent.createdAt)}` : ''}
+          <section className="panel panel-stack">
+            <div className="record-header">
+              <div className="panel-stack">
+                <div className="metric-label">Overview</div>
+                <h3 className="section-title">Identity, routing, and handoff</h3>
+                <div className="record-subtitle">
+                  The strongest CRM record pages keep the essentials visible first: who this client is, how replies route, and
+                  where the team should jump next.
+                </div>
               </div>
-            )}
-          </div>
-          {setupGaps.length > 0 && (
-            <div className="readiness-pills">
-              {setupGaps.map((gap) => (
-                <span key={gap} className="readiness-pill is-warn">
-                  {gap}
+            </div>
+
+            <div className="client-record-overview-grid">
+              <div className="key-value-card client-record-overview-card">
+                <span className="key-value-label">Primary contact</span>
+                <strong>{company.primaryContactName || 'Missing primary contact'}</strong>
+                <span className="tiny-muted">
+                  {[company.primaryContactEmail, company.primaryContactPhone].filter(Boolean).join(' • ') || 'Add the owner or manager who receives updates.'}
                 </span>
-              ))}
-            </div>
-          )}
-          <form action={updateCompanyAction} className="panel-stack">
-            <input type="hidden" name="companyId" value={company.id} />
-            <div className="workspace-filter-row">
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-name">
-                  Client name
-                </label>
-                <input id="client-name" className="text-input" name="name" defaultValue={company.name} />
               </div>
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-notification">
-                  Notification email
-                </label>
-                <input
-                  id="client-notification"
-                  className="text-input"
-                  name="notificationEmail"
-                  defaultValue={company.notificationEmail || ''}
-                  placeholder="appointments@client.com"
-                />
+              <div className="key-value-card client-record-overview-card">
+                <span className="key-value-label">Routing line</span>
+                <strong>{primaryRoutingNumber || activeSenderNumber || 'No sender configured'}</strong>
+                <span className="tiny-muted">
+                  {hasInboundRouting(company)
+                    ? 'Replies map into this client workspace.'
+                    : 'Assign a dedicated inbound number so replies do not stay on fallback routing.'}
+                </span>
               </div>
-            </div>
-            <div className="workspace-filter-row">
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-website">
-                  Website
-                </label>
-                <input
-                  id="client-website"
-                  className="text-input"
-                  name="website"
-                  defaultValue={company.website || ''}
-                  placeholder="https://client.com"
-                />
+              <div className="key-value-card client-record-overview-card">
+                <span className="key-value-label">Notifications</span>
+                <strong>{company.notificationEmail || 'Missing notification inbox'}</strong>
+                <span className="tiny-muted">
+                  {company.website ? `Website: ${company.website}` : 'Add the website so intake and client context stay connected.'}
+                </span>
               </div>
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-primary-contact-name">
-                  Primary contact name
-                </label>
-                <input
-                  id="client-primary-contact-name"
-                  className="text-input"
-                  name="primaryContactName"
-                  defaultValue={company.primaryContactName || ''}
-                  placeholder="Owner name"
-                />
-              </div>
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-primary-contact-email">
-                  Primary contact email
-                </label>
-                <input
-                  id="client-primary-contact-email"
-                  className="text-input"
-                  name="primaryContactEmail"
-                  defaultValue={company.primaryContactEmail || ''}
-                  placeholder="owner@client.com"
-                />
+              <div className="key-value-card client-record-overview-card">
+                <span className="key-value-label">Revenue context</span>
+                <strong>
+                  {formatUsd(company.retainerCents)} retainer
+                  {company.downPaymentCents ? ` • ${formatUsd(company.downPaymentCents)} down` : ''}
+                </strong>
+                <span className="tiny-muted">Stored for operator context and launch planning.</span>
               </div>
             </div>
-            <div className="workspace-filter-row">
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-primary-contact-phone">
-                  Primary contact phone
-                </label>
-                <input
-                  id="client-primary-contact-phone"
-                  className="text-input"
-                  name="primaryContactPhone"
-                  defaultValue={company.primaryContactPhone || ''}
-                  placeholder="(555) 555-5555"
-                />
-              </div>
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-retainer">
-                  Retainer (monthly USD)
-                </label>
-                <input
-                  id="client-retainer"
-                  className="text-input"
-                  name="retainer"
-                  defaultValue={typeof company.retainerCents === 'number' ? String(company.retainerCents / 100) : ''}
-                  placeholder="1500"
-                  inputMode="decimal"
-                />
-              </div>
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="client-down-payment">
-                  Down payment (USD)
-                </label>
-                <input
-                  id="client-down-payment"
-                  className="text-input"
-                  name="downPayment"
-                  defaultValue={typeof company.downPaymentCents === 'number' ? String(company.downPaymentCents / 100) : ''}
-                  placeholder="500"
-                  inputMode="decimal"
-                />
+
+            <div className="surface-link-grid">
+              <a className="surface-link-card" href={`/clients/${company.id}/operator?lab=sms#comms-lab`}>
+                <span className="metric-label">Comms Lab</span>
+                <strong>Test SMS routing and review message activity</strong>
+                <span className="tiny-muted">Use the live terminal without leaving the client record.</span>
+              </a>
+              <a className="surface-link-card" href={`/events?companyId=${encodeURIComponent(company.id)}`}>
+                <span className="metric-label">Activity log</span>
+                <strong>Review webhook, booking, and delivery events</strong>
+                <span className="tiny-muted">Useful when QAing intake, workflows, or carrier delivery.</span>
+              </a>
+              <a className="surface-link-card" href="#setup">
+                <span className="metric-label">Profile editor</span>
+                <strong>Update routing, contacts, website, and pricing</strong>
+                <span className="tiny-muted">All downstream operator tools read from this setup form.</span>
+              </a>
+            </div>
+          </section>
+
+          <section className="panel panel-stack" id="setup">
+            <div className="record-header">
+              <div className="panel-stack">
+                <div className="metric-label">Profile editor</div>
+                <h3 className="section-title">Keep the record accurate</h3>
+                <div className="record-subtitle">
+                  Inspired by modern CRM record pages, this section keeps one obvious edit surface instead of scattering settings
+                  across the page.
+                </div>
               </div>
             </div>
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="client-inbound">
-                Assigned client number(s)
-              </label>
-              <textarea
-                id="client-inbound"
-                className="text-area"
-                name="telnyxInboundNumber"
-                defaultValue={allInboundNumbers(company).join('\n')}
-                rows={3}
-              />
-              <span className="tiny-muted">One number can belong to only one client. Add one number per line so replies stay tied to the right workspace.</span>
-            </div>
-            <div className="inline-actions">
-              <button type="submit" className="button">
-                Save profile
-              </button>
-            </div>
-          </form>
+
+            <form action={updateCompanyAction} className="panel-stack client-profile-form">
+              <input type="hidden" name="companyId" value={company.id} />
+
+              <div className="client-profile-section">
+                <div className="metric-label">Business details</div>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="client-name">
+                      Client name
+                    </label>
+                    <input id="client-name" className="text-input" name="name" defaultValue={company.name} />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="client-notification">
+                      Business email
+                    </label>
+                    <input
+                      id="client-notification"
+                      className="text-input"
+                      name="notificationEmail"
+                      defaultValue={company.notificationEmail || ''}
+                      placeholder="appointments@client.com"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="client-website">
+                      Website
+                    </label>
+                    <input
+                      id="client-website"
+                      className="text-input"
+                      name="website"
+                      defaultValue={company.website || ''}
+                      placeholder="https://client.com"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="client-profile-section">
+                <div className="metric-label">Primary contact</div>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="client-primary-contact-name">
+                      Contact name
+                    </label>
+                    <input
+                      id="client-primary-contact-name"
+                      className="text-input"
+                      name="primaryContactName"
+                      defaultValue={company.primaryContactName || ''}
+                      placeholder="Owner name"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="client-primary-contact-email">
+                      Contact email
+                    </label>
+                    <input
+                      id="client-primary-contact-email"
+                      className="text-input"
+                      name="primaryContactEmail"
+                      defaultValue={company.primaryContactEmail || ''}
+                      placeholder="owner@client.com"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="client-primary-contact-phone">
+                      Contact phone
+                    </label>
+                    <input
+                      id="client-primary-contact-phone"
+                      className="text-input"
+                      name="primaryContactPhone"
+                      defaultValue={company.primaryContactPhone || ''}
+                      placeholder="(555) 555-5555"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="client-profile-section">
+                <div className="metric-label">Routing and pricing</div>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="client-retainer">
+                      Retainer (monthly USD)
+                    </label>
+                    <input
+                      id="client-retainer"
+                      className="text-input"
+                      name="retainer"
+                      defaultValue={typeof company.retainerCents === 'number' ? String(company.retainerCents / 100) : ''}
+                      placeholder="1500"
+                      inputMode="decimal"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="client-down-payment">
+                      Down payment (USD)
+                    </label>
+                    <input
+                      id="client-down-payment"
+                      className="text-input"
+                      name="downPayment"
+                      defaultValue={typeof company.downPaymentCents === 'number' ? String(company.downPaymentCents / 100) : ''}
+                      placeholder="500"
+                      inputMode="decimal"
+                    />
+                  </div>
+                </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="client-inbound">
+                    Assigned client number(s)
+                  </label>
+                  <textarea
+                    id="client-inbound"
+                    className="text-area"
+                    name="telnyxInboundNumber"
+                    defaultValue={allInboundNumbers(company).join('\n')}
+                    rows={3}
+                  />
+                  <span className="tiny-muted">
+                    Add one number per line. Each line is treated as a unique routing destination for this client.
+                  </span>
+                </div>
+              </div>
+
+              <div className="inline-actions">
+                <button type="submit" className="button">
+                  Save profile
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
-      </details>
+
+        <aside className="client-record-sidebar">
+          <section className="panel panel-stack">
+            <div className="metric-label">Launch readiness</div>
+            <h3 className="section-title">What still needs attention</h3>
+            <div className="record-subtitle">
+              CRM leaders like HubSpot and Attio keep setup gaps compact and scannable rather than burying them inside the edit
+              form.
+            </div>
+            <div className="readiness-pills">
+              {setupGaps.length > 0 ? (
+                setupGaps.map((gap) => (
+                  <span key={gap} className="readiness-pill is-warn">
+                    {gap}
+                  </span>
+                ))
+              ) : (
+                <span className="readiness-pill is-ready">Routing, contact, website, and email are in place</span>
+              )}
+            </div>
+          </section>
+
+          <section className="panel panel-stack">
+            <div className="metric-label">Recent signals</div>
+            <div className="workspace-list">
+              <div className="workspace-list-item">
+                <div className="workspace-list-header">
+                  <strong>Messaging status</strong>
+                  <span className={`status-dot ${smsHealthy ? 'ok' : activeSenderNumber ? 'warn' : 'error'}`} />
+                </div>
+                <span className="tiny-muted">
+                  Sender {activeSenderNumber || 'missing'} • Last inbound {formatCompactDateTime(latestInboundMessage?.createdAt)} •
+                  Last outbound {formatCompactDateTime(latestOutboundMessage?.createdAt)}
+                </span>
+              </div>
+              <div className="workspace-list-item">
+                <div className="workspace-list-header">
+                  <strong>Workflow status</strong>
+                  <span className={`status-dot ${workflowHealthy ? 'ok' : 'warn'}`} />
+                </div>
+                <span className="tiny-muted">
+                  {latestWorkflowRun
+                    ? `${latestWorkflowRun.workflowType} • ${latestWorkflowRun.status} • ${formatCompactDateTime(latestWorkflowRun.updatedAt)}`
+                    : 'No workflow activity logged yet.'}
+                </span>
+              </div>
+              <div className="workspace-list-item">
+                <div className="workspace-list-header">
+                  <strong>Intake provenance</strong>
+                  <span className="metric-label">{importedSourceLabel || 'Manual or unknown'}</span>
+                </div>
+                <span className="tiny-muted">
+                  {latestSignupEvent
+                    ? `Signup received ${formatCompactDateTime(latestSignupEvent.createdAt)}`
+                    : 'No signup event recorded yet.'}
+                  {importedContactName ? ` • Contact ${importedContactName}` : ''}
+                  {importedNotificationEmail ? ` • ${importedNotificationEmail}` : ''}
+                  {latestOnboardingEvent ? ` • Onboarding ${formatCompactDateTime(latestOnboardingEvent.createdAt)}` : ''}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel panel-stack">
+            <div className="metric-label">Snapshot</div>
+            <div className="client-record-sidebar-grid">
+              <div className="client-record-sidebar-item">
+                <span className="key-value-label">Created</span>
+                <strong>{formatCompactDateTime(company.createdAt)}</strong>
+              </div>
+              <div className="client-record-sidebar-item">
+                <span className="key-value-label">Routing mode</span>
+                <strong>{primaryRoutingNumber ? 'Dedicated' : activeSenderNumber ? 'Shared fallback' : 'Missing'}</strong>
+              </div>
+              <div className="client-record-sidebar-item">
+                <span className="key-value-label">Inbound lines</span>
+                <strong>{allInboundNumbers(company).length || 0}</strong>
+              </div>
+              <div className="client-record-sidebar-item">
+                <span className="key-value-label">Revenue context</span>
+                <strong>{formatUsd(company.retainerCents)}</strong>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
     </LayoutShell>
   );
 }
