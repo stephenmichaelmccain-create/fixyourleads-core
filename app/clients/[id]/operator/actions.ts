@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from 'next/cache';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { normalizePhone } from '@/lib/phone';
@@ -99,6 +100,10 @@ export async function sendClientMessagingTestAction(formData: FormData) {
       })}#comms-lab`
     );
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     await db.eventLog.create({
       data: {
         companyId,
