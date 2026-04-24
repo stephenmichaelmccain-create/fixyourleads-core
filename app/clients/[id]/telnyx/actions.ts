@@ -19,6 +19,12 @@ export async function saveClientTelnyxSetupAction(formData: FormData) {
 
   const payload = {
     ...Object.fromEntries(telnyxChecklistOrder.map((item) => [item.key, formData.get(item.key) === 'on'])),
+    legalBusinessName: optionalText(formData.get('legalBusinessName')),
+    ein: optionalText(formData.get('ein')),
+    businessAddress: optionalText(formData.get('businessAddress')),
+    businessEmail: optionalText(formData.get('businessEmail')),
+    businessPhone: optionalText(formData.get('businessPhone')),
+    website: optionalText(formData.get('website')),
     brandId: optionalText(formData.get('brandId')),
     brandStatus: optionalText(formData.get('brandStatus')),
     campaignId: optionalText(formData.get('campaignId')),
@@ -27,10 +33,12 @@ export async function saveClientTelnyxSetupAction(formData: FormData) {
     messagingProfileStatus: optionalText(formData.get('messagingProfileStatus')),
     phoneNumber: optionalText(formData.get('phoneNumber')),
     webhookUrl: optionalText(formData.get('webhookUrl')),
-    makeScenarioUrl: optionalText(formData.get('makeScenarioUrl')),
+    automationUrl: optionalText(formData.get('automationUrl')),
+    intakeFormUrl: optionalText(formData.get('intakeFormUrl')),
     documentationUrl: optionalText(formData.get('documentationUrl')),
     sampleMessage: optionalText(formData.get('sampleMessage')),
     monthlyVolume: optionalText(formData.get('monthlyVolume')),
+    complianceNotes: optionalText(formData.get('complianceNotes')),
     notes: optionalText(formData.get('notes')),
     updatedAt: new Date().toISOString()
   };

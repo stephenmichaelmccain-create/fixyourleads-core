@@ -48,6 +48,9 @@ export default async function ClientTelnyxSetupPage({
         select: {
           id: true,
           name: true,
+          website: true,
+          notificationEmail: true,
+          primaryContactPhone: true,
           telnyxInboundNumber: true,
           createdAt: true,
           telnyxInboundNumbers: {
@@ -91,6 +94,9 @@ export default async function ClientTelnyxSetupPage({
   const defaultWebhookUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/telnyx` : '';
   const assignedNumbers = allInboundNumbers(company);
   const routingMode = companyPrimaryInboundNumber(company) ? 'Dedicated' : assignedNumbers.length ? 'Shared plus assigned lines' : 'Unassigned';
+  const businessEmail = state.businessEmail || company.notificationEmail || '';
+  const businessPhone = state.businessPhone || company.primaryContactPhone || '';
+  const businessWebsite = state.website || company.website || '';
 
   return (
     <LayoutShell
@@ -119,7 +125,7 @@ export default async function ClientTelnyxSetupPage({
             <div className="metric-label">Telnyx setup</div>
             <h2 className="section-title">{company.name}</h2>
             <div className="record-subtitle">
-              Use this as the per-client onboarding SOP: collect, register, assign, connect, test, document, launch.
+              Follow the exact client onboarding sequence here: collect intake, register 10DLC, create the messaging profile, assign the number, point Telnyx at Fix Your Leads, test it, then document everything.
             </div>
             <div className="inline-row client-record-chip-row">
               <span className={`readiness-pill ${progress.completed === progress.total ? 'is-ready' : 'is-warn'}`}>
@@ -150,7 +156,7 @@ export default async function ClientTelnyxSetupPage({
             <span className="tiny-muted">{assignedNumbers[0] || 'No numbers assigned yet'}</span>
           </div>
           <div className="client-record-stat">
-            <span className="metric-label">Webhook URL</span>
+            <span className="metric-label">Webhook target</span>
             <strong className="workspace-stats-value">{state.webhookUrl ? 'Saved' : appBaseUrl ? 'Ready' : 'Missing env'}</strong>
             <span className="tiny-muted">{state.webhookUrl || defaultWebhookUrl || 'APP_BASE_URL missing'}</span>
           </div>
@@ -196,7 +202,113 @@ export default async function ClientTelnyxSetupPage({
               </div>
 
               <div className="client-profile-section">
-                <div className="metric-label">Identifiers and status</div>
+                <div className="metric-label">1. Client intake</div>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="telnyx-legal-business-name">
+                      Legal business name
+                    </label>
+                    <input
+                      id="telnyx-legal-business-name"
+                      className="text-input"
+                      name="legalBusinessName"
+                      defaultValue={state.legalBusinessName || company.name}
+                      placeholder="Glow Med Spa LLC"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="telnyx-ein">
+                      EIN
+                    </label>
+                    <input
+                      id="telnyx-ein"
+                      className="text-input"
+                      name="ein"
+                      defaultValue={state.ein || ''}
+                      placeholder="12-3456789"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="telnyx-monthly-volume">
+                      Est. monthly volume
+                    </label>
+                    <input
+                      id="telnyx-monthly-volume"
+                      className="text-input"
+                      name="monthlyVolume"
+                      defaultValue={state.monthlyVolume || ''}
+                      placeholder="500"
+                    />
+                  </div>
+                </div>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="telnyx-business-address">
+                      Business address
+                    </label>
+                    <input
+                      id="telnyx-business-address"
+                      className="text-input"
+                      name="businessAddress"
+                      defaultValue={state.businessAddress || ''}
+                      placeholder="123 Main St, City, ST 00000"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="telnyx-business-email">
+                      Business email
+                    </label>
+                    <input
+                      id="telnyx-business-email"
+                      className="text-input"
+                      name="businessEmail"
+                      defaultValue={businessEmail}
+                      placeholder="hello@business.com"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="telnyx-business-phone">
+                      Business phone
+                    </label>
+                    <input
+                      id="telnyx-business-phone"
+                      className="text-input"
+                      name="businessPhone"
+                      defaultValue={businessPhone}
+                      placeholder="+13035551234"
+                    />
+                  </div>
+                </div>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="telnyx-website">
+                      Website
+                    </label>
+                    <input
+                      id="telnyx-website"
+                      className="text-input"
+                      name="website"
+                      defaultValue={businessWebsite}
+                      placeholder="https://business.com"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="telnyx-intake-form-url">
+                      Intake form link
+                    </label>
+                    <input
+                      id="telnyx-intake-form-url"
+                      className="text-input"
+                      name="intakeFormUrl"
+                      defaultValue={state.intakeFormUrl || ''}
+                      placeholder="https://forms.gle/... or internal intake doc"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="client-profile-section">
+                <div className="metric-label">2. 10DLC brand and campaign</div>
                 <div className="workspace-filter-row">
                   <div className="field-stack">
                     <label className="key-value-label" htmlFor="telnyx-brand-id">
@@ -238,6 +350,26 @@ export default async function ClientTelnyxSetupPage({
 
                 <div className="workspace-filter-row">
                   <div className="field-stack">
+                    <label className="key-value-label" htmlFor="telnyx-campaign-use-case">
+                      Campaign use case
+                    </label>
+                    <input
+                      id="telnyx-campaign-use-case"
+                      className="text-input"
+                      value="Customer Care"
+                      readOnly
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="client-profile-section">
+                <div className="metric-label">3. Messaging profile and number</div>
+                <div className="record-subtitle">
+                  Create the messaging profile, attach the approved campaign, then buy or port the client number and assign it here.
+                </div>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
                     <label className="key-value-label" htmlFor="telnyx-profile-id">
                       Messaging profile ID
                     </label>
@@ -257,12 +389,12 @@ export default async function ClientTelnyxSetupPage({
                       className="text-input"
                       name="messagingProfileStatus"
                       defaultValue={state.messagingProfileStatus || ''}
-                      placeholder="Linked to campaign"
+                      placeholder="Linked to approved campaign"
                     />
                   </div>
                   <div className="field-stack">
                     <label className="key-value-label" htmlFor="telnyx-phone-number">
-                      Phone number
+                      Client number
                     </label>
                     <input
                       id="telnyx-phone-number"
@@ -272,23 +404,14 @@ export default async function ClientTelnyxSetupPage({
                       placeholder="+17205550199"
                     />
                   </div>
-                  <div className="field-stack">
-                    <label className="key-value-label" htmlFor="telnyx-monthly-volume">
-                      Est. monthly volume
-                    </label>
-                    <input
-                      id="telnyx-monthly-volume"
-                      className="text-input"
-                      name="monthlyVolume"
-                      defaultValue={state.monthlyVolume || ''}
-                      placeholder="500"
-                    />
-                  </div>
                 </div>
               </div>
 
               <div className="client-profile-section">
-                <div className="metric-label">Webhook, compliance, and docs</div>
+                <div className="metric-label">4. Webhook and routing</div>
+                <div className="record-subtitle">
+                  Point the Telnyx messaging profile to Fix Your Leads first. Use an automation link only if you intentionally add Make or another downstream tool after the app.
+                </div>
                 <div className="field-stack">
                   <label className="key-value-label" htmlFor="telnyx-webhook-url">
                     Webhook URL
@@ -303,15 +426,15 @@ export default async function ClientTelnyxSetupPage({
                 </div>
                 <div className="workspace-filter-row">
                   <div className="field-stack">
-                    <label className="key-value-label" htmlFor="telnyx-make-scenario-url">
-                      Make scenario URL
+                    <label className="key-value-label" htmlFor="telnyx-automation-url">
+                      Automation link
                     </label>
                     <input
-                      id="telnyx-make-scenario-url"
+                      id="telnyx-automation-url"
                       className="text-input"
-                      name="makeScenarioUrl"
-                      defaultValue={state.makeScenarioUrl || ''}
-                      placeholder="https://www.make.com/..."
+                      name="automationUrl"
+                      defaultValue={state.automationUrl || ''}
+                      placeholder="https://www.make.com/... or internal workflow link"
                     />
                   </div>
                   <div className="field-stack">
@@ -327,6 +450,10 @@ export default async function ClientTelnyxSetupPage({
                     />
                   </div>
                 </div>
+              </div>
+
+              <div className="client-profile-section">
+                <div className="metric-label">5. Compliance and sample messaging</div>
                 <div className="field-stack">
                   <label className="key-value-label" htmlFor="telnyx-sample-message">
                     Sample message
@@ -340,6 +467,23 @@ export default async function ClientTelnyxSetupPage({
                     rows={3}
                   />
                 </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="telnyx-compliance-notes">
+                    Compliance notes
+                  </label>
+                  <textarea
+                    id="telnyx-compliance-notes"
+                    className="text-area"
+                    name="complianceNotes"
+                    defaultValue={state.complianceNotes || ''}
+                    placeholder="Opt-in collected at booking, first message includes STOP, quiet hours handled in app."
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              <div className="client-profile-section">
+                <div className="metric-label">6. Documentation</div>
                 <div className="field-stack">
                   <label className="key-value-label" htmlFor="telnyx-notes">
                     Notes

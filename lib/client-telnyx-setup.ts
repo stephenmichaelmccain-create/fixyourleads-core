@@ -25,6 +25,12 @@ export type TelnyxSetupState = {
   testReplyReceived: boolean;
   complianceReviewed: boolean;
   launchApproved: boolean;
+  legalBusinessName: string | null;
+  ein: string | null;
+  businessAddress: string | null;
+  businessEmail: string | null;
+  businessPhone: string | null;
+  website: string | null;
   brandId: string | null;
   brandStatus: string | null;
   campaignId: string | null;
@@ -33,10 +39,12 @@ export type TelnyxSetupState = {
   messagingProfileStatus: string | null;
   phoneNumber: string | null;
   webhookUrl: string | null;
-  makeScenarioUrl: string | null;
+  automationUrl: string | null;
+  intakeFormUrl: string | null;
   documentationUrl: string | null;
   sampleMessage: string | null;
   monthlyVolume: string | null;
+  complianceNotes: string | null;
   notes: string | null;
   updatedAt: string | null;
 };
@@ -67,6 +75,12 @@ export const emptyTelnyxSetupState: TelnyxSetupState = {
   testReplyReceived: false,
   complianceReviewed: false,
   launchApproved: false,
+  legalBusinessName: null,
+  ein: null,
+  businessAddress: null,
+  businessEmail: null,
+  businessPhone: null,
+  website: null,
   brandId: null,
   brandStatus: null,
   campaignId: null,
@@ -75,10 +89,12 @@ export const emptyTelnyxSetupState: TelnyxSetupState = {
   messagingProfileStatus: null,
   phoneNumber: null,
   webhookUrl: null,
-  makeScenarioUrl: null,
+  automationUrl: null,
+  intakeFormUrl: null,
   documentationUrl: null,
   sampleMessage: null,
   monthlyVolume: null,
+  complianceNotes: null,
   notes: null,
   updatedAt: null
 };
@@ -88,6 +104,16 @@ function payloadBoolean(payload: TelnyxSetupPayload, key: TelnyxSetupChecklistKe
 }
 
 function payloadText(payload: TelnyxSetupPayload, key: keyof TelnyxSetupState) {
+  const value = payload[key];
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function payloadAnyText(payload: TelnyxSetupPayload, key: string) {
   const value = payload[key];
   if (typeof value !== 'string') {
     return null;
@@ -116,6 +142,12 @@ export function parseTelnyxSetupPayload(payload: unknown): TelnyxSetupState {
     testReplyReceived: payloadBoolean(record, 'testReplyReceived'),
     complianceReviewed: payloadBoolean(record, 'complianceReviewed'),
     launchApproved: payloadBoolean(record, 'launchApproved'),
+    legalBusinessName: payloadText(record, 'legalBusinessName'),
+    ein: payloadText(record, 'ein'),
+    businessAddress: payloadText(record, 'businessAddress'),
+    businessEmail: payloadText(record, 'businessEmail'),
+    businessPhone: payloadText(record, 'businessPhone'),
+    website: payloadText(record, 'website'),
     brandId: payloadText(record, 'brandId'),
     brandStatus: payloadText(record, 'brandStatus'),
     campaignId: payloadText(record, 'campaignId'),
@@ -124,10 +156,12 @@ export function parseTelnyxSetupPayload(payload: unknown): TelnyxSetupState {
     messagingProfileStatus: payloadText(record, 'messagingProfileStatus'),
     phoneNumber: payloadText(record, 'phoneNumber'),
     webhookUrl: payloadText(record, 'webhookUrl'),
-    makeScenarioUrl: payloadText(record, 'makeScenarioUrl'),
+    automationUrl: payloadText(record, 'automationUrl') || payloadAnyText(record, 'makeScenarioUrl'),
+    intakeFormUrl: payloadText(record, 'intakeFormUrl'),
     documentationUrl: payloadText(record, 'documentationUrl'),
     sampleMessage: payloadText(record, 'sampleMessage'),
     monthlyVolume: payloadText(record, 'monthlyVolume'),
+    complianceNotes: payloadText(record, 'complianceNotes'),
     notes: payloadText(record, 'notes'),
     updatedAt: payloadText(record, 'updatedAt')
   };
