@@ -1,4 +1,5 @@
 import { LayoutShell } from '@/app/components/LayoutShell';
+import { approveSignupSubmissionAction } from '@/app/clients/intake/actions';
 import { db } from '@/lib/db';
 import { humanizeIntakeSource } from '@/lib/client-intake';
 import { safeLoad } from '@/lib/ui-data';
@@ -28,7 +29,7 @@ function payloadString(payload: Record<string, unknown>, key: string) {
 }
 
 export default async function ClientIntakePage() {
-  const [companies, signupEvents, onboardingEvents] = await Promise.all([
+  const [companies, signupEvents, approvedEvents] = await Promise.all([
     safeLoad(
       () =>
         db.company.findMany({
@@ -60,7 +61,7 @@ export default async function ClientIntakePage() {
     safeLoad(
       () =>
         db.eventLog.findMany({
-          where: { eventType: 'client_onboarding_received' },
+          where: { eventType: 'client_signup_approved' },
           orderBy: { createdAt: 'desc' },
           take: 200,
           select: {
@@ -75,10 +76,18 @@ export default async function ClientIntakePage() {
   ]);
 
   const companyById = new Map(companies.map((company) => [company.id, company]));
+  const approvedEventByCompanyId = new Map<string, { id: string; createdAt: Date }>();
+
+  for (const event of approvedEvents) {
+    if (!approvedEventByCompanyId.has(event.companyId)) {
+      approvedEventByCompanyId.set(event.companyId, { id: event.id, createdAt: event.createdAt });
+    }
+  }
 
   const signupRows = signupEvents.map((event) => {
     const payload = readPayloadRecord(event.payload);
     const company = companyById.get(event.companyId) || null;
+    const approval = approvedEventByCompanyId.get(event.companyId) || null;
 
     return {
       id: event.id,
@@ -89,29 +98,11 @@ export default async function ClientIntakePage() {
       phone: payloadString(payload, 'phone'),
       website: payloadString(payload, 'website'),
       source: payloadString(payload, 'source') || 'website',
-      receivedAt: payloadString(payload, 'signupReceivedAt') || event.createdAt.toISOString()
+      receivedAt: payloadString(payload, 'signupReceivedAt') || event.createdAt.toISOString(),
+      approvedAt: approval?.createdAt || null
     };
   });
-
-  const onboardingRows = onboardingEvents.map((event) => {
-    const payload = readPayloadRecord(event.payload);
-    const company = companyById.get(event.companyId) || null;
-
-    return {
-      id: event.id,
-      companyId: event.companyId,
-      clinicName: payloadString(payload, 'clinicName') || company?.name || 'Onboarding',
-      notificationEmail: payloadString(payload, 'notificationEmail') || company?.notificationEmail || '',
-      phone: payloadString(payload, 'phone'),
-      website: payloadString(payload, 'website'),
-      businessType: payloadString(payload, 'businessType'),
-      campaignUseCase: payloadString(payload, 'campaignUseCase'),
-      telnyxBrandName: payloadString(payload, 'telnyxBrandName'),
-      taxIdLast4: payloadString(payload, 'taxIdLast4'),
-      source: payloadString(payload, 'source') || 'website_onboarding',
-      receivedAt: payloadString(payload, 'onboardingReceivedAt') || event.createdAt.toISOString()
-    };
-  });
+  const approvedRows = signupRows.filter((row) => row.approvedAt);
 
   return (
     <LayoutShell title="Client Intake" section="clients" hidePageHeader>
@@ -151,7 +142,22 @@ export default async function ClientIntakePage() {
                   <tr key={row.id}>
                     <td>
                       <div className="record-stack" style={{ gap: 6 }}>
-                        <strong>{row.clinicName}</strong>
+                        <div className="inline-row inline-actions-wrap">
+                          <strong>{row.clinicName}</strong>
+                          {row.approvedAt ? (
+                            <span className="status-chip status-chip-muted">
+                              <strong>Approved</strong>
+                            </span>
+                          ) : (
+                            <form action={approveSignupSubmissionAction}>
+                              <input type="hidden" name="companyId" value={row.companyId} />
+                              <input type="hidden" name="signupEventId" value={row.id} />
+                              <button type="submit" className="button-secondary">
+                                Approve
+                              </button>
+                            </form>
+                          )}
+                        </div>
                         <span className="tiny-muted">{humanizeIntakeSource(row.source)}</span>
                       </div>
                     </td>
@@ -177,10 +183,10 @@ export default async function ClientIntakePage() {
         <div className="record-header">
           <div className="panel-stack">
             <div className="metric-label">Website</div>
-            <h2 className="section-title">Onboarding submissions</h2>
+            <h2 className="section-title">Approved signups</h2>
           </div>
           <span className="status-chip">
-            <strong>{onboardingRows.length}</strong> onboarded
+            <strong>{approvedRows.length}</strong> approved
           </span>
         </div>
 
@@ -189,25 +195,23 @@ export default async function ClientIntakePage() {
             <thead>
               <tr>
                 <th>Clinic</th>
+                <th>Contact</th>
                 <th>Email</th>
                 <th>Phone</th>
-                <th>Business</th>
-                <th>Use case</th>
-                <th>Telnyx brand</th>
-                <th>Tax ID</th>
-                <th>Received</th>
+                <th>Website</th>
+                <th>Approved</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {onboardingRows.length === 0 ? (
+              {approvedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9}>
-                    <div className="empty-state">No onboarding submissions yet.</div>
+                  <td colSpan={7}>
+                    <div className="empty-state">No approved signup clients yet.</div>
                   </td>
                 </tr>
               ) : (
-                onboardingRows.map((row) => (
+                approvedRows.map((row) => (
                   <tr key={row.id}>
                     <td>
                       <div className="record-stack" style={{ gap: 6 }}>
@@ -215,13 +219,11 @@ export default async function ClientIntakePage() {
                         <span className="tiny-muted">{humanizeIntakeSource(row.source)}</span>
                       </div>
                     </td>
+                    <td>{row.contactName || '—'}</td>
                     <td>{row.notificationEmail || '—'}</td>
                     <td>{row.phone || '—'}</td>
-                    <td>{row.businessType || '—'}</td>
-                    <td>{row.campaignUseCase || '—'}</td>
-                    <td>{row.telnyxBrandName || '—'}</td>
-                    <td>{row.taxIdLast4 ? `…${row.taxIdLast4}` : '—'}</td>
-                    <td className="tiny-muted">{formatDateTime(row.receivedAt)}</td>
+                    <td>{row.website || '—'}</td>
+                    <td className="tiny-muted">{formatDateTime(row.approvedAt)}</td>
                     <td>
                       <a className="button-ghost" href={`/clients/${row.companyId}#setup`}>
                         Open workspace
@@ -237,4 +239,3 @@ export default async function ClientIntakePage() {
     </LayoutShell>
   );
 }
-

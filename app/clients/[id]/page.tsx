@@ -315,6 +315,16 @@ export default async function ClientProfilePage({
         </section>
       )}
 
+      {notice === 'approved' && (
+        <section className="panel panel-stack">
+          <div className="inline-row">
+            <span className="status-dot ok" />
+            <strong>Client approved from website signup.</strong>
+          </div>
+          <div className="text-muted">The signup details were pushed into this client record so you can keep setup moving from here.</div>
+        </section>
+      )}
+
       <section className="panel panel-stack client-record-hero">
         <div className="record-header">
           <div className="panel-stack">

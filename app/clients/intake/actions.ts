@@ -9,6 +9,15 @@ function readText(formData: FormData, key: string) {
   return String(formData.get(key) || '').trim();
 }
 
+function readPayloadRecord(payload: unknown) {
+  return payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : {};
+}
+
+function payloadString(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 export async function createClientFromProspectAction(formData: FormData) {
   const prospectId = readText(formData, 'prospectId');
 
@@ -63,4 +72,95 @@ export async function createClientFromProspectAction(formData: FormData) {
   revalidatePath(`/clients/${company.id}`);
 
   redirect(`/clients/${company.id}?notice=created`);
+}
+
+export async function approveSignupSubmissionAction(formData: FormData) {
+  const companyId = readText(formData, 'companyId');
+  const signupEventId = readText(formData, 'signupEventId');
+
+  if (!companyId) {
+    redirect('/clients/intake');
+  }
+
+  const [company, signupEvent, existingApproval] = await Promise.all([
+    db.company.findUnique({
+      where: { id: companyId },
+      select: {
+        id: true,
+        website: true,
+        notificationEmail: true,
+        primaryContactName: true,
+        primaryContactEmail: true,
+        primaryContactPhone: true
+      }
+    }),
+    signupEventId
+      ? db.eventLog.findFirst({
+          where: {
+            id: signupEventId,
+            companyId,
+            eventType: 'client_signup_received'
+          },
+          select: {
+            id: true,
+            payload: true
+          }
+        })
+      : null,
+    db.eventLog.findFirst({
+      where: {
+        companyId,
+        eventType: 'client_signup_approved'
+      },
+      select: { id: true }
+    })
+  ]);
+
+  if (!company) {
+    redirect('/clients/intake');
+  }
+
+  const payload = readPayloadRecord(signupEvent?.payload);
+  const contactName = payloadString(payload, 'contactName');
+  const notificationEmail = payloadString(payload, 'notificationEmail');
+  const phone = payloadString(payload, 'phone');
+  const website = payloadString(payload, 'website');
+
+  await db.company.update({
+    where: { id: companyId },
+    data: {
+      website: website || company.website || null,
+      notificationEmail: notificationEmail || company.notificationEmail || null,
+      primaryContactName: contactName || company.primaryContactName || null,
+      primaryContactEmail: notificationEmail || company.primaryContactEmail || null,
+      primaryContactPhone: phone || company.primaryContactPhone || null
+    }
+  });
+
+  if (!existingApproval) {
+    const approvedAt = new Date().toISOString();
+
+    await db.eventLog.create({
+      data: {
+        companyId,
+        eventType: 'client_signup_approved',
+        payload: {
+          companyId,
+          signupEventId: signupEvent?.id || null,
+          contactName: contactName || null,
+          notificationEmail: notificationEmail || null,
+          phone: phone || null,
+          website: website || null,
+          approvedAt
+        }
+      }
+    });
+  }
+
+  revalidatePath('/clients');
+  revalidatePath('/clients/intake');
+  revalidatePath('/');
+  revalidatePath(`/clients/${companyId}`);
+
+  redirect(`/clients/${companyId}?notice=approved`);
 }
