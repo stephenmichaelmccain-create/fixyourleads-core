@@ -276,8 +276,8 @@ select {
 }
 
 .home-inline-bar.panel-attention {
-  border-color: rgba(194, 171, 255, 0.16);
-  background: rgba(67, 58, 126, 0.9);
+  border-color: rgba(167, 139, 250, 0.22);
+  background: rgba(43, 37, 86, 0.94);
 }
 
 .home-inline-status {
