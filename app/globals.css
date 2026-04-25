@@ -750,10 +750,19 @@ select {
   align-items: center;
   justify-content: flex-start;
   padding-top: 4px;
+  pointer-events: none;
 }
 
 .lead-master-card-selected .lead-master-footer {
   padding-top: 8px;
+}
+
+.lead-master-footer .button,
+.lead-master-footer .button-secondary,
+.lead-master-footer .button-ghost,
+.lead-master-footer a,
+.lead-master-footer button {
+  pointer-events: auto;
 }
 
 .lead-queue-list {
