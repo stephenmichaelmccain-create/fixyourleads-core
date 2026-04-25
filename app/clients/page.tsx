@@ -107,7 +107,24 @@ export default async function ClientsPage({
     []
   );
 
-  const liveClients = clients.filter((client) => !isLikelyTestWorkspaceName(client.name));
+  const approvedSignupRows = await (clients.length > 0
+    ? safeLoad(
+        () =>
+          db.eventLog.findMany({
+            where: {
+              companyId: { in: clients.map((client) => client.id) },
+              eventType: 'client_signup_approved'
+            },
+            select: {
+              companyId: true
+            }
+          }),
+        []
+      )
+    : Promise.resolve([]));
+
+  const approvedCompanyIds = new Set(approvedSignupRows.map((event) => event.companyId));
+  const liveClients = clients.filter((client) => approvedCompanyIds.has(client.id) || !isLikelyTestWorkspaceName(client.name));
   const companyIds = liveClients.map((client) => client.id);
 
   const conversationRows = await (companyIds.length > 0
