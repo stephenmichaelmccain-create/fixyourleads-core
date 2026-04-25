@@ -5,6 +5,7 @@ let leadQueueInstance: Queue | null = null;
 let messageQueueInstance: Queue | null = null;
 let bookingQueueInstance: Queue | null = null;
 let workflowQueueInstance: Queue | null = null;
+let crmSyncQueueInstance: Queue | null = null;
 
 export function getLeadQueue() {
   if (!leadQueueInstance) {
@@ -32,4 +33,11 @@ export function getWorkflowQueue() {
     workflowQueueInstance = new Queue('workflow_queue', { connection: getRedis() });
   }
   return workflowQueueInstance;
+}
+
+export function getCrmSyncQueue() {
+  if (!crmSyncQueueInstance) {
+    crmSyncQueueInstance = new Queue('crm_sync_queue', { connection: getRedis() });
+  }
+  return crmSyncQueueInstance;
 }

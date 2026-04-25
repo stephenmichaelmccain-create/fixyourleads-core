@@ -18,6 +18,34 @@ type ReviewAlertNotificationInput = {
   to?: string | null;
 };
 
+type VoiceDemoProspectNotificationInput = {
+  to?: string | null;
+  fullName: string;
+  calendlyUrl: string;
+};
+
+type VoiceDemoOwnerNotificationInput = {
+  to?: string | null;
+  fullName: string;
+  email: string;
+  phone: string;
+  businessName: string;
+  businessType?: string | null;
+  preferredTime?: string | null;
+  reason?: string | null;
+  calendlyUrl: string;
+  leadUrl?: string | null;
+};
+
+type CrmSyncFailureNotificationInput = {
+  to?: string | null;
+  companyName: string;
+  provider: string;
+  error: string;
+  leadName?: string | null;
+  leadPhone?: string | null;
+};
+
 type NotificationResult =
   | {
       status: 'sent';
@@ -209,6 +237,187 @@ export async function sendReviewAlertNotification(input: ReviewAlertNotification
     return {
       status: 'failed',
       detail: error instanceof Error ? error.message : 'review_alert_send_failed'
+    };
+  }
+}
+
+export async function sendVoiceDemoProspectNotification(
+  input: VoiceDemoProspectNotificationInput
+): Promise<NotificationResult> {
+  if (!input.to) {
+    return {
+      status: 'skipped',
+      detail: 'voice_demo_prospect_email_missing'
+    };
+  }
+
+  const config = smtpConfig();
+
+  if (!config.user || !config.pass || !config.from) {
+    return {
+      status: 'skipped',
+      detail: 'smtp_not_configured'
+    };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass
+    }
+  });
+
+  try {
+    const info = await transporter.sendMail({
+      from: config.from,
+      to: input.to,
+      subject: 'Book your Fix Your Leads demo',
+      text: [
+        `Hi ${input.fullName},`,
+        '',
+        'Thanks for calling Fix Your Leads. Here is the demo booking link:',
+        input.calendlyUrl,
+        '',
+        'Pick any time that works and we will talk soon.',
+        '',
+        'Fix Your Leads'
+      ].join('\n')
+    });
+
+    return {
+      status: 'sent',
+      detail: `voice demo link sent to ${input.to}`,
+      messageId: info.messageId
+    };
+  } catch (error) {
+    return {
+      status: 'failed',
+      detail: error instanceof Error ? error.message : 'voice_demo_prospect_email_failed'
+    };
+  }
+}
+
+export async function sendVoiceDemoOwnerNotification(
+  input: VoiceDemoOwnerNotificationInput
+): Promise<NotificationResult> {
+  if (!input.to) {
+    return {
+      status: 'skipped',
+      detail: 'voice_demo_owner_email_missing'
+    };
+  }
+
+  const config = smtpConfig();
+
+  if (!config.user || !config.pass || !config.from) {
+    return {
+      status: 'skipped',
+      detail: 'smtp_not_configured'
+    };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass
+    }
+  });
+
+  try {
+    const info = await transporter.sendMail({
+      from: config.from,
+      to: input.to,
+      subject: `New voice demo lead: ${input.businessName}`,
+      text: [
+        'A caller asked to book a Fix Your Leads demo through the AI voice agent.',
+        '',
+        `Name: ${input.fullName}`,
+        `Business: ${input.businessName}`,
+        `Business type: ${input.businessType || 'Not captured'}`,
+        `Phone: ${input.phone}`,
+        `Email: ${input.email}`,
+        `Preferred time: ${input.preferredTime || 'Not captured'}`,
+        `Reason: ${input.reason || 'Not captured'}`,
+        `Calendly link sent: ${input.calendlyUrl}`,
+        input.leadUrl ? `Lead: ${input.leadUrl}` : null
+      ]
+        .filter(Boolean)
+        .join('\n')
+    });
+
+    return {
+      status: 'sent',
+      detail: `voice demo owner notification sent to ${input.to}`,
+      messageId: info.messageId
+    };
+  } catch (error) {
+    return {
+      status: 'failed',
+      detail: error instanceof Error ? error.message : 'voice_demo_owner_email_failed'
+    };
+  }
+}
+
+export async function sendCrmSyncFailureNotification(
+  input: CrmSyncFailureNotificationInput
+): Promise<NotificationResult> {
+  if (!input.to) {
+    return {
+      status: 'skipped',
+      detail: 'crm_sync_failure_email_missing'
+    };
+  }
+
+  const config = smtpConfig();
+
+  if (!config.user || !config.pass || !config.from) {
+    return {
+      status: 'skipped',
+      detail: 'smtp_not_configured'
+    };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass
+    }
+  });
+
+  try {
+    const info = await transporter.sendMail({
+      from: config.from,
+      to: input.to,
+      subject: `CRM sync failed for ${input.companyName}`,
+      text: [
+        `CRM sync failed after retries for ${input.companyName}.`,
+        '',
+        `Provider: ${input.provider}`,
+        `Lead: ${input.leadName || 'Unknown'}`,
+        `Phone: ${input.leadPhone || 'Unknown'}`,
+        '',
+        `Error: ${input.error}`
+      ].join('\n')
+    });
+
+    return {
+      status: 'sent',
+      detail: `crm sync failure sent to ${input.to}`,
+      messageId: info.messageId
+    };
+  } catch (error) {
+    return {
+      status: 'failed',
+      detail: error instanceof Error ? error.message : 'crm_sync_failure_email_failed'
     };
   }
 }

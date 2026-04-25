@@ -67,38 +67,60 @@ enum ProspectDedupKeyType {
   WEBSITE
 }
 
+enum CrmProvider {
+  NONE
+  HUBSPOT
+  PIPEDRIVE
+  GOHIGHLEVEL
+  SALESFORCE
+  BOULEVARD
+  VAGARO
+}
+
+enum CrmSyncStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
 model Company {
-  id                  String                 @id @default(cuid())
-  name                String
-  notificationEmail   String?
-  website             String?
-  primaryContactName  String?
-  primaryContactEmail String?
-  primaryContactPhone String?
-  retainerCents       Int?
-  downPaymentCents    Int?
-  telnyxInboundNumber String?                @unique
-  telnyxInboundNumbers CompanyTelnyxNumber[]
-  createdAt           DateTime               @default(now())
-  contacts            Contact[]
-  contactIdentities   ContactChannelIdentity[]
-  leads               Lead[]
-  conversations       Conversation[]
-  messages            Message[]
-  appointments        Appointment[]
-  workflowRuns        WorkflowRun[]
-  events              EventLog[]
-  keys                IdempotencyKey[]
+  id                      String                   @id @default(cuid())
+  name                    String
+  notificationEmail       String?
+  notificationPhone       String?
+  website                 String?
+  primaryContactName      String?
+  primaryContactEmail     String?
+  primaryContactPhone     String?
+  retainerCents           Int?
+  downPaymentCents        Int?
+  telnyxInboundNumber     String?                  @unique
+  telnyxAssistantId       String?                  @unique
+  crmProvider             CrmProvider              @default(NONE)
+  crmCredentialsEncrypted String?
+  crmFieldMapping         Json?
+  telnyxInboundNumbers    CompanyTelnyxNumber[]
+  createdAt               DateTime                 @default(now())
+  contacts                Contact[]
+  contactIdentities       ContactChannelIdentity[]
+  leads                   Lead[]
+  conversations           Conversation[]
+  messages                Message[]
+  appointments            Appointment[]
+  workflowRuns            WorkflowRun[]
+  events                  EventLog[]
+  keys                    IdempotencyKey[]
+  crmSyncLogs             CrmSyncLog[]
 }
 
 model Contact {
-  id                String                 @id @default(cuid())
+  id                String                   @id @default(cuid())
   companyId         String
   name              String?
   phone             String
   email             String?
-  createdAt         DateTime               @default(now())
-  company           Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt         DateTime                 @default(now())
+  company           Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   leads             Lead[]
   conversations     Conversation[]
   appointments      Appointment[]
@@ -161,38 +183,59 @@ model Message {
 }
 
 model Appointment {
-  id           String            @id @default(cuid())
-  companyId    String
-  contactId    String
-  startTime    DateTime
-  status       AppointmentStatus @default(BOOKED)
-  notes        String?
-  confirmedAt  DateTime?
-  canceledAt   DateTime?
-  noShowAt     DateTime?
-  completedAt  DateTime?
-  createdAt    DateTime          @default(now())
-  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contact      Contact           @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  id          String            @id @default(cuid())
+  companyId   String
+  contactId   String
+  startTime   DateTime
+  status      AppointmentStatus @default(BOOKED)
+  notes       String?
+  confirmedAt DateTime?
+  canceledAt  DateTime?
+  noShowAt    DateTime?
+  completedAt DateTime?
+  createdAt   DateTime          @default(now())
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact     Contact           @relation(fields: [contactId], references: [id], onDelete: Cascade)
 }
 
 model EventLog {
-  id         String   @id @default(cuid())
-  companyId  String
-  eventType  String
-  payload    Json
-  createdAt  DateTime @default(now())
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  companyId String
+  eventType String
+  payload   Json
+  createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
 model IdempotencyKey {
-  id         String   @id @default(cuid())
-  companyId  String
-  key        String
-  createdAt  DateTime @default(now())
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  companyId String
+  key       String
+  createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, key])
+}
+
+model CrmSyncLog {
+  id         String        @id @default(cuid())
+  companyId  String
+  leadId     String?
+  contactId  String?
+  provider   CrmProvider
+  status     CrmSyncStatus
+  externalId String?
+  attempt    Int           @default(1)
+  payload    Json
+  response   Json?
+  error      String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  company    Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@index([status, createdAt])
+  @@index([leadId])
 }
 
 model ContactChannelIdentity {
@@ -240,20 +283,20 @@ model WorkflowRun {
 }
 
 model Prospect {
-  id              String         @id @default(cuid())
-  companyId       String         @default("fixyourleads")
+  id              String               @id @default(cuid())
+  companyId       String               @default("fixyourleads")
   name            String
   phone           String?
   city            String?
   website         String?
   ownerName       String?
-  status          ProspectStatus @default(NEW)
+  status          ProspectStatus       @default(NEW)
   lastCallAt      DateTime?
   lastCallOutcome String?
   nextActionAt    DateTime?
   notes           String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
   callLogs        CallLog[]
   dedupeEntries   ProspectDedupEntry[]
 
@@ -263,13 +306,13 @@ model Prospect {
 }
 
 model ProspectDedupEntry {
-  id         String              @id @default(cuid())
+  id         String               @id @default(cuid())
   companyId  String
   keyType    ProspectDedupKeyType
   keyValue   String
   prospectId String
-  createdAt  DateTime            @default(now())
-  prospect   Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  createdAt  DateTime             @default(now())
+  prospect   Prospect             @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, keyType, keyValue])
   @@index([prospectId])
