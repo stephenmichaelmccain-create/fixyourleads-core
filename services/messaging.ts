@@ -5,6 +5,130 @@ import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 import { sendSms } from '@/lib/telnyx';
 import { activateWorkflowRun, ensurePhoneChannelIdentities, touchWorkflowActivity } from '@/lib/workflows';
 
+type OutboundPolicyContext = {
+  contact: {
+    id: string;
+    phone: string;
+  };
+  company: {
+    telnyxInboundNumber: string | null;
+    telnyxInboundNumbers: Array<{ number: string }>;
+  };
+  conversation: {
+    id: string;
+  };
+};
+
+async function resolveOutboundPolicyContext(companyId: string, contactId: string): Promise<OutboundPolicyContext> {
+  const contact = await db.contact.findFirst({
+    where: {
+      id: contactId,
+      companyId
+    },
+    select: {
+      id: true,
+      phone: true
+    }
+  });
+
+  if (!contact) {
+    throw new Error('contact_not_found_for_company');
+  }
+
+  const company = await db.company.findUniqueOrThrow({
+    where: { id: companyId },
+    select: {
+      telnyxInboundNumber: true,
+      telnyxInboundNumbers: {
+        select: { number: true }
+      }
+    }
+  });
+
+  const latestLead = await db.lead.findFirst({
+    where: { companyId, contactId },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  if (latestLead?.status === LeadStatus.SUPPRESSED) {
+    throw new Error('lead_suppressed');
+  }
+
+  const conversation = await db.conversation.upsert({
+    where: { companyId_contactId: { companyId, contactId } },
+    update: {},
+    create: { companyId, contactId }
+  });
+
+  return { contact, company, conversation };
+}
+
+export async function sendManagedOutboundMessage(
+  companyId: string,
+  contactId: string,
+  content: string,
+  options: {
+    eventType?: string | null;
+    updateLeadStatus?: boolean;
+  } = {}
+) {
+  const { contact, company, conversation } = await resolveOutboundPolicyContext(companyId, contactId);
+  const senderNumber = companyPrimaryInboundNumber(company);
+  const telnyxResult = await sendSms(contact.phone, content, senderNumber);
+
+  const message = await db.message.create({
+    data: {
+      companyId,
+      conversationId: conversation.id,
+      direction: MessageDirection.OUTBOUND,
+      content,
+      externalId: telnyxResult?.data?.id || null
+    }
+  });
+
+  if (options.updateLeadStatus !== false) {
+    await db.lead.updateMany({
+      where: {
+        companyId,
+        contactId,
+        status: {
+          in: [LeadStatus.NEW, LeadStatus.REPLIED, LeadStatus.CONTACTED]
+        }
+      },
+      data: {
+        status: LeadStatus.CONTACTED,
+        lastContactedAt: new Date()
+      }
+    });
+  }
+
+  if (options.eventType) {
+    await db.eventLog.create({
+      data: {
+        companyId,
+        eventType: options.eventType,
+        payload: {
+          messageId: message.id,
+          contactId,
+          conversationId: conversation.id,
+          from: senderNumber,
+          to: contact.phone
+        }
+      }
+    });
+  }
+
+  await ensurePhoneChannelIdentities(companyId, contactId, contact.phone);
+  await touchWorkflowActivity({
+    companyId,
+    contactId,
+    direction: 'outbound',
+    when: message.createdAt
+  });
+
+  return { contact, conversation, message, telnyxResult, senderNumber };
+}
+
 export async function storeInboundMessage(
   companyId: string,
   phone: string,
@@ -92,91 +216,15 @@ export async function storeInboundMessage(
 }
 
 export async function sendOutboundMessage(companyId: string, contactId: string, content: string, eventType = 'manual_message_sent') {
-  const contact = await db.contact.findFirst({
-    where: {
-      id: contactId,
-      companyId
-    }
+  const result = await sendManagedOutboundMessage(companyId, contactId, content, {
+    eventType
   });
 
-  if (!contact) {
-    throw new Error('contact_not_found_for_company');
-  }
-
-  const company = await db.company.findUniqueOrThrow({
-    where: { id: companyId },
-    select: {
-      telnyxInboundNumber: true,
-      telnyxInboundNumbers: {
-        select: { number: true }
-      }
-    }
-  });
-  const latestLead = await db.lead.findFirst({
-    where: { companyId, contactId },
-    orderBy: { createdAt: 'desc' }
-  });
-
-  if (latestLead?.status === LeadStatus.SUPPRESSED) {
-    throw new Error('lead_suppressed');
-  }
-
-  const conversation = await db.conversation.upsert({
-    where: { companyId_contactId: { companyId, contactId } },
-    update: {},
-    create: { companyId, contactId }
-  });
-
-  const senderNumber = companyPrimaryInboundNumber(company);
-  const telnyxResult = await sendSms(contact.phone, content, senderNumber);
-
-  const message = await db.message.create({
-    data: {
-      companyId,
-      conversationId: conversation.id,
-      direction: MessageDirection.OUTBOUND,
-      content,
-      externalId: telnyxResult?.data?.id || null
-    }
-  });
-
-  await db.lead.updateMany({
-    where: {
-      companyId,
-      contactId,
-      status: {
-        in: [LeadStatus.NEW, LeadStatus.REPLIED, LeadStatus.CONTACTED]
-      }
-    },
-    data: {
-      status: LeadStatus.CONTACTED,
-      lastContactedAt: new Date()
-    }
-  });
-
-  await db.eventLog.create({
-    data: {
-      companyId,
-      eventType,
-      payload: {
-        messageId: message.id,
-        contactId,
-        conversationId: conversation.id,
-        from: senderNumber,
-        to: contact.phone
-      }
-    }
-  });
-
-  await ensurePhoneChannelIdentities(companyId, contactId, contact.phone);
-  await touchWorkflowActivity({
-    companyId,
-    contactId,
-    direction: 'outbound',
-    when: message.createdAt
-  });
-
-  return { conversation, message, telnyxResult };
+  return {
+    conversation: result.conversation,
+    message: result.message,
+    telnyxResult: result.telnyxResult
+  };
 }
 
 export async function sendOperatorMessagingTest(companyId: string, phone: string, content: string) {

@@ -25,12 +25,6 @@ function optionalMoneyCents(value: FormDataEntryValue | null) {
   return Math.round(parsed * 100);
 }
 
-function isMissingCompanyColumnError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  // Postgres: column "website" of relation "Company" does not exist
-  return message.toLowerCase().includes('does not exist') && message.toLowerCase().includes('company');
-}
-
 function clientsPath(values: { notice?: string; targetCompanyId?: string } = {}) {
   const params = new URLSearchParams();
 
@@ -88,10 +82,16 @@ export async function createCompanyAction(formData: FormData) {
     }
   }
 
-  const legacyData = {
+  const data = {
     name,
     notificationEmail,
     telnyxInboundNumber: normalizedInboundNumber,
+    website,
+    primaryContactName,
+    primaryContactEmail,
+    primaryContactPhone,
+    retainerCents,
+    downPaymentCents,
     ...(inboundNumbers.length > 0
       ? {
           telnyxInboundNumbers: {
@@ -101,34 +101,10 @@ export async function createCompanyAction(formData: FormData) {
       : {})
   } as const;
 
-  const extendedData = {
-    ...legacyData,
-    website,
-    primaryContactName,
-    primaryContactEmail,
-    primaryContactPhone,
-    retainerCents,
-    downPaymentCents
-  };
-
-  const company = await (async () => {
-    try {
-      return await db.company.create({
-        data: extendedData,
-        select: { id: true }
-      });
-    } catch (error) {
-      if (!isMissingCompanyColumnError(error)) {
-        throw error;
-      }
-
-      // Backward compatible: DB migration hasn't landed yet.
-      return await db.company.create({
-        data: legacyData,
-        select: { id: true }
-      });
-    }
-  })();
+  const company = await db.company.create({
+    data,
+    select: { id: true }
+  });
 
   revalidatePath('/clients');
   revalidatePath('/');
@@ -186,43 +162,27 @@ export async function updateCompanyAction(formData: FormData) {
     }
   }
 
-  const legacyData = {
+  const data = {
     name,
     notificationEmail,
     telnyxInboundNumber: normalizedInboundNumber,
+    website,
+    primaryContactName,
+    primaryContactEmail,
+    primaryContactPhone,
+    retainerCents,
+    downPaymentCents,
     telnyxInboundNumbers: {
       deleteMany: {},
       create: inboundNumbers.map((number) => ({ number }))
     }
   } as const;
 
-  const extendedData = {
-    ...legacyData,
-    website,
-    primaryContactName,
-    primaryContactEmail,
-    primaryContactPhone,
-    retainerCents,
-    downPaymentCents
-  };
-
-  try {
-    await db.company.update({
-      where: { id: companyId },
-      data: extendedData,
-      select: { id: true }
-    });
-  } catch (error) {
-    if (!isMissingCompanyColumnError(error)) {
-      throw error;
-    }
-
-    await db.company.update({
-      where: { id: companyId },
-      data: legacyData,
-      select: { id: true }
-    });
-  }
+  await db.company.update({
+    where: { id: companyId },
+    data,
+    select: { id: true }
+  });
 
   revalidatePath('/clients');
   revalidatePath('/');

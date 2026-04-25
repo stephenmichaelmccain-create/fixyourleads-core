@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
+import { isValidClientViewToken } from '@/lib/client-view-auth';
 import { safeLoad } from '@/lib/ui-data';
 
 export const dynamic = 'force-dynamic';
@@ -103,13 +104,20 @@ function computeClientStatus(input: {
 }
 
 export default async function ClientStatusPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ token?: string }>;
 }) {
   const { id } = await params;
+  const query = (await searchParams) || {};
   const sevenDaysAgo = startOfDaysAgo(6);
   const thirtyDaysAgo = startOfDaysAgo(29);
+
+  if (!isValidClientViewToken(id, query.token)) {
+    notFound();
+  }
 
   const company = await safeLoad(
     () =>

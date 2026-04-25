@@ -3,6 +3,7 @@ import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
 import { ClientViewLinkActions } from '@/app/clients/[id]/ClientViewLinkActions';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { updateCompanyAction } from '@/app/companies/actions';
+import { buildClientViewPath } from '@/lib/client-view-auth';
 import { db } from '@/lib/db';
 import { humanizeIntakeSource } from '@/lib/client-intake';
 import { safeLoad } from '@/lib/ui-data';
@@ -276,7 +277,9 @@ export default async function ClientProfilePage({
   const sharedTelnyxSender = process.env.TELNYX_FROM_NUMBER?.trim() || null;
   const activeSenderNumber = primaryRoutingNumber || sharedTelnyxSender;
   const appBaseUrl = process.env.APP_BASE_URL?.trim() || null;
-  const clientViewPath = `/c/${company.id}`;
+  const clientViewPath = buildClientViewPath(company.id);
+  const clientViewUrl =
+    clientViewPath && appBaseUrl ? `${appBaseUrl.replace(/\/$/, '')}${clientViewPath}` : clientViewPath;
 
   const smsHealthy = Boolean(activeSenderNumber) && hasInboundRouting(company);
 
@@ -323,7 +326,7 @@ export default async function ClientProfilePage({
             </div>
           </div>
           <div className="workspace-action-rail">
-            <ClientViewLinkActions clientViewPath={clientViewPath} appBaseUrl={appBaseUrl} />
+            <ClientViewLinkActions clientViewUrl={clientViewUrl} />
             <a className="button" href={`/clients/${company.id}/operator?lab=sms`}>
               Comms Lab
             </a>
@@ -411,7 +414,13 @@ export default async function ClientProfilePage({
                 <strong>Review webhook, booking, and delivery events</strong>
                 <span className="tiny-muted">Useful when QAing intake, workflows, or carrier delivery.</span>
               </a>
-              <a className="surface-link-card" href={clientViewPath} target="_blank" rel="noreferrer">
+              <a
+                className={`surface-link-card${clientViewPath ? '' : ' is-disabled'}`}
+                href={clientViewPath || '#'}
+                target="_blank"
+                rel="noreferrer"
+                aria-disabled={!clientViewPath}
+              >
                 <span className="metric-label">Client view</span>
                 <strong>Share the simple status page with this client</strong>
                 <span className="tiny-muted">Use the button in the header to copy the exact link.</span>

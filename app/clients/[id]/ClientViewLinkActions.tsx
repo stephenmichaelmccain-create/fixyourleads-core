@@ -3,30 +3,44 @@
 import { useState } from 'react';
 
 type ClientViewLinkActionsProps = {
-  clientViewPath: string;
-  appBaseUrl?: string | null;
+  clientViewUrl: string | null;
 };
 
-export function ClientViewLinkActions({ clientViewPath, appBaseUrl }: ClientViewLinkActionsProps) {
+export function ClientViewLinkActions({ clientViewUrl }: ClientViewLinkActionsProps) {
   const [copied, setCopied] = useState(false);
 
   async function copyLink() {
-    const absoluteUrl =
-      appBaseUrl && appBaseUrl.trim()
-        ? `${appBaseUrl.replace(/\/$/, '')}${clientViewPath}`
-        : `${window.location.origin}${clientViewPath}`;
+    if (!clientViewUrl) {
+      return;
+    }
 
-    await navigator.clipboard.writeText(absoluteUrl);
+    await navigator.clipboard.writeText(clientViewUrl);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   }
 
   return (
     <div className="client-view-actions">
-      <a className="button-secondary button-secondary-compact" href={clientViewPath} target="_blank" rel="noreferrer">
+      <a
+        className={`button-secondary button-secondary-compact${clientViewUrl ? '' : ' is-disabled'}`}
+        href={clientViewUrl || '#'}
+        target="_blank"
+        rel="noreferrer"
+        aria-disabled={!clientViewUrl}
+        onClick={(event) => {
+          if (!clientViewUrl) {
+            event.preventDefault();
+          }
+        }}
+      >
         Client view
       </a>
-      <button type="button" className="button-secondary button-secondary-compact" onClick={copyLink}>
+      <button
+        type="button"
+        className="button-secondary button-secondary-compact"
+        onClick={copyLink}
+        disabled={!clientViewUrl}
+      >
         {copied ? 'Copied link' : 'Copy client view link'}
       </button>
     </div>

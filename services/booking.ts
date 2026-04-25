@@ -2,8 +2,8 @@ import { AppointmentStatus, LeadStatus, MessageDirection, WorkflowType, type App
 import { db } from '@/lib/db';
 import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 import { sendBookingNotification } from '@/lib/notifications';
-import { sendSms } from '@/lib/telnyx';
 import { activateWorkflowRun, completeWorkflowRuns, touchWorkflowActivity } from '@/lib/workflows';
+import { sendManagedOutboundMessage } from '@/services/messaging';
 
 type CreateAppointmentInput = {
   companyId: string;
@@ -179,34 +179,10 @@ export async function requestBookingDetailsFlow({
   }
 
   const text = bookingDetailsRequestText(company.name);
-  const fromNumber = companyPrimaryInboundNumber(company);
 
   try {
-    const telnyxResult = await sendSms(contact.phone, text, fromNumber);
-    const externalId = telnyxResult?.data?.id || null;
-    const message = await db.message.create({
-      data: {
-        companyId,
-        conversationId: conversation.id,
-        direction: MessageDirection.OUTBOUND,
-        content: text,
-        externalId
-      }
-    });
-
-    await db.eventLog.create({
-      data: {
-        companyId,
-        eventType: 'booking_details_requested',
-        payload: {
-          contactId,
-          conversationId: conversation.id,
-          inboundText: inboundText || null,
-          messageId: message.id,
-          from: fromNumber,
-          to: contact.phone
-        }
-      }
+    const { message, telnyxResult } = await sendManagedOutboundMessage(companyId, contactId, text, {
+      eventType: 'booking_details_requested'
     });
 
     await activateWorkflowRun({
@@ -232,7 +208,7 @@ export async function requestBookingDetailsFlow({
     return {
       status: 'sent',
       detail: 'booking_details_requested',
-      messageId: externalId
+      messageId: telnyxResult?.data?.id || null
     };
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'booking_details_request_failed';
@@ -376,22 +352,25 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
   let confirmationMessageId: string | null = null;
 
   try {
-    const fromNumber = companyPrimaryInboundNumber(company);
-    const telnyxResult = await sendSms(contact.phone, confirmationText, fromNumber);
-    confirmationMessageId = telnyxResult?.data?.id || null;
-
-    await db.message.create({
-      data: {
-        companyId,
-        conversationId: conversation.id,
-        direction: MessageDirection.OUTBOUND,
-        content: confirmationText,
-        externalId: confirmationMessageId
-      }
+    const { telnyxResult } = await sendManagedOutboundMessage(companyId, contactId, confirmationText, {
+      eventType: 'booking_confirmation_sent',
+      updateLeadStatus: false
     });
+    confirmationMessageId = telnyxResult?.data?.id || null;
   } catch (error) {
     confirmationStatus = 'failed';
     confirmationDetail = error instanceof Error ? error.message : 'booking_confirmation_failed';
+    await db.eventLog.create({
+      data: {
+        companyId,
+        eventType: 'booking_confirmation_failed',
+        payload: {
+          appointmentId: appointment.id,
+          contactId,
+          detail: confirmationDetail
+        }
+      }
+    });
   }
 
   const notification = await sendBookingNotification({
