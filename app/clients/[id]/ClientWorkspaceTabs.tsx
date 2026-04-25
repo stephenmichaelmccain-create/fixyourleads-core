@@ -29,7 +29,7 @@ export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsPr
           className={`workspace-tab-link ${active === 'booking' ? 'is-active' : ''}`}
           href={`/clients/${companyId}/booking`}
         >
-          Booking
+          Calendar
         </a>
       </div>
     </section>

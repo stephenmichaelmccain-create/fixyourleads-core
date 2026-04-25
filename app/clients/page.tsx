@@ -1,4 +1,5 @@
 import { LayoutShell } from '@/app/components/LayoutShell';
+import { deleteCompanyAction } from '@/app/companies/actions';
 import { db } from '@/lib/db';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
 import { isLikelyTestWorkspaceName } from '@/lib/test-workspaces';
@@ -59,6 +60,7 @@ export default async function ClientsPage({
   searchParams?: Promise<{
     notice?: string;
     clientId?: string;
+    companyId?: string;
   }>;
 }) {
   const params = (await searchParams) || {};
@@ -210,11 +212,16 @@ export default async function ClientsPage({
                   ? 'Client approved and moved into the main clients page.'
                   : notice === 'deleted'
                     ? 'Client deleted.'
+                    : notice === 'delete_confirmation_failed'
+                      ? 'Delete confirmation did not pass.'
                 : notice === 'created'
                   ? 'Client workspace created.'
                   : 'Client setup updated.'}
             </strong>
           </div>
+          {notice === 'delete_confirmation_failed' && (
+            <div className="text-muted">Check both boxes and type the exact client name before deleting.</div>
+          )}
         </section>
       )}
 
@@ -242,18 +249,19 @@ export default async function ClientsPage({
                 <th>Unread Msgs</th>
                 <th>Appts This Week</th>
                 <th>New Leads This Week</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={6}>
                     <div className="empty-state">No live clients yet. Add the first client workspace to get started.</div>
                   </td>
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={row.id}>
+                  <tr key={row.id} id={`client-${row.id}`}>
                     <td>
                       <span className="client-health-cell" title={`${row.health.label} · ${row.health.reason}`}>
                         <span className={`status-dot ${row.health.tone}`} />
@@ -273,6 +281,45 @@ export default async function ClientsPage({
                     <td>{row.unreadMessages}</td>
                     <td>{row.appointmentsThisWeek}</td>
                     <td>{row.leadsThisWeek}</td>
+                    <td className="client-row-actions-cell">
+                      <details
+                        className="client-row-delete"
+                        open={notice === 'delete_confirmation_failed' && params.companyId === row.id}
+                      >
+                        <summary className="button-danger client-row-delete-trigger">Delete</summary>
+                        <form action={deleteCompanyAction} className="client-row-delete-form">
+                          <input type="hidden" name="companyId" value={row.id} />
+                          <input type="hidden" name="expectedName" value={row.name} />
+                          <input type="hidden" name="originSurface" value="clients" />
+
+                          <label className="danger-zone-check">
+                            <input type="checkbox" name="confirmCascade" />
+                            <span>I understand this deletes every record for {row.name}.</span>
+                          </label>
+
+                          <label className="danger-zone-check">
+                            <input type="checkbox" name="confirmIrreversible" />
+                            <span>I understand this cannot be undone.</span>
+                          </label>
+
+                          <div className="field-stack">
+                            <label className="key-value-label" htmlFor={`delete-confirm-${row.id}`}>
+                              Type the client name
+                            </label>
+                            <input
+                              id={`delete-confirm-${row.id}`}
+                              className="text-input"
+                              name="confirmCompanyName"
+                              placeholder={row.name}
+                            />
+                          </div>
+
+                          <button className="button-danger" type="submit">
+                            Delete client forever
+                          </button>
+                        </form>
+                      </details>
+                    </td>
                   </tr>
                 ))
               )}

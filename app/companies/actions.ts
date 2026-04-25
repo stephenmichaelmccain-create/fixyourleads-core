@@ -221,6 +221,7 @@ export async function deleteCompanyAction(formData: FormData) {
   const typedName = String(formData.get('confirmCompanyName') || '').trim();
   const confirmCascade = formData.get('confirmCascade') === 'on';
   const confirmIrreversible = formData.get('confirmIrreversible') === 'on';
+  const originSurface = String(formData.get('originSurface') || '').trim();
 
   if (!companyId) {
     redirect(clientsPath());
@@ -241,6 +242,10 @@ export async function deleteCompanyAction(formData: FormData) {
   const nameToMatch = expectedName || company.name;
 
   if (!confirmCascade || !confirmIrreversible || typedName !== nameToMatch) {
+    if (originSurface === 'clients') {
+      redirect(`${clientsPath({ notice: 'delete_confirmation_failed', targetCompanyId: companyId })}#client-${companyId}`);
+    }
+
     redirect(`${clientProfilePath(companyId, 'delete_confirmation_failed')}#danger-zone`);
   }
 
