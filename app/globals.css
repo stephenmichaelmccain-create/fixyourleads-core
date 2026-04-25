@@ -618,6 +618,7 @@ select {
   gap: 10px;
   padding: 14px;
   position: relative;
+  scroll-margin-top: 24px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(180deg, rgba(24, 24, 52, 0.98), rgba(18, 18, 42, 0.98));
@@ -768,7 +769,7 @@ select {
 
 .lead-queue-list .lead-master-card {
   min-height: 100%;
-  scroll-snap-align: start;
+  scroll-snap-align: center;
 }
 
 .lead-queue-panel {
@@ -784,10 +785,11 @@ select {
   min-height: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-right: 2px;
+  padding-inline: clamp(0px, 12vw, 160px);
   padding-bottom: 8px;
   overscroll-behavior-x: contain;
   scroll-snap-type: x proximity;
+  scroll-padding-inline: clamp(0px, 12vw, 160px);
 }
 
 .lead-queue-scroll::-webkit-scrollbar {
