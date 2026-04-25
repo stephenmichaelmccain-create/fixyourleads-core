@@ -1,8 +1,8 @@
 # FixYourLeads Project Status
 
-2026-04-23: Clarified the product boundary so Telnyx owns communications execution while the app owns contact source of truth, workflow state, dedupe, and operator visibility.
+2026-04-25: Client workspace now centers around five operator tabs (`Client profile`, `CRM`, `Comms Lab`, `Telnyx Setup`, `Booking`), includes a lightweight client-facing status page with signed links, and ships review automation from completed appointment webhook through delayed SMS follow-up and owner escalation.
 
-Last updated: 2026-04-23
+Last updated: 2026-04-25
 
 ## Purpose
 
@@ -42,6 +42,10 @@ The app expects these env vars at runtime:
 - `TELNYX_FROM_NUMBER`
 - `APP_BASE_URL`
 - `INTERNAL_API_KEY`
+
+Recommended for signed client view links:
+
+- `CLIENT_VIEW_SECRET`
 
 ## Local bootstrap
 
@@ -104,11 +108,15 @@ These are still expected to be filled separately for local runtime:
   - `APP_BASE_URL`
   - `INTERNAL_API_KEY`
 - The live Prisma schema has been pushed to the production database.
-- The app now includes a real `Clients` surface and a simplified client workspace page.
+- The app now includes a real `Clients` surface and a simplified five-tab client workspace:
+  - `Client profile`
+  - `CRM`
+  - `Comms Lab`
+  - `Telnyx Setup`
+  - `Booking`
 - Company workspaces now track inbound routing readiness in-app through each
   company's Telnyx inbound number.
-- The client workspace now centers the lead table, message rail, appointments,
-  and profile editing without the earlier control-room clutter.
+- Client workspaces now split onboarding, records, testing, carrier setup, and booking into separate focused surfaces instead of the earlier mixed dashboard.
 - The app now includes a `Leads` prospecting surface for the FixYourLeads sales
   pipeline, backed by `prospects` and `call_logs`.
 - Conversation detail pages now support manual outbound texts and booking from
@@ -119,6 +127,12 @@ These are still expected to be filled separately for local runtime:
   with dedupe-aware import behavior.
 - Booking email notifications are now supported through optional SMTP/Gmail-like
   env vars.
+- Review automation is now implemented:
+  - completed appointments can hit `/api/webhooks/reviews/[clientId]`
+  - the app queues delayed review requests through BullMQ
+  - inbound `1-10` score replies branch to Google review follow-up or private recovery
+  - operator test controls exist on the Booking tab
+- A simple client-facing status page now exists at `/c/[id]`, intended to be shared through signed links.
 - The health surface is now suitable for Railway healthchecks:
   - `/api/health` returns `503` when required runtime checks fail
   - deployment metadata and observability readiness are exposed on
@@ -165,10 +179,11 @@ The app should own the workflow layer:
 
 ## Current likely bottlenecks
 
-- inbound and outbound Telnyx flows still need full live end-to-end validation
-- workflow ownership rules are still implied by events and UI state more than explicitly modeled
+- inbound and outbound Telnyx flows still need full live end-to-end validation on a real approved 10DLC client number
+- Google Calendar OAuth and real booking writeback are not implemented yet
 - booking notification email still needs SMTP credentials configured
-- worker behavior is online but not fully exercised with real jobs
+- client-facing `/c/[id]` links now require signed tokens, but there is still no client login or magic-link auth layer
+- worker behavior is online but still needs a full production smoke test across lead -> reply -> booking -> review flow
 - Sentry is prepared as an optional next step, but no DSN is configured yet
 - native Telnyx features need to be integrated intentionally so we do not rebuild scheduling or runtime behavior unnecessarily
 
@@ -178,13 +193,16 @@ See `docs/MINIMUM_PRODUCTION_WORKFLOW.md`.
 
 The next real build target is:
 
-1. lead import and dedupe
-2. first outbound SMS flow through Telnyx
-3. inbound SMS webhook handling plus contact/conversation routing
-4. booking creation plus confirmation state
-5. client notification email
-6. workflow ownership rules across lead, reply, booked, suppressed, and follow-up states
-7. voice workflow on top of the same records through Telnyx
+1. real approved client number plus successful outbound/inbound Telnyx validation
+2. Google Calendar OAuth and booking writeback
+3. SMTP-backed booking notification email in production
+4. one full end-to-end production smoke test:
+   - lead comes in
+   - SMS sends
+   - reply is captured
+   - booking is created
+   - review automation can fire after completion
+5. voice workflow on top of the same records through Telnyx
 
 ## GitHub policy
 

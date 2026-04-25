@@ -78,6 +78,10 @@ These are recommended for observability, but the app still runs without them:
 - SENTRY_ENVIRONMENT
 - NEXT_PUBLIC_SENTRY_ENVIRONMENT
 
+This is recommended for protected client status links:
+
+- CLIENT_VIEW_SECRET
+
 ## Local bootstrap
 Run `npm run env:bootstrap` from the repo root to generate `.env.local` from
 existing local secret files. It currently auto-loads:
@@ -105,6 +109,11 @@ These public website-facing routes accept browser or form-platform submissions a
 - `POST /api/webhooks/telnyx`
 
 Inbound SMS and delivery events are routed by destination number so multiple clients can safely share one Telnyx account while keeping number ownership isolated per client. The app uses those events to attach messages to the right contact, conversation, and workflow state.
+
+### Review automation
+- `POST /api/webhooks/reviews/[clientId]`
+
+Completed appointments can hit this route to queue a delayed post-visit review request. Review scoring, escalation, and Google review follow-up run through the same workflow and messaging stack as the rest of the app.
 
 ### Lead sourcing
 - `POST /api/webhooks/lead`
@@ -134,8 +143,13 @@ These feed the outbound Leads workflow.
 - `/` — activity-style operator landing
 - `/clients` — paying client list
 - `/clients/[id]` — main client workspace
+- `/clients/[id]/crm` — collected records for one client
+- `/clients/[id]/operator` — Comms Lab and live client thread view
+- `/clients/[id]/telnyx` — Telnyx onboarding and 10DLC setup
+- `/clients/[id]/booking` — booking destination, review automation, and sync readiness
 - `/clients/new` — lightweight new-client setup flow
 - `/clients/intake` — sold-to-signup bridge
+- `/c/[id]` — lightweight client-facing status view, intended for signed links
 - `/leads` — outbound prospecting board
 - `/messages` — unified inbox across clients
 - `/conversations/[conversationId]` — full thread detail
