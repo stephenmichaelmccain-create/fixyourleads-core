@@ -1,4 +1,5 @@
 import { ProspectStatus } from '@prisma/client';
+import Link from 'next/link';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { parseProspectNotes } from '@/lib/prospect-metadata';
@@ -573,14 +574,14 @@ export default async function OurLeadsPage({
             </span>
           ) : null}
           {error === 'duplicate' && selectedProspectId ? (
-            <a className="button-ghost" href={duplicateLeadHref}>
+            <Link className="button-ghost" href={duplicateLeadHref} scroll={false}>
               Open matching lead
-            </a>
+            </Link>
           ) : null}
           {error === 'duplicate' && duplicateCompanyId ? (
-            <a className="button-ghost" href={duplicateCompanyHref}>
+            <Link className="button-ghost" href={duplicateCompanyHref}>
               Open contacted company
-            </a>
+            </Link>
           ) : null}
           {updated === 'invalid_details' ? (
             <span className="inline-row">
@@ -611,9 +612,9 @@ export default async function OurLeadsPage({
               </form>
               <div className="workspace-action-rail">
                 {searchQuery || selectedStatus || selectedCity || selectedDue || selectedView ? (
-                  <a className="button-secondary prospect-reset-trigger" href="/leads">
+                  <Link className="button-secondary prospect-reset-trigger" href="/leads" scroll={false}>
                     Reset view
-                  </a>
+                  </Link>
                 ) : null}
                 <details className="prospect-add-drawer" id="add-prospect" open={shouldOpenAddProspect}>
                   <summary className="button-secondary prospect-add-trigger">Add lead</summary>
@@ -756,42 +757,51 @@ export default async function OurLeadsPage({
             </div>
 
             <div className="filter-bar">
-              <a className={`filter-chip${showingUntouched ? ' is-active' : ''}`} href={buildPageHref({ q: searchQuery, city: selectedCity })}>
+              <Link className={`filter-chip${showingUntouched ? ' is-active' : ''}`} href={buildPageHref({ q: searchQuery, city: selectedCity })} scroll={false}>
                 Untouched {queueCounts.untouched}
-              </a>
-              <a
+              </Link>
+              <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.NO_ANSWER ? ' is-active' : ''}`}
                 href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.NO_ANSWER })}
+                scroll={false}
               >
                 No answer {queueCounts.noAnswer}
-              </a>
-              <a
+              </Link>
+              <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.GATEKEEPER ? ' is-active' : ''}`}
                 href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.GATEKEEPER })}
+                scroll={false}
               >
                 Call back later {queueCounts.waiting}
-              </a>
-              <a
+              </Link>
+              <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.BOOKED_DEMO ? ' is-active' : ''}`}
                 href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.BOOKED_DEMO })}
+                scroll={false}
               >
                 Booked {queueCounts.booked}
-              </a>
-              <a
+              </Link>
+              <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.CLOSED ? ' is-active' : ''}`}
                 href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.CLOSED })}
+                scroll={false}
               >
                 Sold {queueCounts.sold}
-              </a>
-              <a
+              </Link>
+              <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.DEAD ? ' is-active' : ''}`}
                 href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.DEAD })}
+                scroll={false}
               >
                 Do not contact {queueCounts.dead}
-              </a>
-              <a className={`filter-chip${selectedView === 'all' ? ' is-active' : ''}`} href={buildPageHref({ q: searchQuery, city: selectedCity, view: 'all' })}>
+              </Link>
+              <Link
+                className={`filter-chip${selectedView === 'all' ? ' is-active' : ''}`}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, view: 'all' })}
+                scroll={false}
+              >
                 All {queueCounts.all}
-              </a>
+              </Link>
             </div>
 
             <div className="lead-queue-scroll">
@@ -823,7 +833,7 @@ export default async function OurLeadsPage({
                       className={`lead-master-card${selected ? ' lead-master-card-selected' : ''}`}
                       id={selected ? 'selected-lead' : undefined}
                     >
-                      <a className="lead-master-overlay" href={rowHref} aria-label={`Select ${prospect.name}`} />
+                      <Link className="lead-master-overlay" href={rowHref} aria-label={`Select ${prospect.name}`} scroll={false} />
                       <div className="lead-master-header">
                         <div className="lead-master-select">
                           <div className="lead-master-kicker">
