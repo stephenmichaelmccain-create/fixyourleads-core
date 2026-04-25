@@ -189,6 +189,8 @@ export default async function ClientsPage({
             <strong>
               {notice === 'duplicate_routing'
                 ? 'That phone number already belongs to another client.'
+                : notice === 'approved'
+                  ? 'Client approved and moved into the main clients page.'
                 : notice === 'created'
                   ? 'Client workspace created.'
                   : 'Client setup updated.'}

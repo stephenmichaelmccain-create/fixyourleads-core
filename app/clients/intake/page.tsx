@@ -102,7 +102,7 @@ export default async function ClientIntakePage() {
       approvedAt: approval?.createdAt || null
     };
   });
-  const approvedRows = signupRows.filter((row) => row.approvedAt);
+  const pendingSignupRows = signupRows.filter((row) => !row.approvedAt);
 
   return (
     <LayoutShell title="Client Intake" section="clients" hidePageHeader>
@@ -113,7 +113,7 @@ export default async function ClientIntakePage() {
             <h2 className="section-title">Signup submissions</h2>
           </div>
           <span className="status-chip">
-            <strong>{signupRows.length}</strong> signups
+            <strong>{pendingSignupRows.length}</strong> signups
           </span>
         </div>
 
@@ -131,32 +131,26 @@ export default async function ClientIntakePage() {
               </tr>
             </thead>
             <tbody>
-              {signupRows.length === 0 ? (
+              {pendingSignupRows.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
                     <div className="empty-state">No website signup submissions yet.</div>
                   </td>
                 </tr>
               ) : (
-                signupRows.map((row) => (
+                pendingSignupRows.map((row) => (
                   <tr key={row.id}>
                     <td>
                       <div className="record-stack" style={{ gap: 6 }}>
                         <div className="inline-row inline-actions-wrap">
                           <strong>{row.clinicName}</strong>
-                          {row.approvedAt ? (
-                            <span className="status-chip status-chip-muted">
-                              <strong>Approved</strong>
-                            </span>
-                          ) : (
-                            <form action={approveSignupSubmissionAction}>
-                              <input type="hidden" name="companyId" value={row.companyId} />
-                              <input type="hidden" name="signupEventId" value={row.id} />
-                              <button type="submit" className="button-secondary">
-                                Approve
-                              </button>
-                            </form>
-                          )}
+                          <form action={approveSignupSubmissionAction}>
+                            <input type="hidden" name="companyId" value={row.companyId} />
+                            <input type="hidden" name="signupEventId" value={row.id} />
+                            <button type="submit" className="button-secondary">
+                              Approve
+                            </button>
+                          </form>
                         </div>
                         <span className="tiny-muted">{humanizeIntakeSource(row.source)}</span>
                       </div>
@@ -166,64 +160,6 @@ export default async function ClientIntakePage() {
                     <td>{row.phone || '—'}</td>
                     <td>{row.website || '—'}</td>
                     <td className="tiny-muted">{formatDateTime(row.receivedAt)}</td>
-                    <td>
-                      <a className="button-ghost" href={`/clients/${row.companyId}#setup`}>
-                        Open workspace
-                      </a>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">Website</div>
-            <h2 className="section-title">Approved signups</h2>
-          </div>
-          <span className="status-chip">
-            <strong>{approvedRows.length}</strong> approved
-          </span>
-        </div>
-
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Clinic</th>
-                <th>Contact</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Website</th>
-                <th>Approved</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {approvedRows.length === 0 ? (
-                <tr>
-                  <td colSpan={7}>
-                    <div className="empty-state">No approved signup clients yet.</div>
-                  </td>
-                </tr>
-              ) : (
-                approvedRows.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <div className="record-stack" style={{ gap: 6 }}>
-                        <strong>{row.clinicName}</strong>
-                        <span className="tiny-muted">{humanizeIntakeSource(row.source)}</span>
-                      </div>
-                    </td>
-                    <td>{row.contactName || '—'}</td>
-                    <td>{row.notificationEmail || '—'}</td>
-                    <td>{row.phone || '—'}</td>
-                    <td>{row.website || '—'}</td>
-                    <td className="tiny-muted">{formatDateTime(row.approvedAt)}</td>
                     <td>
                       <a className="button-ghost" href={`/clients/${row.companyId}#setup`}>
                         Open workspace
