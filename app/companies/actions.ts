@@ -42,6 +42,17 @@ function clientsPath(values: { notice?: string; targetCompanyId?: string } = {})
   return values.targetCompanyId ? `${base}#client-${values.targetCompanyId}` : base;
 }
 
+function clientProfilePath(companyId: string, notice?: string) {
+  const params = new URLSearchParams();
+
+  if (notice) {
+    params.set('notice', notice);
+  }
+
+  const search = params.toString();
+  return search ? `/clients/${companyId}?${search}` : `/clients/${companyId}`;
+}
+
 export async function createCompanyAction(formData: FormData) {
   const name = String(formData.get('name') || '').trim();
   const notificationEmail = optionalText(formData.get('notificationEmail'));
@@ -202,4 +213,47 @@ export async function updateCompanyAction(formData: FormData) {
   revalidatePath(`/events?companyId=${companyId}`);
 
   redirect(`/clients/${companyId}?notice=updated#setup`);
+}
+
+export async function deleteCompanyAction(formData: FormData) {
+  const companyId = String(formData.get('companyId') || '').trim();
+  const expectedName = String(formData.get('expectedName') || '').trim();
+  const typedName = String(formData.get('confirmCompanyName') || '').trim();
+  const confirmCascade = formData.get('confirmCascade') === 'on';
+  const confirmIrreversible = formData.get('confirmIrreversible') === 'on';
+
+  if (!companyId) {
+    redirect(clientsPath());
+  }
+
+  const company = await db.company.findUnique({
+    where: { id: companyId },
+    select: {
+      id: true,
+      name: true
+    }
+  });
+
+  if (!company) {
+    redirect(clientsPath({ notice: 'deleted' }));
+  }
+
+  const nameToMatch = expectedName || company.name;
+
+  if (!confirmCascade || !confirmIrreversible || typedName !== nameToMatch) {
+    redirect(`${clientProfilePath(companyId, 'delete_confirmation_failed')}#danger-zone`);
+  }
+
+  await db.company.delete({
+    where: { id: companyId }
+  });
+
+  revalidatePath('/clients');
+  revalidatePath('/clients/intake');
+  revalidatePath('/');
+  revalidatePath('/leads');
+  revalidatePath('/bookings');
+  revalidatePath('/events');
+
+  redirect(clientsPath({ notice: 'deleted' }));
 }

@@ -208,6 +208,8 @@ export default async function ClientsPage({
                 ? 'That phone number already belongs to another client.'
                 : notice === 'approved'
                   ? 'Client approved and moved into the main clients page.'
+                  : notice === 'deleted'
+                    ? 'Client deleted.'
                 : notice === 'created'
                   ? 'Client workspace created.'
                   : 'Client setup updated.'}

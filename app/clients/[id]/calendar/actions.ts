@@ -17,7 +17,24 @@ export async function saveClientCalendarSetupAction(formData: FormData) {
     throw new Error('company_id_required');
   }
 
+  const latestSetupEvent = await db.eventLog.findFirst({
+    where: {
+      companyId,
+      eventType: 'client_calendar_setup_updated'
+    },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      payload: true
+    }
+  });
+
+  const existingPayload =
+    latestSetupEvent?.payload && typeof latestSetupEvent.payload === 'object' && !Array.isArray(latestSetupEvent.payload)
+      ? (latestSetupEvent.payload as Record<string, unknown>)
+      : {};
+
   const payload = {
+    ...existingPayload,
     ...Object.fromEntries(calendarChecklistOrder.map((item) => [item.key, formData.get(item.key) === 'on'])),
     connectionMode: optionalText(formData.get('connectionMode')),
     googleAccountEmail: optionalText(formData.get('googleAccountEmail')),

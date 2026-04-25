@@ -2031,6 +2031,42 @@ select {
   gap: 18px;
 }
 
+.client-public-shell {
+  max-width: 1480px;
+}
+
+.client-public-shell .panel,
+.client-public-shell .client-record-stat,
+.client-public-shell .client-record-sidebar-item,
+.client-public-shell .workspace-list-item {
+  border-color: rgba(194, 171, 255, 0.14);
+  background: rgba(61, 52, 116, 0.88);
+}
+
+.client-public-shell .text-input,
+.client-public-shell .text-area,
+.client-public-shell .select-input {
+  background: rgba(24, 20, 46, 0.96);
+}
+
+.client-public-shell .workspace-list-item:hover {
+  border-color: rgba(194, 171, 255, 0.18);
+  background: rgba(68, 58, 128, 0.92);
+}
+
+.client-public-page {
+  background: rgba(72, 62, 138, 0.28);
+  border-color: rgba(194, 171, 255, 0.18);
+}
+
+.client-public-inline-notice {
+  background: rgba(84, 74, 152, 0.44);
+}
+
+.client-public-support-card {
+  align-content: start;
+}
+
 .client-status-hero {
   display: grid;
   gap: 6px;
@@ -2462,6 +2498,31 @@ select {
   transform: translateY(-1px);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
   border-color: rgba(124, 58, 237, 0.24);
+}
+
+.client-danger-panel {
+  border-color: rgba(255, 107, 138, 0.18);
+  background: rgba(66, 31, 57, 0.2);
+}
+
+.danger-zone-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  color: #ffc3d0;
+}
+
+.danger-zone-form {
+  padding-top: 10px;
+}
+
+.danger-zone-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: var(--fyl-muted);
+  line-height: 1.5;
 }
 
 .workflow-grid,

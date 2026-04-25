@@ -1,9 +1,16 @@
+import { CrmProvider } from '@prisma/client';
 import { notFound } from 'next/navigation';
+import { saveClientPortalSetupAction } from '@/app/c/[id]/actions';
 import { db } from '@/lib/db';
 import { isValidClientViewToken } from '@/lib/client-view-auth';
 import { safeLoad } from '@/lib/ui-data';
 
 export const dynamic = 'force-dynamic';
+
+type SearchParamShape = Promise<{
+  token?: string;
+  notice?: string;
+}>;
 
 function formatCompactDateTime(value: Date | string | null | undefined) {
   if (!value) {
@@ -18,88 +25,46 @@ function formatCompactDateTime(value: Date | string | null | undefined) {
   }).format(new Date(value));
 }
 
-function startOfDaysAgo(daysAgo: number) {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  date.setDate(date.getDate() - daysAgo);
-  return date;
+function providerLabel(provider: CrmProvider) {
+  const labels: Record<CrmProvider, string> = {
+    NONE: 'Not connected',
+    HUBSPOT: 'HubSpot',
+    PIPEDRIVE: 'Pipedrive',
+    GOHIGHLEVEL: 'GoHighLevel',
+    SALESFORCE: 'Salesforce',
+    BOULEVARD: 'Boulevard',
+    VAGARO: 'Vagaro'
+  };
+
+  return labels[provider];
 }
 
-function activityLabel(eventType: string) {
-  switch (eventType) {
-    case 'message_received':
-      return 'Reply received';
-    case 'operator_messaging_test_sent':
-      return 'SMS test sent';
-    case 'telnyx_message_sent':
-      return 'SMS accepted';
-    case 'telnyx_message_delivery_failed':
-      return 'Delivery issue';
-    case 'appointment_booked':
-      return 'Appointment booked';
-    case 'booking_confirmation_sent':
-      return 'Booking confirmed';
-    case 'review_request_sent':
-      return 'Review request sent';
-    case 'review_score_received':
-      return 'Score received';
-    case 'review_positive_follow_up_sent':
-      return 'Google review sent';
-    case 'review_negative_follow_up_sent':
-      return 'Private follow-up sent';
-    case 'review_owner_alert_processed':
-      return 'Owner notified';
-    default:
-      return eventType.replace(/_/g, ' ');
-  }
+function readPayloadRecord(payload: unknown) {
+  return payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : {};
 }
 
-function activityDetail(payload: unknown) {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    return 'Recent activity recorded.';
-  }
-
-  const record = payload as Record<string, unknown>;
-  const detail = typeof record.detail === 'string' ? record.detail : '';
-  const score = typeof record.score === 'number' ? record.score : null;
-  const deliveryStatus = typeof record.deliveryStatus === 'string' ? record.deliveryStatus : '';
-  const targetPhone = typeof record.targetPhone === 'string' ? record.targetPhone : '';
-
-  if (score !== null) {
-    return `Score ${score}/10`;
-  }
-
-  return detail || deliveryStatus || targetPhone || 'Recent activity recorded.';
+function payloadString(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
+  return typeof value === 'string' ? value.trim() : '';
 }
 
-function computeClientStatus(input: {
-  recentFailureEventType: string | null;
-  lastInboundAt: Date | null;
-  lastOutboundAt: Date | null;
-  lastBookingAt: Date | null;
+function portalStatus(options: {
+  hasPrimaryContact: boolean;
+  crmReady: boolean;
+  bookingReady: boolean;
 }) {
-  const { recentFailureEventType, lastInboundAt, lastOutboundAt, lastBookingAt } = input;
-
-  if (recentFailureEventType) {
+  if (options.hasPrimaryContact && (options.crmReady || options.bookingReady)) {
     return {
-      label: 'Needs attention',
-      tone: 'warn' as const,
-      detail: 'A recent delivery or test issue needs an operator review.'
-    };
-  }
-
-  if (lastInboundAt || lastOutboundAt || lastBookingAt) {
-    return {
-      label: 'Live',
+      label: 'Setup ready',
       tone: 'ready' as const,
-      detail: 'Messaging and booking activity have been recorded for this client.'
+      detail: 'Your core details are saved and at least one integration is connected.'
     };
   }
 
   return {
     label: 'Setup in progress',
     tone: 'pending' as const,
-    detail: 'The workspace is configured, but we have not yet seen enough live activity.'
+    detail: 'Add your business details and at least one integration so we can finish setup.'
   };
 }
 
@@ -108,14 +73,13 @@ export default async function ClientStatusPage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ token?: string }>;
+  searchParams?: SearchParamShape;
 }) {
   const { id } = await params;
   const query = (await searchParams) || {};
-  const sevenDaysAgo = startOfDaysAgo(6);
-  const thirtyDaysAgo = startOfDaysAgo(29);
+  const token = String(query.token || '').trim();
 
-  if (!isValidClientViewToken(id, query.token)) {
+  if (!isValidClientViewToken(id, token)) {
     notFound();
   }
 
@@ -127,7 +91,13 @@ export default async function ClientStatusPage({
           id: true,
           name: true,
           website: true,
-          createdAt: true
+          createdAt: true,
+          notificationEmail: true,
+          primaryContactName: true,
+          primaryContactEmail: true,
+          primaryContactPhone: true,
+          crmProvider: true,
+          crmCredentialsEncrypted: true
         }
       }),
     null
@@ -137,338 +107,378 @@ export default async function ClientStatusPage({
     notFound();
   }
 
-  const [
-    leadsThisWeek,
-    repliesThisMonth,
-    bookingsThisWeek,
-    reviewScoresThisMonth,
-    lastInbound,
-    lastOutbound,
-    lastBooking,
-    recentFailure,
-    recentEvents,
-    recentConversations,
-    sourceBreakdown
-  ] = await Promise.all([
-    safeLoad(
-      () =>
-        db.lead.count({
-          where: {
-            companyId: id,
-            createdAt: { gte: sevenDaysAgo }
-          }
-        }),
-      0
-    ),
-    safeLoad(
-      () =>
-        db.message.count({
-          where: {
-            companyId: id,
-            direction: 'INBOUND',
-            createdAt: { gte: thirtyDaysAgo }
-          }
-        }),
-      0
-    ),
-    safeLoad(
-      () =>
-        db.appointment.count({
-          where: {
-            companyId: id,
-            createdAt: { gte: sevenDaysAgo }
-          }
-        }),
-      0
-    ),
-    safeLoad(
-      () =>
-        db.eventLog.count({
-          where: {
-            companyId: id,
-            eventType: 'review_score_received',
-            createdAt: { gte: thirtyDaysAgo }
-          }
-        }),
-      0
-    ),
-    safeLoad(
-      () =>
-        db.message.findFirst({
-          where: {
-            companyId: id,
-            direction: 'INBOUND'
-          },
-          orderBy: { createdAt: 'desc' },
-          select: { createdAt: true }
-        }),
-      null
-    ),
-    safeLoad(
-      () =>
-        db.message.findFirst({
-          where: {
-            companyId: id,
-            direction: 'OUTBOUND'
-          },
-          orderBy: { createdAt: 'desc' },
-          select: { createdAt: true }
-        }),
-      null
-    ),
-    safeLoad(
-      () =>
-        db.appointment.findFirst({
-          where: { companyId: id },
-          orderBy: { createdAt: 'desc' },
-          select: { createdAt: true }
-        }),
-      null
-    ),
-    safeLoad(
-      () =>
-        db.eventLog.findFirst({
-          where: {
-            companyId: id,
-            eventType: {
-              in: ['telnyx_message_delivery_failed', 'operator_messaging_test_failed', 'booking_confirmation_failed']
-            }
-          },
-          orderBy: { createdAt: 'desc' },
-          select: { eventType: true }
-        }),
-      null
-    ),
-    safeLoad(
-      () =>
-        db.eventLog.findMany({
-          where: {
-            companyId: id,
-            eventType: {
-              in: [
-                'message_received',
-                'operator_messaging_test_sent',
-                'telnyx_message_sent',
-                'telnyx_message_delivery_failed',
-                'appointment_booked',
-                'booking_confirmation_sent',
-                'review_request_sent',
-                'review_score_received',
-                'review_positive_follow_up_sent',
-                'review_negative_follow_up_sent',
-                'review_owner_alert_processed'
-              ]
-            }
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 8,
-          select: {
-            eventType: true,
-            createdAt: true,
-            payload: true
-          }
-        }),
-      []
-    ),
-    safeLoad(
-      () =>
-        db.conversation.findMany({
-          where: { companyId: id },
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-          select: {
-            id: true,
-            createdAt: true,
-            contact: {
-              select: {
-                name: true,
-                phone: true
-              }
-            },
-            messages: {
-              orderBy: { createdAt: 'desc' },
-              take: 1,
-              select: {
-                content: true,
-                direction: true,
-                createdAt: true
-              }
-            }
-          }
-        }),
-      []
-    ),
-    safeLoad(
-      () =>
-        db.lead.groupBy({
-          by: ['source'],
-          where: {
-            companyId: id,
-            createdAt: { gte: thirtyDaysAgo }
-          },
-          _count: {
-            source: true
-          },
-          orderBy: {
-            _count: {
-              source: 'desc'
-            }
-          }
-        }),
-      []
-    )
-  ]);
+  const latestBookingSetupEvent = await safeLoad(
+    () =>
+      db.eventLog.findFirst({
+        where: {
+          companyId: id,
+          eventType: 'client_calendar_setup_updated'
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          createdAt: true,
+          payload: true
+        }
+      }),
+    null
+  );
 
-  const status = computeClientStatus({
-    recentFailureEventType: recentFailure?.eventType || null,
-    lastInboundAt: lastInbound?.createdAt || null,
-    lastOutboundAt: lastOutbound?.createdAt || null,
-    lastBookingAt: lastBooking?.createdAt || null
+  const bookingPayload = readPayloadRecord(latestBookingSetupEvent?.payload);
+  const bookingPlatformName = payloadString(bookingPayload, 'externalPlatformName');
+  const bookingPlatformUrl = payloadString(bookingPayload, 'externalPlatformUrl');
+  const bookingCredentialsSaved = Boolean(payloadString(bookingPayload, 'externalPlatformCredentialsEncrypted'));
+  const crmCredentialsSaved = Boolean(company.crmCredentialsEncrypted);
+  const hasPrimaryContact = Boolean(company.primaryContactName || company.primaryContactEmail || company.primaryContactPhone);
+  const status = portalStatus({
+    hasPrimaryContact,
+    crmReady: crmCredentialsSaved,
+    bookingReady: bookingCredentialsSaved || Boolean(bookingPlatformUrl)
   });
 
   return (
-    <main className="app-shell">
-      <div className="workspace-shell">
-        <section className="panel panel-stack client-status-page">
-          <div className="record-header">
-            <div className="panel-stack">
-              <div className="metric-label">Fix Your Leads</div>
-              <h1 className="section-title">{company.name}</h1>
-              <div className="record-subtitle">
-                A simple live view of what is happening in your Fix Your Leads workspace.
-              </div>
+    <main className="app-shell client-public-shell">
+      <section className="panel panel-stack client-status-page client-public-page">
+        {query.notice === 'saved' && (
+          <section className="panel panel-stack client-public-inline-notice">
+            <div className="inline-row">
+              <span className="status-dot ok" />
+              <strong>Setup saved.</strong>
             </div>
-            <div className={`client-status-hero is-${status.tone}`}>
-              <span className={`status-dot ${status.tone === 'ready' ? 'ok' : status.tone === 'warn' ? 'warn' : 'error'}`} />
-              <strong>{status.label}</strong>
-              <span className="tiny-muted">{status.detail}</span>
+            <div className="text-muted">
+              Your business details and integration settings are updated. Saved API keys stay hidden after submission.
+            </div>
+          </section>
+        )}
+
+        {query.notice === 'encryption_key_missing' && (
+          <section className="panel panel-stack client-public-inline-notice panel-attention">
+            <div className="inline-row">
+              <span className="status-dot warn" />
+              <strong>Secure key storage is not ready yet.</strong>
+            </div>
+            <div className="text-muted">Please contact Fix Your Leads so we can finish the encrypted API key setup.</div>
+          </section>
+        )}
+
+        {query.notice === 'credentials_invalid' && (
+          <section className="panel panel-stack client-public-inline-notice panel-attention">
+            <div className="inline-row">
+              <span className="status-dot warn" />
+              <strong>We could not save those API keys.</strong>
+            </div>
+            <div className="text-muted">Try again with fresh keys, or leave the key fields blank to keep the saved ones.</div>
+          </section>
+        )}
+
+        {query.notice === 'name_required' && (
+          <section className="panel panel-stack client-public-inline-notice panel-attention">
+            <div className="inline-row">
+              <span className="status-dot warn" />
+              <strong>Business name is required.</strong>
+            </div>
+          </section>
+        )}
+
+        <div className="record-header">
+          <div className="panel-stack">
+            <div className="metric-label">Fix Your Leads</div>
+            <h1 className="section-title">{company.name}</h1>
+            <div className="record-subtitle">
+              Use this page to keep your business information current and connect the CRM or booking system your workspace needs.
             </div>
           </div>
-
-          <div className="client-record-stats">
-            <div className="client-record-stat">
-              <span className="metric-label">Leads this week</span>
-              <strong className="workspace-stats-value">{leadsThisWeek}</strong>
-              <span className="tiny-muted">New lead records created in the last 7 days.</span>
-            </div>
-            <div className="client-record-stat">
-              <span className="metric-label">Replies this month</span>
-              <strong className="workspace-stats-value">{repliesThisMonth}</strong>
-              <span className="tiny-muted">Inbound responses captured in the last 30 days.</span>
-            </div>
-            <div className="client-record-stat">
-              <span className="metric-label">Bookings this week</span>
-              <strong className="workspace-stats-value">{bookingsThisWeek}</strong>
-              <span className="tiny-muted">Appointments created in the last 7 days.</span>
-            </div>
-            <div className="client-record-stat">
-              <span className="metric-label">Last reply received</span>
-              <strong className="workspace-stats-value">{formatCompactDateTime(lastInbound?.createdAt)}</strong>
-              <span className="tiny-muted">Most recent inbound reply captured.</span>
-            </div>
-            <div className="client-record-stat">
-              <span className="metric-label">Review replies this month</span>
-              <strong className="workspace-stats-value">{reviewScoresThisMonth}</strong>
-              <span className="tiny-muted">Customer ratings captured in the last 30 days.</span>
-            </div>
+          <div className={`client-status-hero is-${status.tone}`}>
+            <span className={`status-dot ${status.tone === 'ready' ? 'ok' : 'warn'}`} />
+            <strong>{status.label}</strong>
+            <span className="tiny-muted">{status.detail}</span>
           </div>
+        </div>
 
-          <div className="client-status-grid">
-            <section className="panel panel-stack">
-              <div className="metric-label">Lead flow</div>
-              <h2 className="section-title">How leads are showing up</h2>
-              <div className="workspace-list">
-                {sourceBreakdown.length === 0 ? (
-                  <div className="workspace-list-item">
-                    <span className="tiny-muted">No tracked lead sources yet in the last 30 days.</span>
-                  </div>
-                ) : (
-                  sourceBreakdown.map((sourceRow, index) => (
-                    <div key={`${sourceRow.source || 'unknown'}-${index}`} className="workspace-list-item">
-                      <div className="workspace-list-header">
-                        <strong>{sourceRow.source || 'Unknown source'}</strong>
-                        <span className="tiny-muted">{sourceRow._count.source} leads</span>
-                      </div>
-                      <span className="tiny-muted">Tracked inside Fix Your Leads from this source in the last 30 days.</span>
-                    </div>
-                  ))
-                )}
+        <div className="client-record-stats">
+          <div className="client-record-stat">
+            <span className="metric-label">Primary contact</span>
+            <strong className="workspace-stats-value">{company.primaryContactName || 'Missing'}</strong>
+            <span className="tiny-muted">{company.primaryContactEmail || company.primaryContactPhone || 'Add the best owner or manager contact.'}</span>
+          </div>
+          <div className="client-record-stat">
+            <span className="metric-label">CRM</span>
+            <strong className="workspace-stats-value">{providerLabel(company.crmProvider)}</strong>
+            <span className="tiny-muted">{crmCredentialsSaved ? 'API keys saved securely' : 'Provider not finished yet'}</span>
+          </div>
+          <div className="client-record-stat">
+            <span className="metric-label">Booking</span>
+            <strong className="workspace-stats-value">{bookingPlatformName || 'Not connected'}</strong>
+            <span className="tiny-muted">{bookingCredentialsSaved ? 'API keys saved securely' : bookingPlatformUrl || 'Add the booking platform details here.'}</span>
+          </div>
+          <div className="client-record-stat">
+            <span className="metric-label">Last setup save</span>
+            <strong className="workspace-stats-value">{formatCompactDateTime(latestBookingSetupEvent?.createdAt || company.createdAt)}</strong>
+            <span className="tiny-muted">We keep your latest setup details attached to this workspace.</span>
+          </div>
+        </div>
+
+        <div className="client-record-layout">
+          <section className="panel panel-stack">
+            <div className="record-header">
+              <div className="panel-stack">
+                <div className="metric-label">Client setup</div>
+                <h2 className="section-title">Update your workspace details</h2>
+                <div className="record-subtitle">
+                  You can update your business info here and add the CRM or booking API keys we need. Once keys are saved, they will not be shown again.
+                </div>
               </div>
-            </section>
+            </div>
 
-            <section className="panel panel-stack">
-              <div className="metric-label">Recent activity</div>
-              <h2 className="section-title">What happened lately</h2>
-              <div className="workspace-list">
-                {recentEvents.length === 0 ? (
-                  <div className="workspace-list-item">
-                    <span className="tiny-muted">No public-facing activity yet for this client.</span>
+            <form action={saveClientPortalSetupAction} className="panel-stack client-profile-form">
+              <input type="hidden" name="companyId" value={company.id} />
+              <input type="hidden" name="token" value={token} />
+
+              <div className="client-profile-section">
+                <div className="metric-label">Business details</div>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-name">
+                      Business name
+                    </label>
+                    <input id="portal-name" className="text-input" name="name" defaultValue={company.name} />
                   </div>
-                ) : (
-                  recentEvents.map((event, index) => (
-                    <div key={`${event.createdAt.toISOString()}-${index}`} className="workspace-list-item">
-                      <div className="workspace-list-header">
-                        <strong>{activityLabel(event.eventType)}</strong>
-                        <span className="tiny-muted">{formatCompactDateTime(event.createdAt)}</span>
-                      </div>
-                      <span className="tiny-muted">{activityDetail(event.payload)}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-
-            <section className="panel panel-stack">
-              <div className="metric-label">Recent conversations</div>
-              <h2 className="section-title">Latest threads</h2>
-              <div className="workspace-list">
-                {recentConversations.length === 0 ? (
-                  <div className="workspace-list-item">
-                    <span className="tiny-muted">No conversation threads have been recorded yet.</span>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-website">
+                      Website
+                    </label>
+                    <input
+                      id="portal-website"
+                      className="text-input"
+                      name="website"
+                      defaultValue={company.website || ''}
+                      placeholder="https://yourbusiness.com"
+                    />
                   </div>
-                ) : (
-                  recentConversations.map((conversation) => (
-                    <div key={conversation.id} className="workspace-list-item">
-                      <div className="workspace-list-header">
-                        <strong>{conversation.contact.name || conversation.contact.phone || 'Unnamed contact'}</strong>
-                        <span className="tiny-muted">{formatCompactDateTime(conversation.messages[0]?.createdAt || conversation.createdAt)}</span>
-                      </div>
-                      <span className="tiny-muted">
-                        {conversation.messages[0]
-                          ? `${conversation.messages[0].direction === 'INBOUND' ? 'Reply' : 'Outbound'}: ${conversation.messages[0].content}`
-                          : 'Conversation created with no messages yet.'}
-                      </span>
-                    </div>
-                  ))
-                )}
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-notification-email">
+                      Business email
+                    </label>
+                    <input
+                      id="portal-notification-email"
+                      className="text-input"
+                      name="notificationEmail"
+                      defaultValue={company.notificationEmail || ''}
+                      placeholder="team@yourbusiness.com"
+                    />
+                  </div>
+                </div>
               </div>
-            </section>
 
+              <div className="client-profile-section">
+                <div className="metric-label">Primary contact</div>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-contact-name">
+                      Contact name
+                    </label>
+                    <input
+                      id="portal-contact-name"
+                      className="text-input"
+                      name="primaryContactName"
+                      defaultValue={company.primaryContactName || ''}
+                      placeholder="Owner or manager"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-contact-email">
+                      Contact email
+                    </label>
+                    <input
+                      id="portal-contact-email"
+                      className="text-input"
+                      name="primaryContactEmail"
+                      defaultValue={company.primaryContactEmail || ''}
+                      placeholder="owner@yourbusiness.com"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-contact-phone">
+                      Contact phone
+                    </label>
+                    <input
+                      id="portal-contact-phone"
+                      className="text-input"
+                      name="primaryContactPhone"
+                      defaultValue={company.primaryContactPhone || ''}
+                      placeholder="+1 555 555 5555"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="client-profile-section">
+                <div className="metric-label">CRM setup</div>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-crm-provider">
+                      CRM provider
+                    </label>
+                    <select id="portal-crm-provider" className="select-input" name="crmProvider" defaultValue={company.crmProvider}>
+                      {Object.values(CrmProvider).map((provider) => (
+                        <option key={provider} value={provider}>
+                          {providerLabel(provider)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-crm-api-key">
+                      CRM API key
+                    </label>
+                    <input
+                      id="portal-crm-api-key"
+                      className="text-input"
+                      name="crmApiKey"
+                      type="password"
+                      placeholder={crmCredentialsSaved ? 'Saved securely. Enter a new key only to replace it.' : 'Paste your CRM API key'}
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-crm-secondary-key">
+                      CRM second key or account ID
+                    </label>
+                    <input
+                      id="portal-crm-secondary-key"
+                      className="text-input"
+                      name="crmSecondaryKey"
+                      type="password"
+                      placeholder="Optional second key, account ID, or location ID"
+                    />
+                  </div>
+                </div>
+                <span className="tiny-muted">
+                  {crmCredentialsSaved
+                    ? 'Your CRM keys are already saved securely. Leave these blank if you do not want to replace them.'
+                    : 'You can save one or two CRM keys here. Once saved, they are hidden from this page.'}
+                </span>
+              </div>
+
+              <div className="client-profile-section">
+                <div className="metric-label">Booking setup</div>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-booking-platform">
+                      Booking platform name
+                    </label>
+                    <input
+                      id="portal-booking-platform"
+                      className="text-input"
+                      name="bookingPlatformName"
+                      defaultValue={bookingPlatformName}
+                      placeholder="Boulevard, Vagaro, Jane, etc."
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-booking-url">
+                      Booking platform URL
+                    </label>
+                    <input
+                      id="portal-booking-url"
+                      className="text-input"
+                      name="bookingPlatformUrl"
+                      defaultValue={bookingPlatformUrl}
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-booking-api-key">
+                      Booking API key
+                    </label>
+                    <input
+                      id="portal-booking-api-key"
+                      className="text-input"
+                      name="bookingApiKey"
+                      type="password"
+                      placeholder={bookingCredentialsSaved ? 'Saved securely. Enter a new key only to replace it.' : 'Paste your booking API key'}
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="portal-booking-secondary-key">
+                      Booking second key or secret
+                    </label>
+                    <input
+                      id="portal-booking-secondary-key"
+                      className="text-input"
+                      name="bookingSecondaryKey"
+                      type="password"
+                      placeholder="Optional second key or secret"
+                    />
+                  </div>
+                </div>
+                <span className="tiny-muted">
+                  {bookingCredentialsSaved
+                    ? 'Your booking credentials are already saved securely. Leave these blank if you do not want to replace them.'
+                    : 'You can save one or two booking credentials here. Once saved, they are hidden from this page.'}
+                </span>
+              </div>
+
+              <div className="inline-actions">
+                <button type="submit" className="button">
+                  Save client setup
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <aside className="panel-stack client-record-sidebar">
             <section className="panel panel-stack">
-              <div className="metric-label">Quick facts</div>
-              <h2 className="section-title">Workspace snapshot</h2>
+              <div className="metric-label">Setup snapshot</div>
               <div className="client-record-sidebar-grid">
+                <div className="client-record-sidebar-item">
+                  <span className="key-value-label">CRM provider</span>
+                  <strong>{providerLabel(company.crmProvider)}</strong>
+                </div>
+                <div className="client-record-sidebar-item">
+                  <span className="key-value-label">CRM keys</span>
+                  <strong>{crmCredentialsSaved ? 'Saved securely' : 'Not saved yet'}</strong>
+                </div>
+                <div className="client-record-sidebar-item">
+                  <span className="key-value-label">Booking platform</span>
+                  <strong>{bookingPlatformName || 'Not saved yet'}</strong>
+                </div>
+                <div className="client-record-sidebar-item">
+                  <span className="key-value-label">Booking keys</span>
+                  <strong>{bookingCredentialsSaved ? 'Saved securely' : 'Not saved yet'}</strong>
+                </div>
+                <div className="client-record-sidebar-item">
+                  <span className="key-value-label">Website</span>
+                  <strong>{company.website || 'Not saved yet'}</strong>
+                </div>
                 <div className="client-record-sidebar-item">
                   <span className="key-value-label">Workspace created</span>
                   <strong>{formatCompactDateTime(company.createdAt)}</strong>
                 </div>
-                <div className="client-record-sidebar-item">
-                  <span className="key-value-label">Website</span>
-                  <strong>{company.website || 'Not added yet'}</strong>
+              </div>
+            </section>
+
+            <section className="panel panel-stack client-public-support-card">
+              <div className="metric-label">Need help?</div>
+              <h2 className="section-title">What to send us</h2>
+              <div className="workspace-list">
+                <div className="workspace-list-item">
+                  <strong>CRM setup</strong>
+                  <span className="tiny-muted">Choose the provider and add the API key your CRM uses for lead creation.</span>
                 </div>
-                <div className="client-record-sidebar-item">
-                  <span className="key-value-label">Current status</span>
-                  <strong>{status.label}</strong>
+                <div className="workspace-list-item">
+                  <strong>Booking setup</strong>
+                  <span className="tiny-muted">Add the booking platform name, URL, and one or two booking credentials if your system needs them.</span>
                 </div>
-                <div className="client-record-sidebar-item">
-                  <span className="key-value-label">Support</span>
-                  <strong>Fix Your Leads team</strong>
+                <div className="workspace-list-item">
+                  <strong>Security</strong>
+                  <span className="tiny-muted">Saved API keys are encrypted and will not be shown again after you save them.</span>
                 </div>
               </div>
             </section>
-          </div>
-        </section>
-      </div>
+          </aside>
+        </div>
+      </section>
     </main>
   );
 }

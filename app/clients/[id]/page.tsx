@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
 import { ClientViewLinkActions } from '@/app/clients/[id]/ClientViewLinkActions';
 import { LayoutShell } from '@/app/components/LayoutShell';
-import { updateCompanyAction } from '@/app/companies/actions';
+import { deleteCompanyAction, updateCompanyAction } from '@/app/companies/actions';
 import { buildClientViewPath } from '@/lib/client-view-auth';
 import { db } from '@/lib/db';
 import { humanizeIntakeSource } from '@/lib/client-intake';
@@ -293,6 +293,16 @@ export default async function ClientProfilePage({
         </section>
       )}
 
+      {notice === 'delete_confirmation_failed' && (
+        <section className="panel panel-stack panel-attention">
+          <div className="inline-row">
+            <span className="status-dot warn" />
+            <strong>Delete client confirmation did not pass.</strong>
+          </div>
+          <div className="text-muted">Check both confirmation boxes and type the exact client name before deleting.</div>
+        </section>
+      )}
+
       <section className="panel panel-stack client-record-hero">
         <div className="record-header">
           <div className="panel-stack">
@@ -537,6 +547,54 @@ export default async function ClientProfilePage({
                 </button>
               </div>
             </form>
+          </section>
+
+          <section className="panel panel-stack client-danger-panel" id="danger-zone">
+            <div className="record-header">
+              <div className="panel-stack">
+                <div className="metric-label">Danger zone</div>
+                <h3 className="section-title">Delete this client forever</h3>
+                <div className="record-subtitle">
+                  This removes the client workspace and all related leads, contacts, bookings, events, and saved setup.
+                </div>
+              </div>
+            </div>
+
+            <details>
+              <summary className="details-summary danger-zone-summary">Open delete confirmations</summary>
+              <form action={deleteCompanyAction} className="panel-stack danger-zone-form">
+                <input type="hidden" name="companyId" value={company.id} />
+                <input type="hidden" name="expectedName" value={company.name} />
+
+                <label className="danger-zone-check">
+                  <input type="checkbox" name="confirmCascade" />
+                  <span>I understand this deletes every record tied to {company.name}.</span>
+                </label>
+
+                <label className="danger-zone-check">
+                  <input type="checkbox" name="confirmIrreversible" />
+                  <span>I understand this cannot be undone.</span>
+                </label>
+
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="confirm-company-name">
+                    Type the client name to confirm
+                  </label>
+                  <input
+                    id="confirm-company-name"
+                    className="text-input"
+                    name="confirmCompanyName"
+                    placeholder={company.name}
+                  />
+                </div>
+
+                <div className="inline-actions">
+                  <button type="submit" className="button-danger">
+                    Delete client forever
+                  </button>
+                </div>
+              </form>
+            </details>
           </section>
         </div>
 
