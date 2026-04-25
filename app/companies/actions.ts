@@ -131,15 +131,16 @@ export async function updateCompanyAction(formData: FormData) {
   const primaryContactPhone = optionalText(formData.get('primaryContactPhone'));
   const retainerCents = optionalMoneyCents(formData.get('retainer'));
   const downPaymentCents = optionalMoneyCents(formData.get('downPayment'));
-  const telnyxInboundInput = formData.get('telnyxInboundNumber');
-  const inboundNumbers = parseInboundNumberList(telnyxInboundInput);
+  const telnyxInboundProvided = formData.has('telnyxInboundNumber');
+  const telnyxInboundInput = telnyxInboundProvided ? formData.get('telnyxInboundNumber') : null;
+  const inboundNumbers = telnyxInboundProvided ? parseInboundNumberList(telnyxInboundInput) : [];
   const normalizedInboundNumber = inboundNumbers[0] || null;
 
   if (!companyId || !name) {
     throw new Error('company_id_and_name_required');
   }
 
-  if (inboundNumbers.length > 0) {
+  if (telnyxInboundProvided && inboundNumbers.length > 0) {
     const existingCompany = await db.company.findFirst({
       where: {
         NOT: { id: companyId },
@@ -165,17 +166,21 @@ export async function updateCompanyAction(formData: FormData) {
   const data = {
     name,
     notificationEmail,
-    telnyxInboundNumber: normalizedInboundNumber,
     website,
     primaryContactName,
     primaryContactEmail,
     primaryContactPhone,
     retainerCents,
     downPaymentCents,
-    telnyxInboundNumbers: {
-      deleteMany: {},
-      create: inboundNumbers.map((number) => ({ number }))
-    }
+    ...(telnyxInboundProvided
+      ? {
+          telnyxInboundNumber: normalizedInboundNumber,
+          telnyxInboundNumbers: {
+            deleteMany: {},
+            create: inboundNumbers.map((number) => ({ number }))
+          }
+        }
+      : {})
   } as const;
 
   await db.company.update({

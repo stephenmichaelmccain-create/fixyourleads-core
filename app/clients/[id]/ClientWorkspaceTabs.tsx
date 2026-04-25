@@ -20,16 +20,10 @@ export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsPr
           CRM
         </a>
         <a
-          className={`workspace-tab-link ${active === 'comms' ? 'is-active' : ''}`}
-          href={`/clients/${companyId}/operator?lab=sms`}
-        >
-          Comms Lab
-        </a>
-        <a
           className={`workspace-tab-link ${active === 'telnyx' ? 'is-active' : ''}`}
           href={`/clients/${companyId}/telnyx`}
         >
-          Telnyx Setup
+          AI Voice
         </a>
         <a
           className={`workspace-tab-link ${active === 'booking' ? 'is-active' : ''}`}

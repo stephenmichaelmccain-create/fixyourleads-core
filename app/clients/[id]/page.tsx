@@ -6,8 +6,8 @@ import { updateCompanyAction } from '@/app/companies/actions';
 import { buildClientViewPath } from '@/lib/client-view-auth';
 import { db } from '@/lib/db';
 import { humanizeIntakeSource } from '@/lib/client-intake';
+import { parseTelnyxSetupPayload } from '@/lib/client-telnyx-setup';
 import { safeLoad } from '@/lib/ui-data';
-import { allInboundNumbers, companyPrimaryInboundNumber, hasInboundRouting } from '@/lib/inbound-numbers';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,25 +111,6 @@ function buildOperatorRedirect(companyId: string, query: Record<string, string |
   return search ? `/clients/${companyId}/operator?${search}` : `/clients/${companyId}/operator`;
 }
 
-function setupGapsForCompany(company: {
-  notificationEmail: string | null;
-  website: string | null;
-  primaryContactName: string | null;
-  primaryContactEmail: string | null;
-  primaryContactPhone: string | null;
-  telnyxInboundNumber: string | null;
-  telnyxInboundNumbers: Array<{ number: string }>;
-}) {
-  return [
-    !hasInboundRouting(company) ? 'Inbound routing number' : null,
-    !company.notificationEmail ? 'Business email' : null,
-    !company.primaryContactName ? 'Primary contact name' : null,
-    !company.primaryContactEmail ? 'Primary contact email' : null,
-    !company.primaryContactPhone ? 'Primary contact phone' : null,
-    !company.website ? 'Website' : null
-  ].filter(Boolean) as string[];
-}
-
 type CompanySetupSnapshot = {
   website: string | null;
   primaryContactName: string | null;
@@ -214,8 +195,8 @@ export default async function ClientProfilePage({
   const [
     intakeEvents,
     latestWorkflowRun,
+    latestVoiceSetupEvent,
     leadCount,
-    conversationCount,
     upcomingAppointmentCount
   ] = await Promise.all([
     safeLoad(
@@ -246,8 +227,16 @@ export default async function ClientProfilePage({
         }),
       null
     ),
+    safeLoad(
+      () =>
+        db.eventLog.findFirst({
+          where: { companyId: id, eventType: 'client_telnyx_setup_updated' },
+          orderBy: { createdAt: 'desc' },
+          select: { payload: true, createdAt: true }
+        }),
+      null
+    ),
     safeLoad(() => db.lead.count({ where: { companyId: id } }), 0),
-    safeLoad(() => db.conversation.count({ where: { companyId: id } }), 0),
     safeLoad(
       () =>
         db.appointment.count({
@@ -262,37 +251,16 @@ export default async function ClientProfilePage({
   ]);
 
   const latestSignupEvent = intakeEvents.find((event) => event.eventType === 'client_signup_received') || null;
-  const latestOnboardingEvent = intakeEvents.find((event) => event.eventType === 'client_onboarding_received') || null;
   const latestSignupPayload = readPayloadRecord(latestSignupEvent?.payload);
-  const latestOnboardingPayload = readPayloadRecord(latestOnboardingEvent?.payload);
+  const voiceSetupState = latestVoiceSetupEvent ? parseTelnyxSetupPayload(latestVoiceSetupEvent.payload) : null;
 
   const importedSourceLabel = humanizeIntakeSource(payloadString(latestSignupPayload, 'source'));
-  const importedContactName =
-    payloadString(latestSignupPayload, 'contactName') || payloadString(latestOnboardingPayload, 'contactName');
-  const importedNotificationEmail =
-    payloadString(latestSignupPayload, 'notificationEmail') ||
-    payloadString(latestOnboardingPayload, 'notificationEmail');
-
-  const primaryRoutingNumber = companyPrimaryInboundNumber(company);
-  const sharedTelnyxSender = process.env.TELNYX_FROM_NUMBER?.trim() || null;
-  const activeSenderNumber = primaryRoutingNumber || sharedTelnyxSender;
   const appBaseUrl = process.env.APP_BASE_URL?.trim() || null;
   const clientViewPath = buildClientViewPath(company.id);
   const clientViewUrl =
     clientViewPath && appBaseUrl ? `${appBaseUrl.replace(/\/$/, '')}${clientViewPath}` : clientViewPath;
-
-  const smsHealthy = Boolean(activeSenderNumber) && hasInboundRouting(company);
-
-  const profileFields = [
-    company.notificationEmail,
-    company.website,
-    company.primaryContactName,
-    company.primaryContactEmail,
-    company.primaryContactPhone,
-    allInboundNumbers(company).join('')
-  ];
-  const profileFilled = profileFields.filter((value) => String(value || '').trim()).length;
-  const profileTotal = profileFields.length;
+  const aiVoiceConfigured = Boolean(voiceSetupState?.webhookConfigured || voiceSetupState?.webhookUrl);
+  const aiVoiceWebhookTarget = voiceSetupState?.webhookUrl || 'Not connected yet';
 
   return (
     <LayoutShell
@@ -311,7 +279,7 @@ export default async function ClientProfilePage({
             <span className="status-dot ok" />
             <strong>Client profile updated.</strong>
           </div>
-          <div className="text-muted">Routing, notifications, and operator context are now using the latest values.</div>
+          <div className="text-muted">Contact details, website info, and client context are now using the latest values.</div>
         </section>
       )}
 
@@ -331,14 +299,14 @@ export default async function ClientProfilePage({
             <div className="metric-label">Client profile</div>
             <h2 className="section-title">{company.name}</h2>
             <div className="record-subtitle">
-              Keep the core client record accurate here. The other tabs can then focus on testing, carrier setup, booking,
-              and monitoring without duplicating these fields.
+              Keep the core client record accurate here. Booking, CRM, and the AI voice hookup can live in their own tabs
+              without duplicating the same client details.
             </div>
           </div>
           <div className="workspace-action-rail">
             <ClientViewLinkActions clientViewUrl={clientViewUrl} />
-            <a className="button" href={`/clients/${company.id}/operator?lab=sms`}>
-              Comms Lab
+            <a className="button" href={`/clients/${company.id}/telnyx`}>
+              AI Voice
             </a>
             <a className="button-secondary" href={`/events?companyId=${encodeURIComponent(company.id)}`}>
               Activity
@@ -354,13 +322,10 @@ export default async function ClientProfilePage({
             <strong>Leads</strong> {leadCount}
           </span>
           <span className="status-chip status-chip-muted">
-            <strong>Conversations</strong> {conversationCount}
-          </span>
-          <span className="status-chip status-chip-muted">
             <strong>Bookings</strong> {upcomingAppointmentCount}
           </span>
-          <span className={`status-chip ${hasInboundRouting(company) ? '' : 'status-chip-attention'}`}>
-            <strong>Routing</strong> {hasInboundRouting(company) ? 'Assigned' : 'Needs line'}
+          <span className={`status-chip ${aiVoiceConfigured ? 'status-chip-muted' : 'status-chip-attention'}`}>
+            <strong>AI voice</strong> {aiVoiceConfigured ? 'Webhook ready' : 'Needs hookup'}
           </span>
         </div>
       </section>
@@ -371,10 +336,10 @@ export default async function ClientProfilePage({
             <div className="record-header">
               <div className="panel-stack">
               <div className="metric-label">Overview</div>
-              <h3 className="section-title">Identity, routing, and handoff</h3>
+              <h3 className="section-title">Identity, contact, and handoff</h3>
               <div className="record-subtitle">
-                  Keep this page focused on the information the rest of the workspace depends on: contact details, routing,
-                  notification inboxes, and pricing context.
+                  Keep this page focused on the information the rest of the workspace depends on: contact details, business
+                  info, notification inboxes, and AI voice handoff.
               </div>
             </div>
             </div>
@@ -388,12 +353,10 @@ export default async function ClientProfilePage({
                 </span>
               </div>
               <div className="key-value-card client-record-overview-card">
-                <span className="key-value-label">Routing line</span>
-                <strong>{primaryRoutingNumber || activeSenderNumber || 'No sender configured'}</strong>
+                <span className="key-value-label">AI voice webhook</span>
+                <strong>{aiVoiceConfigured ? 'Connected' : 'Not connected'}</strong>
                 <span className="tiny-muted">
-                  {hasInboundRouting(company)
-                    ? 'Replies map into this client workspace.'
-                    : 'Assign a line in Telnyx Setup so replies stop living on fallback routing.'}
+                  {aiVoiceConfigured ? aiVoiceWebhookTarget : 'Open the AI Voice tab to save the webhook target for this client.'}
                 </span>
               </div>
               <div className="key-value-card client-record-overview-card">
@@ -414,15 +377,15 @@ export default async function ClientProfilePage({
             </div>
 
             <div className="surface-link-grid">
-              <a className="surface-link-card" href={`/clients/${company.id}/operator?lab=sms`}>
-                <span className="metric-label">Comms Lab</span>
-                <strong>Test SMS routing and review message activity</strong>
-                <span className="tiny-muted">Use the live terminal without leaving the client record.</span>
+              <a className="surface-link-card" href={`/clients/${company.id}/telnyx`}>
+                <span className="metric-label">AI Voice</span>
+                <strong>Store the client webhook and voice hookup details</strong>
+                <span className="tiny-muted">Keep the provider webhook target and install notes in one place.</span>
               </a>
               <a className="surface-link-card" href={`/events?companyId=${encodeURIComponent(company.id)}`}>
                 <span className="metric-label">Activity log</span>
-                <strong>Review webhook, booking, and delivery events</strong>
-                <span className="tiny-muted">Useful when QAing intake, workflows, or carrier delivery.</span>
+                <strong>Review signup, booking, and webhook events</strong>
+                <span className="tiny-muted">Useful when QAing intake, workflows, or AI voice handoff.</span>
               </a>
               <a
                 className={`surface-link-card${clientViewPath ? '' : ' is-disabled'}`}
@@ -437,7 +400,7 @@ export default async function ClientProfilePage({
               </a>
               <a className="surface-link-card" href="#setup">
                 <span className="metric-label">Profile editor</span>
-                <strong>Update routing, contacts, website, and pricing</strong>
+                <strong>Update contacts, website, and pricing</strong>
                 <span className="tiny-muted">All downstream operator tools read from this setup form.</span>
               </a>
             </div>
@@ -537,7 +500,7 @@ export default async function ClientProfilePage({
               </div>
 
               <div className="client-profile-section">
-                <div className="metric-label">Routing and pricing</div>
+                <div className="metric-label">Commercials</div>
                 <div className="workspace-filter-row">
                   <div className="field-stack">
                     <label className="key-value-label" htmlFor="client-retainer">
@@ -566,21 +529,6 @@ export default async function ClientProfilePage({
                     />
                   </div>
                 </div>
-                <div className="field-stack">
-                  <label className="key-value-label" htmlFor="client-inbound">
-                    Assigned client number(s)
-                  </label>
-                  <textarea
-                    id="client-inbound"
-                    className="text-area"
-                    name="telnyxInboundNumber"
-                    defaultValue={allInboundNumbers(company).join('\n')}
-                    rows={3}
-                  />
-                  <span className="tiny-muted">
-                    Add one number per line. Each line is treated as a unique routing destination for this client.
-                  </span>
-                </div>
               </div>
 
               <div className="inline-actions">
@@ -601,16 +549,16 @@ export default async function ClientProfilePage({
                 <strong>{formatCompactDateTime(company.createdAt)}</strong>
               </div>
               <div className="client-record-sidebar-item">
-                <span className="key-value-label">Routing mode</span>
-                <strong>{primaryRoutingNumber ? 'Dedicated' : activeSenderNumber ? 'Shared fallback' : 'Missing'}</strong>
+                <span className="key-value-label">AI voice</span>
+                <strong>{aiVoiceConfigured ? 'Webhook connected' : 'Setup pending'}</strong>
               </div>
               <div className="client-record-sidebar-item">
-                <span className="key-value-label">Messaging status</span>
-                <strong>{smsHealthy ? 'Routed' : activeSenderNumber ? 'Fallback only' : 'Missing sender'}</strong>
+                <span className="key-value-label">Webhook target</span>
+                <strong>{aiVoiceWebhookTarget}</strong>
               </div>
               <div className="client-record-sidebar-item">
-                <span className="key-value-label">Inbound lines</span>
-                <strong>{allInboundNumbers(company).length || 0}</strong>
+                <span className="key-value-label">Primary contact</span>
+                <strong>{company.primaryContactName || 'Missing'}</strong>
               </div>
               <div className="client-record-sidebar-item">
                 <span className="key-value-label">Revenue context</span>
