@@ -222,6 +222,7 @@ async function loadContactedCompanies() {
     select: {
       id: true,
       name: true,
+      website: true,
       contacts: {
         select: {
           phone: true
@@ -235,10 +236,12 @@ function findContactedCompanyDuplicate(
   contactedCompanies: Awaited<ReturnType<typeof loadContactedCompanies>>,
   {
     clinicKey,
-    normalizedPhone
+    normalizedPhone,
+    websiteKey
   }: {
     clinicKey: string;
     normalizedPhone: string | null;
+    websiteKey: string | null;
   }
 ) {
   return (
@@ -247,6 +250,9 @@ function findContactedCompanyDuplicate(
       ? contactedCompanies.find((company) =>
           company.contacts.some((contact) => normalizePhone(contact.phone || '') === normalizedPhone)
         )
+      : null) ||
+    (websiteKey
+      ? contactedCompanies.find((company) => normalizeWebsiteKey(company.website || '') === websiteKey)
       : null) ||
     null
   );
@@ -440,7 +446,8 @@ export async function createProspectAction(formData: FormData) {
   const contactedCompanies = await loadContactedCompanies();
   const contactedCompanyDuplicate = findContactedCompanyDuplicate(contactedCompanies, {
     clinicKey,
-    normalizedPhone
+    normalizedPhone,
+    websiteKey
   });
 
   if (contactedCompanyDuplicate) {
@@ -448,6 +455,8 @@ export async function createProspectAction(formData: FormData) {
       normalizedPhone &&
       contactedCompanyDuplicate.contacts.some((contact) => normalizePhone(contact.phone || '') === normalizedPhone)
         ? 'master_phone'
+        : websiteKey && normalizeWebsiteKey(contactedCompanyDuplicate.website || '') === websiteKey
+          ? 'master_website'
         : 'master_name';
 
     redirect(
@@ -591,7 +600,8 @@ export async function bulkCreateProspectsAction(formData: FormData) {
 
     const contactedCompanyDuplicate = findContactedCompanyDuplicate(contactedCompanies, {
       clinicKey,
-      normalizedPhone
+      normalizedPhone,
+      websiteKey
     });
 
     if (contactedCompanyDuplicate) {

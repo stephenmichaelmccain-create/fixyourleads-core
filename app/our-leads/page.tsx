@@ -87,6 +87,40 @@ function formatDateTime(date?: Date | null) {
   }).format(date);
 }
 
+function formatRelativeLeadTime(date: Date | null, now: Date, options?: { future?: boolean }) {
+  if (!date) {
+    return options?.future ? 'Not set' : 'New';
+  }
+
+  const deltaMs = date.getTime() - now.getTime();
+  const isFuture = deltaMs > 0;
+  const distanceMs = Math.abs(deltaMs);
+  const hourMs = 60 * 60 * 1000;
+  const dayMs = 24 * hourMs;
+  const weekMs = 7 * dayMs;
+
+  const formatBucket = (value: number, singular: string, plural: string) =>
+    `${value} ${value === 1 ? singular : plural}`;
+
+  if (distanceMs < hourMs) {
+    const minutes = Math.max(1, Math.round(distanceMs / (60 * 1000)));
+    return isFuture ? `in ${formatBucket(minutes, 'minute', 'minutes')}` : `${formatBucket(minutes, 'minute', 'minutes')} ago`;
+  }
+
+  if (distanceMs < dayMs) {
+    const hours = Math.max(1, Math.round(distanceMs / hourMs));
+    return isFuture ? `in ${formatBucket(hours, 'hour', 'hours')}` : `${formatBucket(hours, 'hour', 'hours')} ago`;
+  }
+
+  if (distanceMs < weekMs) {
+    const days = Math.max(1, Math.round(distanceMs / dayMs));
+    return isFuture ? `in ${formatBucket(days, 'day', 'days')}` : `${formatBucket(days, 'day', 'days')} ago`;
+  }
+
+  const weeks = Math.max(1, Math.round(distanceMs / weekMs));
+  return isFuture ? `in ${formatBucket(weeks, 'week', 'weeks')}` : `${formatBucket(weeks, 'week', 'weeks')} ago`;
+}
+
 function formatDateOnly(date?: Date | null) {
   if (!date) {
     return 'Not set';
@@ -509,6 +543,8 @@ export default async function OurLeadsPage({
               ? 'This clinic is already in the leads queue with the same phone number.'
               : duplicateReason === 'master_phone'
                 ? 'This clinic already exists in the contacted-company master list with the same phone number.'
+                : duplicateReason === 'master_website'
+                  ? 'This clinic already exists in the contacted-company master list with the same website.'
                 : duplicateReason === 'master_name'
                   ? 'This clinic already exists in the contacted-company master list with the same company name.'
                   : 'This clinic already exists in the leads queue.'
@@ -822,9 +858,13 @@ export default async function OurLeadsPage({
                     nextActionDue: selectedDue
                   })}#selected-lead`;
                   const lastTouch = prospect.callLogs[0]?.createdAt || prospect.lastCallAt || null;
-                  const lastTouchLabel = lastTouch ? formatDateTime(lastTouch) : 'New';
+                  const lastTouchLabel = formatRelativeLeadTime(lastTouch, now);
                   const lastTouchMeta =
                     prospect.lastCallOutcome || prospect.callLogs[0]?.outcome || (lastTouch ? 'Recent activity' : 'Not contacted yet');
+                  const nextActionLabel = formatRelativeLeadTime(prospect.nextActionAt, now, { future: true });
+                  const leadSummary = [prospect.city, prospect.website ? websiteLabel(prospect.website) : null]
+                    .filter(Boolean)
+                    .join(' · ');
                   const selected = prospect.id === effectiveSelectedProspectId;
 
                   return (
@@ -846,24 +886,19 @@ export default async function OurLeadsPage({
                           </div>
                           <div className="record-stack">
                             <h2 className="form-title lead-company-name">{prospect.name}</h2>
-                            <div className="lead-queue-subline">
-                              {detailValue(prospect.ownerName, 'No contact name')}
-                              {prospect.city ? ` · ${prospect.city}` : ''}
-                              {prospect.profile.source ? ` · ${prospect.profile.source}` : ' · Manual add'}
-                              {prospect.website ? ` · ${websiteLabel(prospect.website)}` : ''}
-                            </div>
+                            <div className="lead-queue-subline">{leadSummary || 'No location or website saved yet'}</div>
                           </div>
 
                           <div className="lead-queue-body">
                             <div className="lead-queue-timing">
                               <div className="lead-queue-timing-item">
-                                <span className="key-value-label">Last touch</span>
+                                <span className="key-value-label">Last event</span>
                                 <strong className="lead-compact-value">{lastTouchLabel}</strong>
                                 <span className="tiny-muted">{lastTouchMeta}</span>
                               </div>
                               <div className="lead-queue-timing-item">
-                                <span className="key-value-label">Next action</span>
-                                <strong className="lead-compact-value">{formatDateTime(prospect.nextActionAt)}</strong>
+                                <span className="key-value-label">Next step</span>
+                                <strong className="lead-compact-value">{nextActionLabel}</strong>
                                 <span className="tiny-muted">{nextActionState(prospect.nextActionAt, now)}</span>
                               </div>
                             </div>

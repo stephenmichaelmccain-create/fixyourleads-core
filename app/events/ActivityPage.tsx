@@ -133,6 +133,38 @@ function formatDateTime(value: Date | string) {
   }).format(new Date(value));
 }
 
+function formatElapsedTime(value: Date | string) {
+  const target = new Date(value);
+  const deltaMs = Date.now() - target.getTime();
+
+  if (!Number.isFinite(deltaMs)) {
+    return 'just now';
+  }
+
+  const minuteMs = 60 * 1000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+  const weekMs = 7 * dayMs;
+
+  if (deltaMs < hourMs) {
+    const minutes = Math.max(1, Math.round(deltaMs / minuteMs));
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+  }
+
+  if (deltaMs < dayMs) {
+    const hours = Math.max(1, Math.round(deltaMs / hourMs));
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  }
+
+  if (deltaMs < weekMs) {
+    const days = Math.max(1, Math.round(deltaMs / dayMs));
+    return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+  }
+
+  const weeks = Math.max(1, Math.round(deltaMs / weekMs));
+  return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+}
+
 function shortPayload(payload: unknown) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return null;
@@ -468,47 +500,51 @@ export async function ActivityPage({
       section={section}
       hidePageHeader={hidePageHeader}
     >
-      <section className={`home-inline-bar${summary.allClear ? '' : ' panel-attention'}`}>
-        <div className="home-inline-status">
-          <span className={`status-dot ${summary.allClear ? 'ok' : 'warn'}`} />
-          <strong>{summary.allClear ? 'Everything is running.' : 'Something needs attention.'}</strong>
-        </div>
+      {!compact ? (
+        <>
+          <section className={`home-inline-bar${summary.allClear ? '' : ' panel-attention'}`}>
+            <div className="home-inline-status">
+              <span className={`status-dot ${summary.allClear ? 'ok' : 'warn'}`} />
+              <strong>{summary.allClear ? 'Everything is running.' : 'Something needs attention.'}</strong>
+            </div>
 
-        <div className="home-inline-metrics">
-          <span className="home-inline-pill">
-            <span className="metric-label">Unread client messages</span>
-            <strong>{summary.unreadClientMessages}</strong>
-          </span>
-          <span className="home-inline-pill">
-            <span className="metric-label">Overdue leads</span>
-            <strong>{summary.overdueProspects}</strong>
-          </span>
-          <span className="home-inline-pill">
-            <span className="metric-label">Appointments today</span>
-            <strong>{summary.appointmentsToday}</strong>
-          </span>
-          <span className="home-inline-pill">
-            <span className="metric-label">Clients needing attention</span>
-            <strong>{summary.clientsNeedingAttention}</strong>
-          </span>
-        </div>
+            <div className="home-inline-metrics">
+              <span className="home-inline-pill">
+                <span className="metric-label">Unread client messages</span>
+                <strong>{summary.unreadClientMessages}</strong>
+              </span>
+              <span className="home-inline-pill">
+                <span className="metric-label">Overdue leads</span>
+                <strong>{summary.overdueProspects}</strong>
+              </span>
+              <span className="home-inline-pill">
+                <span className="metric-label">Appointments today</span>
+                <strong>{summary.appointmentsToday}</strong>
+              </span>
+              <span className="home-inline-pill">
+                <span className="metric-label">Clients needing attention</span>
+                <strong>{summary.clientsNeedingAttention}</strong>
+              </span>
+            </div>
 
-        <span className="tiny-muted">
-          {latestEvent
-            ? `Latest event ${humanizeEventType(latestEvent.eventType)} at ${formatDateTime(latestEvent.createdAt)}`
-            : 'Waiting for activity'}
-        </span>
-      </section>
+            <span className="tiny-muted">
+              {latestEvent
+                ? `Latest event ${humanizeEventType(latestEvent.eventType)} at ${formatDateTime(latestEvent.createdAt)}`
+                : 'Waiting for activity'}
+            </span>
+          </section>
 
-      <LiveFeedControls
-        snapshotAt={snapshotAt}
-        categoryLabel={liveFeedCategoryLabel}
-        visibleCount={events.length}
-        latestEventLabel={latestEvent ? humanizeEventType(latestEvent.eventType) : null}
-        latestEventAt={latestEvent ? latestEvent.createdAt.toISOString() : null}
-        companyName={activeCompanyName}
-        compact={compact}
-      />
+          <LiveFeedControls
+            snapshotAt={snapshotAt}
+            categoryLabel={liveFeedCategoryLabel}
+            visibleCount={events.length}
+            latestEventLabel={latestEvent ? humanizeEventType(latestEvent.eventType) : null}
+            latestEventAt={latestEvent ? latestEvent.createdAt.toISOString() : null}
+            companyName={activeCompanyName}
+            compact={compact}
+          />
+        </>
+      ) : null}
 
       {!compact ? (
         <div className="metric-grid">
@@ -633,14 +669,20 @@ export async function ActivityPage({
             <div className="metric-label">Event feed</div>
             <h2 className="section-title">Recent activity across the live app.</h2>
           </div>
-          <div className="action-cluster">
-            <a className="button-ghost" href="/admin/system">
-              System Status
-            </a>
-            <a className="button-ghost" href="/diagnostics/workflows">
-              Workflow map
-            </a>
-          </div>
+          {compact ? (
+            <span className="live-indicator live-indicator-compact" aria-label="Auto-refreshing event feed" title="Auto-refreshing event feed">
+              <span className="live-indicator-dot" />
+            </span>
+          ) : (
+            <div className="action-cluster">
+              <a className="button-ghost" href="/admin/system">
+                System Status
+              </a>
+              <a className="button-ghost" href="/diagnostics/workflows">
+                Workflow map
+              </a>
+            </div>
+          )}
         </div>
 
         {events.length === 0 ? (
@@ -668,12 +710,15 @@ export async function ActivityPage({
                       <span className={`status-dot ${tone}`} />
                       {humanizeEventType(event.eventType)}
                     </span>
-                    <span className="tiny-muted">{humanizeRelatedRecordType(related)}</span>
-                    <span className="tiny-muted">{formatDateTime(event.createdAt)}</span>
+                    {!compact ? <span className="tiny-muted">{humanizeRelatedRecordType(related)}</span> : null}
+                    <span className="tiny-muted">{compact ? formatElapsedTime(event.createdAt) : formatDateTime(event.createdAt)}</span>
                   </div>
 
-                  <div className="panel-stack">
-                    <div className="inline-row">
+                  <div className={`panel-stack${compact ? ' record-card-event-summary' : ''}`}>
+                    <div className={compact ? 'panel-stack record-card-event-summary' : 'inline-row'}>
+                      {compact ? (
+                        <strong className="record-card-event-title">{humanizeEventType(event.eventType)}</strong>
+                      ) : null}
                       <a
                         className="table-link"
                         href={buildEventsHref(basePath, {
