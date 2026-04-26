@@ -840,13 +840,6 @@ export default async function OurLeadsPage({
                 Untouched {queueCounts.untouched}
               </Link>
               <Link
-                className={`filter-chip${selectedStatus === ProspectStatus.NO_ANSWER ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.NO_ANSWER })}
-                scroll={false}
-              >
-                No answer {queueCounts.noAnswer}
-              </Link>
-              <Link
                 className={`filter-chip${
                   selectedStatus === ProspectStatus.GATEKEEPER && selectedDue === 'ready' ? ' is-active' : ''
                 }`}
@@ -859,6 +852,13 @@ export default async function OurLeadsPage({
                 scroll={false}
               >
                 Callback now {queueCounts.callbackReady}
+              </Link>
+              <Link
+                className={`filter-chip${selectedStatus === ProspectStatus.NO_ANSWER ? ' is-active' : ''}`}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.NO_ANSWER })}
+                scroll={false}
+              >
+                No answer {queueCounts.noAnswer}
               </Link>
               <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.VM_LEFT ? ' is-active' : ''}`}
