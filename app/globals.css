@@ -4066,6 +4066,14 @@ select {
     gap: 10px;
   }
 
+  .lead-preview-grid .lead-notes-panel {
+    order: 1;
+  }
+
+  .lead-preview-grid .lead-preview-panel {
+    order: 2;
+  }
+
   .lead-notes-body {
     gap: 12px;
   }
