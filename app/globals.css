@@ -619,6 +619,17 @@ select {
   line-height: 1.35;
 }
 
+.live-log-payload {
+  gap: 10px;
+}
+
+.live-log-code-block {
+  background: rgba(12, 10, 28, 0.96);
+  color: rgba(241, 245, 255, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
 .section-title,
 .record-title,
 .form-title {

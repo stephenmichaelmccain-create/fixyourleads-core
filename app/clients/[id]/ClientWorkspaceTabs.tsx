@@ -17,7 +17,7 @@ export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsPr
         </Link>
         <Link
           className={`workspace-tab-link ${active === 'profile' ? 'is-active' : ''}`}
-          href={`/clients/${companyId}`}
+          href={`/clients/${companyId}/profile`}
         >
           Client profile
         </Link>

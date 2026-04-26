@@ -50,7 +50,7 @@ function clientProfilePath(companyId: string, notice?: string) {
   }
 
   const search = params.toString();
-  return search ? `/clients/${companyId}?${search}` : `/clients/${companyId}`;
+  return search ? `/clients/${companyId}/profile?${search}` : `/clients/${companyId}/profile`;
 }
 
 export async function createCompanyAction(formData: FormData) {
@@ -212,7 +212,7 @@ export async function updateCompanyAction(formData: FormData) {
   revalidatePath(`/bookings?companyId=${companyId}`);
   revalidatePath(`/events?companyId=${companyId}`);
 
-  redirect(`/clients/${companyId}?notice=updated#setup`);
+  redirect(`${clientProfilePath(companyId, 'updated')}#setup`);
 }
 
 export async function deleteCompanyAction(formData: FormData) {

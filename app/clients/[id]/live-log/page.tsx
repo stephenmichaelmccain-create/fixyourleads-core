@@ -436,9 +436,6 @@ export default async function ClientLiveLogPage({
                     </div>
 
                     <div className="action-cluster">
-                      <Link className="button-ghost" href={`/clients/${company.id}`}>
-                        Open client
-                      </Link>
                       {links.map((link) => (
                         <Link key={link.href} className="button-ghost" href={link.href}>
                           {link.label}
@@ -446,9 +443,9 @@ export default async function ClientLiveLogPage({
                       ))}
                     </div>
 
-                    <details className="panel-stack">
+                    <details className="panel-stack live-log-payload">
                       <summary className="details-summary">Raw payload</summary>
-                      <pre className="code-block">{JSON.stringify(event.payload, null, 2)}</pre>
+                      <pre className="code-block live-log-code-block">{JSON.stringify(event.payload, null, 2)}</pre>
                     </details>
                   </div>
                 </article>
