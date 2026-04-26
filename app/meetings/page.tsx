@@ -1,6 +1,7 @@
-import { AppointmentStatus } from '@prisma/client';
+import { AppointmentExternalSyncStatus, AppointmentStatus } from '@prisma/client';
 import Link from 'next/link';
 import { LayoutShell } from '@/app/components/LayoutShell';
+import { retryMeetingCalendarSyncAction } from '@/app/meetings/actions';
 import { db } from '@/lib/db';
 import { extractMeetingLink, meetingLinkLabel } from '@/lib/meetings';
 import { normalizePhone } from '@/lib/phone';
@@ -9,6 +10,11 @@ import { safeLoadDb } from '@/lib/ui-data';
 import styles from './page.module.css';
 
 export const dynamic = 'force-dynamic';
+
+type SearchParamShape = Promise<{
+  notice?: string;
+  detail?: string;
+}>;
 
 const UPCOMING_STATUSES = [
   AppointmentStatus.BOOKED,
@@ -84,6 +90,22 @@ function formatStatus(status: AppointmentStatus) {
   return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
+function formatSyncStatus(status: AppointmentExternalSyncStatus) {
+  if (status === AppointmentExternalSyncStatus.SYNCED) {
+    return 'Synced';
+  }
+
+  if (status === AppointmentExternalSyncStatus.FAILED) {
+    return 'Sync failed';
+  }
+
+  if (status === AppointmentExternalSyncStatus.SKIPPED) {
+    return 'Sync skipped';
+  }
+
+  return 'Sync pending';
+}
+
 function statusClassName(status: AppointmentStatus) {
   if (status === AppointmentStatus.CONFIRMED) {
     return styles.statusConfirmed;
@@ -96,7 +118,28 @@ function statusClassName(status: AppointmentStatus) {
   return styles.statusBooked;
 }
 
-export default async function MeetingsPage() {
+function syncStatusClassName(status: AppointmentExternalSyncStatus) {
+  if (status === AppointmentExternalSyncStatus.SYNCED) {
+    return styles.syncStatusSynced;
+  }
+
+  if (status === AppointmentExternalSyncStatus.FAILED) {
+    return styles.syncStatusFailed;
+  }
+
+  if (status === AppointmentExternalSyncStatus.SKIPPED) {
+    return styles.syncStatusSkipped;
+  }
+
+  return styles.syncStatusPending;
+}
+
+export default async function MeetingsPage({
+  searchParams
+}: {
+  searchParams?: SearchParamShape;
+}) {
+  const query = (await searchParams) || {};
   const now = new Date();
   const todayStart = startOfToday();
 
@@ -114,6 +157,9 @@ export default async function MeetingsPage() {
           startTime: true,
           status: true,
           notes: true,
+          externalSyncStatus: true,
+          externalSyncError: true,
+          externalSyncedAt: true,
           company: {
             select: {
               id: true,
@@ -167,7 +213,12 @@ export default async function MeetingsPage() {
 
   const meetingsToday = rows.filter((appointment) => appointment.startTime >= todayStart && appointment.startTime < addDays(todayStart, 1)).length;
   const missingLinkCount = rows.filter((appointment) => !appointment.meetingLink).length;
-  const needsPrepCount = rows.filter((appointment) => !appointment.meetingLink || !appointment.notes?.trim()).length;
+  const syncIssueCount = rows.filter((appointment) => appointment.externalSyncStatus === AppointmentExternalSyncStatus.FAILED).length;
+  const syncPendingCount = rows.filter((appointment) => appointment.externalSyncStatus === AppointmentExternalSyncStatus.PENDING).length;
+  const needsPrepCount = rows.filter(
+    (appointment) =>
+      !appointment.meetingLink || !appointment.notes?.trim() || appointment.externalSyncStatus !== AppointmentExternalSyncStatus.SYNCED
+  ).length;
   const nextMeeting = rows[0] || null;
 
   return (
@@ -178,6 +229,25 @@ export default async function MeetingsPage() {
     >
       <section className={styles.board}>
         <div className={styles.boardContent}>
+          {query.notice && (
+            <section className={styles.noticeBanner}>
+              <div className={styles.noticeTitle}>
+                {query.notice === 'calendar_sync_synced'
+                  ? 'Calendar sync worked.'
+                  : query.notice === 'calendar_sync_retry_queued'
+                    ? 'Calendar retry queued.'
+                    : 'Calendar sync still needs attention.'}
+              </div>
+              <div className={styles.noticeCopy}>
+                {query.notice === 'calendar_sync_synced'
+                  ? 'The external calendar event is now linked to this meeting.'
+                  : query.notice === 'calendar_sync_retry_queued'
+                    ? 'We saved the failure and queued another sync attempt in the background.'
+                    : query.detail || 'The meeting stayed booked internally, but the external calendar still needs a retry.'}
+              </div>
+            </section>
+          )}
+
           <div className={styles.hero}>
             <div>
               <div className={styles.heroTitleWrap}>
@@ -216,7 +286,9 @@ export default async function MeetingsPage() {
                 <div>
                   <div className={styles.heroStatLabel}>Needs prep</div>
                   <div className={styles.heroStatValue}>{needsPrepCount}</div>
-                  <div className={styles.heroStatCopy}>{missingLinkCount} missing a join link</div>
+                  <div className={styles.heroStatCopy}>
+                    {missingLinkCount} missing a join link, {syncIssueCount + syncPendingCount} need calendar sync attention
+                  </div>
                 </div>
               </div>
             </div>
@@ -247,6 +319,7 @@ export default async function MeetingsPage() {
                     const contactName = appointment.contact.name?.trim() || 'Unnamed contact';
                     const meetingLabel = appointment.meetingLink ? meetingLinkLabel(appointment.meetingLink) : 'No link yet';
                     const noteCopy = appointment.notes?.trim() || 'No appointment notes yet';
+                    const syncLabel = formatSyncStatus(appointment.externalSyncStatus);
 
                     return (
                       <article key={appointment.id} className={styles.row}>
@@ -280,6 +353,9 @@ export default async function MeetingsPage() {
                         <div className={styles.purposeText}>{noteCopy}</div>
 
                         <div className={styles.actions}>
+                          <span className={`${styles.syncStatus} ${syncStatusClassName(appointment.externalSyncStatus)}`}>
+                            {syncLabel}
+                          </span>
                           {appointment.meetingLink ? (
                             <a className={styles.actionPrimary} href={appointment.meetingLink} target="_blank" rel="noreferrer">
                               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
@@ -294,6 +370,18 @@ export default async function MeetingsPage() {
                           <Link className={styles.actionSecondary} href={`/clients/${appointment.company.id}`}>
                             Open client
                           </Link>
+                          {appointment.externalSyncStatus !== AppointmentExternalSyncStatus.SYNCED ? (
+                            <form action={retryMeetingCalendarSyncAction}>
+                              <input type="hidden" name="appointmentId" value={appointment.id} />
+                              <input type="hidden" name="returnTo" value="/meetings" />
+                              <button type="submit" className={styles.actionButton}>
+                                Retry calendar sync
+                              </button>
+                            </form>
+                          ) : null}
+                          {appointment.externalSyncError ? (
+                            <div className={styles.syncErrorText}>{appointment.externalSyncError}</div>
+                          ) : null}
                         </div>
                       </article>
                     );
@@ -305,6 +393,7 @@ export default async function MeetingsPage() {
                     const contactName = appointment.contact.name?.trim() || 'Unnamed contact';
                     const meetingLabel = appointment.meetingLink ? meetingLinkLabel(appointment.meetingLink) : 'No link yet';
                     const noteCopy = appointment.notes?.trim() || 'No appointment notes yet';
+                    const syncLabel = formatSyncStatus(appointment.externalSyncStatus);
 
                     return (
                       <article key={`${appointment.id}-mobile`} className={styles.mobileCard}>
@@ -334,6 +423,15 @@ export default async function MeetingsPage() {
                             <div className={styles.mobileFieldLabel}>Purpose</div>
                             <div className={styles.mobileFieldValue}>{noteCopy}</div>
                           </div>
+                          <div>
+                            <div className={styles.mobileFieldLabel}>Calendar sync</div>
+                            <div className={styles.mobileFieldValue}>
+                              <span className={`${styles.syncStatus} ${syncStatusClassName(appointment.externalSyncStatus)}`}>
+                                {syncLabel}
+                              </span>
+                              {appointment.externalSyncError ? `\n${appointment.externalSyncError}` : ''}
+                            </div>
+                          </div>
                         </div>
 
                         <div className={styles.actions}>
@@ -347,6 +445,15 @@ export default async function MeetingsPage() {
                           <Link className={styles.actionSecondary} href={`/clients/${appointment.company.id}`}>
                             Open client
                           </Link>
+                          {appointment.externalSyncStatus !== AppointmentExternalSyncStatus.SYNCED ? (
+                            <form action={retryMeetingCalendarSyncAction} className={styles.actionForm}>
+                              <input type="hidden" name="appointmentId" value={appointment.id} />
+                              <input type="hidden" name="returnTo" value="/meetings" />
+                              <button type="submit" className={styles.actionButton}>
+                                Retry calendar sync
+                              </button>
+                            </form>
+                          ) : null}
                         </div>
                       </article>
                     );

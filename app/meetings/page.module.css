@@ -27,6 +27,26 @@
   gap: 24px;
 }
 
+.noticeBanner {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(126, 103, 255, 0.18);
+  background: rgba(34, 29, 77, 0.72);
+}
+
+.noticeTitle {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #f4f2ff;
+}
+
+.noticeCopy {
+  color: rgba(231, 227, 255, 0.72);
+  line-height: 1.5;
+}
+
 .hero {
   display: flex;
   align-items: flex-start;
@@ -221,10 +241,12 @@
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-start;
+  align-items: center;
 }
 
 .actionPrimary,
-.actionSecondary {
+.actionSecondary,
+.actionButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -250,8 +272,19 @@
   color: rgba(231, 227, 255, 0.88);
 }
 
+.actionButton {
+  cursor: pointer;
+  border: 1px solid rgba(255, 171, 88, 0.28);
+  background: rgba(255, 171, 88, 0.08);
+  color: #ffd59d;
+}
+
 .actionGhost {
   color: rgba(231, 227, 255, 0.66);
+}
+
+.actionForm {
+  display: inline-flex;
 }
 
 .emptyState {
@@ -304,6 +337,50 @@
 
 .statusRescheduled {
   background: #ffb45c;
+}
+
+.syncStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(126, 103, 255, 0.18);
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.syncStatusSynced {
+  border-color: rgba(63, 212, 125, 0.22);
+  background: rgba(63, 212, 125, 0.12);
+  color: #97f0ba;
+}
+
+.syncStatusFailed {
+  border-color: rgba(255, 110, 145, 0.2);
+  background: rgba(255, 110, 145, 0.12);
+  color: #ffadc0;
+}
+
+.syncStatusPending {
+  border-color: rgba(255, 180, 92, 0.2);
+  background: rgba(255, 180, 92, 0.12);
+  color: #ffd59d;
+}
+
+.syncStatusSkipped {
+  border-color: rgba(186, 168, 255, 0.18);
+  background: rgba(186, 168, 255, 0.08);
+  color: #d1c3ff;
+}
+
+.syncErrorText {
+  flex-basis: 100%;
+  color: rgba(255, 173, 192, 0.86);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .mobileCards {
@@ -401,7 +478,13 @@
   }
 
   .actionPrimary,
-  .actionSecondary {
+  .actionSecondary,
+  .actionButton,
+  .actionForm {
     width: 100%;
+  }
+
+  .syncStatus {
+    justify-content: center;
   }
 }
