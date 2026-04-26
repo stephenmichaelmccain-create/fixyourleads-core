@@ -1219,11 +1219,123 @@ select {
 
 .lead-action-grid {
   display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1.18fr) minmax(340px, 0.92fr);
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
   width: 100%;
   min-width: 0;
+}
+
+.lead-command-panel {
+  padding: 0;
+  overflow: hidden;
+  width: 100%;
+  min-width: 0;
+}
+
+.lead-command-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 4fr);
+  min-width: 0;
+}
+
+.lead-command-group {
+  display: grid;
+  min-width: 0;
+}
+
+.lead-command-group-outcomes {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.lead-command-group-callbacks {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lead-command-button {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
+  min-height: 126px;
+  padding: 18px 10px 16px;
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: rgba(241, 245, 255, 0.96);
+  text-align: center;
+  font: inherit;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.lead-command-group-outcomes .lead-command-button:last-child,
+.lead-command-group-callbacks .lead-command-button:last-child {
+  border-right: 0;
+}
+
+.lead-command-button:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.lead-command-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: #7bb0ff;
+}
+
+.lead-command-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lead-command-button[data-tone='gold'] .lead-command-icon svg,
+.lead-command-button[data-tone='sold'] .lead-command-icon svg {
+  fill: currentColor;
+}
+
+.lead-command-button[data-tone='info'] .lead-command-icon {
+  color: #65a6ff;
+}
+
+.lead-command-button[data-tone='accent'] .lead-command-icon {
+  color: #9f7bff;
+}
+
+.lead-command-button[data-tone='warning'] .lead-command-icon {
+  color: #ff8d4c;
+}
+
+.lead-command-button[data-tone='success'] .lead-command-icon {
+  color: #78db6f;
+}
+
+.lead-command-button[data-tone='gold'] .lead-command-icon {
+  color: #ffc84f;
+}
+
+.lead-command-button[data-tone='danger'] .lead-command-icon {
+  color: #ff654f;
+}
+
+.lead-command-label {
+  font-size: 0.98rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.lead-command-meta {
+  color: rgba(219, 224, 244, 0.72);
+  font-size: 0.88rem;
+  line-height: 1.15;
 }
 
 .lead-action-stack {
@@ -1748,6 +1860,34 @@ select {
 .lead-notes-body {
   display: grid;
   gap: 16px;
+}
+
+.lead-quick-notes-field {
+  gap: 10px;
+}
+
+.lead-quick-notes-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lead-quick-note-chip {
+  min-height: 36px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(20, 17, 41, 0.76);
+  color: rgba(234, 238, 252, 0.9);
+  font: inherit;
+  font-size: 0.9rem;
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.lead-quick-note-chip:hover {
+  border-color: rgba(165, 132, 255, 0.26);
+  background: rgba(48, 39, 96, 0.88);
+  color: var(--fyl-white);
 }
 
 .lead-date-field {
@@ -3816,6 +3956,25 @@ select {
     gap: 10px;
   }
 
+  .lead-command-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .lead-command-group-outcomes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .lead-command-group-callbacks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 0;
+  }
+
+  .lead-command-button {
+    min-height: 96px;
+    padding: 14px 10px;
+  }
+
   .lead-action-stack {
     display: contents;
   }
@@ -4006,6 +4165,10 @@ select {
     gap: 10px;
   }
 
+  .lead-command-group-outcomes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .lead-context-trigger {
     min-height: 34px;
     padding: 7px 11px;
@@ -4022,6 +4185,23 @@ select {
   .lead-action-pill-grid,
   .lead-callback-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lead-command-group-callbacks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lead-command-button {
+    min-height: 88px;
+    padding: 12px 10px;
+  }
+
+  .lead-command-label {
+    font-size: 0.92rem;
+  }
+
+  .lead-command-meta {
+    font-size: 0.82rem;
   }
 
   .lead-action-pill-grid .button-secondary,

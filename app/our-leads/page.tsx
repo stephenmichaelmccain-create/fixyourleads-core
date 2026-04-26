@@ -5,8 +5,8 @@ import { db } from '@/lib/db';
 import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoadDb } from '@/lib/ui-data';
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
+import { LeadNotesComposer } from './LeadNotesComposer';
 import { SpeakProspectNameButton } from './SpeakProspectNameButton';
-import { LeadContextDialog } from './LeadContextDialog';
 import {
   bulkCreateProspectsAction,
   createProspectAction,
@@ -406,43 +406,79 @@ function nextActionState(date: Date | null, now: Date) {
   return 'Scheduled';
 }
 
-function callbackSummary(date: Date | null, now: Date) {
-  if (!date) {
-    return 'Not set';
+function leadCommandIcon(kind: 'no_answer' | 'voicemail' | 'not_interested' | 'booked' | 'sold' | 'do_not_contact' | 'callback') {
+  if (kind === 'voicemail') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M7 16a4 4 0 1 1 4-4v4" />
+        <path d="M17 16a4 4 0 1 1 4-4v4" />
+        <path d="M7 16h10" />
+      </svg>
+    );
   }
 
-  const todayStart = startOfDay(now);
-  const tomorrowStart = endOfDay(now);
-  const dayAfterTomorrow = endOfDay(tomorrowStart);
-
-  if (date < todayStart) {
-    return 'Past due';
+  if (kind === 'not_interested') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M10 6H6v12h4l5 0 3 3V9l-3-3h-5Z" />
+        <path d="M18 10h3" />
+      </svg>
+    );
   }
 
-  if (date >= todayStart && date < tomorrowStart) {
-    return 'Due today';
+  if (kind === 'booked' || kind === 'callback') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <rect x="4" y="5" width="16" height="15" rx="2" />
+        <path d="M8 3v4" />
+        <path d="M16 3v4" />
+        <path d="M4 9h16" />
+        {kind === 'booked' ? <path d="m9 14 2 2 4-5" /> : null}
+      </svg>
+    );
   }
 
-  if (date >= tomorrowStart && date < dayAfterTomorrow) {
-    return 'Tomorrow';
+  if (kind === 'sold') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="m12 3 2.7 5.5 6 .9-4.3 4.2 1 5.9L12 16.6 6.6 19.5l1-5.9L3.3 9.4l6-.9L12 3Z" />
+      </svg>
+    );
   }
 
-  const diffDays = Math.round((startOfDay(date).getTime() - todayStart.getTime()) / (24 * 60 * 60 * 1000));
-
-  if (diffDays === 3) {
-    return 'In 3 days';
+  if (kind === 'do_not_contact') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="m8.5 8.5 7 7" />
+      </svg>
+    );
   }
 
-  if (diffDays === 7) {
-    return 'In 1 week';
-  }
-
-  if (diffDays === 30) {
-    return 'In 1 month';
-  }
-
-  return 'Scheduled';
+  return (
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <path d="M7.4 4.6c-.6-.6-1.5-.6-2.1 0L3.5 6.4c-.8.8-1 2-.5 3 2.3 4.9 6.3 8.9 11.2 11.2 1 .5 2.2.3 3-.5l1.8-1.8c.6-.6.6-1.5 0-2.1l-2.7-2.7c-.5-.5-1.3-.6-2-.3l-1.8 1a15.1 15.1 0 0 1-3.6-3.6l1-1.8c.3-.7.2-1.5-.3-2L7.4 4.6Z" />
+    </svg>
+  );
 }
+
+const leadOutcomeCommands = [
+  { value: 'no_answer', label: 'No answer', tone: 'info', icon: 'no_answer' as const },
+  { value: 'voicemail', label: 'Left voicemail', tone: 'accent', icon: 'voicemail' as const },
+  { value: 'not_interested', label: 'Not interested', tone: 'warning', icon: 'not_interested' as const },
+  { value: 'booked', label: 'Booked', tone: 'success', icon: 'booked' as const },
+  { value: 'sold', label: 'Sold', tone: 'gold', icon: 'sold' as const },
+  { value: 'do_not_contact', label: 'Do not contact', tone: 'danger', icon: 'do_not_contact' as const }
+] as const;
+
+const leadCallbackCommands = [
+  { value: 'tomorrow', label: 'Tomorrow', meta: '+1 day' },
+  { value: '3_days', label: '3 days', meta: '+3 days' },
+  { value: '1_week', label: '1 week', meta: '+7 days' },
+  { value: '1_month', label: '1 month', meta: '+30 days' }
+] as const;
+
+const leadQuickNotes = ['Gatekeeper', 'Call later', 'Wrong contact', 'Decision maker unavailable'];
 
 export default async function OurLeadsPage({
   searchParams
@@ -1094,88 +1130,51 @@ export default async function OurLeadsPage({
             ) : (
               <>
                 <div className="lead-action-grid">
-                  <form action={updateProspectOutcomeAction} className="panel panel-stack lead-action-panel">
-                    <input type="hidden" name="prospectId" value={selectedProspectView.id} />
-                    <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
-                    <input type="hidden" name="q" value={searchQuery} />
-                    <input type="hidden" name="view" value={selectedView} />
-                    <input type="hidden" name="status" value={selectedStatus} />
-                    <input type="hidden" name="city" value={selectedCity} />
-                    <input type="hidden" name="nextActionDue" value={selectedDue} />
-                    <div className="inline-row justify-between lead-panel-header lead-action-header">
-                      <div className="tiny-muted lead-action-copy">Save and move forward</div>
-                      <LeadContextDialog
-                        createdAt={formatDateTime(selectedProspectView.createdAt)}
-                        updatedAt={formatDateTime(selectedProspectView.updatedAt)}
-                        source={detailValue(selectedProspectView.profile.source, 'Manual add')}
-                        clinicType={detailValue(selectedProspectView.profile.clinicType)}
-                        zipCode={detailValue(selectedProspectView.profile.zipCode)}
-                        predictedRevenue={detailValue(selectedProspectView.profile.predictedRevenue)}
-                        websiteHref={
-                          selectedProspectView.website ? websiteHref(selectedProspectView.website) : undefined
-                        }
-                      />
-                    </div>
-                    <div className="lead-action-pill-grid">
-                      <button type="submit" className="button-secondary" name="outcome" value="no_answer">
-                        No answer
-                      </button>
-                      <button type="submit" className="button-secondary" name="outcome" value="voicemail">
-                        Left voicemail
-                      </button>
-                      <button type="submit" className="button-secondary" name="outcome" value="not_interested">
-                        Not interested
-                      </button>
-                      <button type="submit" className="button-secondary" name="outcome" value="booked">
-                        Booked
-                      </button>
-                      <button type="submit" className="button-secondary" name="outcome" value="sold">
-                        Sold
-                      </button>
-                      <button type="submit" className="button-ghost" name="outcome" value="do_not_contact">
-                        Do not contact
-                      </button>
-                    </div>
-                  </form>
+                  <section className="panel lead-command-panel">
+                    <div className="lead-command-strip">
+                      <form action={updateProspectOutcomeAction} className="lead-command-group lead-command-group-outcomes">
+                        <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                        <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
+                        <input type="hidden" name="q" value={searchQuery} />
+                        <input type="hidden" name="view" value={selectedView} />
+                        <input type="hidden" name="status" value={selectedStatus} />
+                        <input type="hidden" name="city" value={selectedCity} />
+                        <input type="hidden" name="nextActionDue" value={selectedDue} />
+                        {leadOutcomeCommands.map((command) => (
+                          <button
+                            key={command.value}
+                            type="submit"
+                            className="lead-command-button"
+                            data-tone={command.tone}
+                            name="outcome"
+                            value={command.value}
+                          >
+                            <span className="lead-command-icon">{leadCommandIcon(command.icon)}</span>
+                            <span className="lead-command-label">{command.label}</span>
+                          </button>
+                        ))}
+                      </form>
 
-                  <section className="panel panel-stack lead-follow-up-panel">
-                    <div className="lead-follow-up-header">
-                      <div className="panel-stack lead-follow-up-copy">
-                        <div className="metric-label">Next step</div>
-                        <strong className="lead-follow-up-title">{callbackSummary(selectedProspectView.nextActionAt, now)}</strong>
-                        <div className="tiny-muted">
-                          Set the next follow-up time fast, then leave a clean handoff note for the next caller.
-                        </div>
-                      </div>
-                      <div className="tiny-muted lead-follow-up-status">
-                        {selectedProspectView.nextActionAt ? formatDateTime(selectedProspectView.nextActionAt) : 'No callback scheduled yet.'}
-                      </div>
+                      <form
+                        action={scheduleProspectCallbackAction}
+                        className="lead-command-group lead-command-group-callbacks"
+                      >
+                        <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                        <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
+                        <input type="hidden" name="q" value={searchQuery} />
+                        <input type="hidden" name="view" value={selectedView} />
+                        <input type="hidden" name="status" value={selectedStatus} />
+                        <input type="hidden" name="city" value={selectedCity} />
+                        <input type="hidden" name="nextActionDue" value={selectedDue} />
+                        {leadCallbackCommands.map((command) => (
+                          <button key={command.value} type="submit" className="lead-command-button" name="preset" value={command.value}>
+                            <span className="lead-command-icon">{leadCommandIcon('callback')}</span>
+                            <span className="lead-command-label">{command.label}</span>
+                            <span className="lead-command-meta">{command.meta}</span>
+                          </button>
+                        ))}
+                      </form>
                     </div>
-
-                    <form action={scheduleProspectCallbackAction} className="panel-stack lead-callback-form">
-                      <input type="hidden" name="prospectId" value={selectedProspectView.id} />
-                      <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
-                      <input type="hidden" name="q" value={searchQuery} />
-                      <input type="hidden" name="view" value={selectedView} />
-                      <input type="hidden" name="status" value={selectedStatus} />
-                      <input type="hidden" name="city" value={selectedCity} />
-                      <input type="hidden" name="nextActionDue" value={selectedDue} />
-                      <div className="key-value-label">Quick callback</div>
-                      <div className="lead-callback-grid lead-callback-grid-compact">
-                        <button type="submit" className="button-secondary" name="preset" value="tomorrow">
-                          Tomorrow
-                        </button>
-                        <button type="submit" className="button-secondary" name="preset" value="3_days">
-                          3 days
-                        </button>
-                        <button type="submit" className="button-secondary" name="preset" value="1_week">
-                          1 week
-                        </button>
-                        <button type="submit" className="button-secondary" name="preset" value="1_month">
-                          1 month
-                        </button>
-                      </div>
-                    </form>
                   </section>
                 </div>
 
@@ -1280,18 +1279,12 @@ export default async function OurLeadsPage({
                             defaultValue={formatDateTimeInput(selectedProspectView.nextActionAt)}
                           />
                         </div>
-                        <div className="field-stack lead-notes-field">
-                          <label className="key-value-label" htmlFor="lead-notes-editor">
-                            Caller notes
-                          </label>
-                          <textarea
-                            id="lead-notes-editor"
-                            name="notes"
-                            className="text-area lead-notes-editor"
-                            defaultValue={selectedProspectView.plainNotes}
-                            placeholder="Add notes about this call..."
-                          />
-                        </div>
+                        <LeadNotesComposer
+                          initialNotes={selectedProspectView.plainNotes}
+                          quickNotes={leadQuickNotes}
+                          textAreaId="lead-notes-editor"
+                          textAreaName="notes"
+                        />
                       </div>
                       <div className="inline-actions lead-notes-actions">
                         <button type="submit" className="button-secondary button-secondary-strong">
