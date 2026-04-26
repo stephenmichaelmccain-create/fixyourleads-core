@@ -574,6 +574,36 @@ select {
   color: rgba(255, 255, 255, 0.74);
 }
 
+.live-log-health-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.live-log-health-card {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(31, 27, 66, 0.92);
+}
+
+.live-log-health-value {
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  color: var(--fyl-white);
+}
+
+.live-log-health-copy {
+  color: var(--fyl-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .section-title,
 .record-title,
 .form-title {
@@ -4163,6 +4193,11 @@ select {
 
   .record-grid {
     gap: 10px;
+  }
+
+  .live-log-health-bar {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .panel-success,

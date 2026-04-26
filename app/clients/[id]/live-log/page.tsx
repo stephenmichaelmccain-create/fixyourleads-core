@@ -16,20 +16,6 @@ const SETUP_EVENT_TYPES = [
   'client_onboarding_received'
 ] as const;
 
-const WEBHOOK_EVENT_TYPES = [
-  'message_received',
-  'manual_message_sent',
-  'operator_messaging_test_sent',
-  'operator_messaging_test_failed',
-  'telnyx_message_sent',
-  'telnyx_message_finalized',
-  'telnyx_message_delivery_failed',
-  'telnyx_message_delivery_unconfirmed',
-  'review_request_queued',
-  'review_request_sent',
-  'review_request_skipped'
-] as const;
-
 type EventTone = 'ok' | 'warn' | 'error';
 type EventAccent = 'violet' | 'green' | 'amber' | 'blue' | 'pink' | 'red';
 
@@ -306,7 +292,7 @@ export default async function ClientLiveLogPage({
     notFound();
   }
 
-  const [recentEvents, events24h, webhooks24h, setupChanges30d] = await Promise.all([
+  const [recentEvents, setupChanges30d] = await Promise.all([
     safeLoad(
       () =>
         db.eventLog.findMany({
@@ -318,27 +304,6 @@ export default async function ClientLiveLogPage({
           take: 60
         }),
       []
-    ),
-    safeLoad(
-      () =>
-        db.eventLog.count({
-          where: {
-            companyId: id,
-            createdAt: { gte: last24Hours }
-          }
-        }),
-      0
-    ),
-    safeLoad(
-      () =>
-        db.eventLog.count({
-          where: {
-            companyId: id,
-            createdAt: { gte: last24Hours },
-            eventType: { in: [...WEBHOOK_EVENT_TYPES] }
-          }
-        }),
-      0
     ),
     safeLoad(
       () =>
@@ -357,7 +322,6 @@ export default async function ClientLiveLogPage({
     ...(company.telnyxInboundNumber ? [company.telnyxInboundNumber] : []),
     ...company.telnyxInboundNumbers.map((entry) => entry.number)
   ];
-  const latestEvent = recentEvents[0] || null;
   const attentionEvents24h = recentEvents.filter((event) => {
     if (event.createdAt < last24Hours) {
       return false;
@@ -376,6 +340,11 @@ export default async function ClientLiveLogPage({
     attentionEvents24h.length > 0
       ? `${attentionEvents24h.length} issue${attentionEvents24h.length === 1 ? '' : 's'} in the last 24 hours`
       : 'No recent failures detected';
+  const connectedCount = [
+    company.crmProvider && company.crmProvider !== 'NONE',
+    inboundNumbers.length > 0,
+    Boolean(company.notificationEmail)
+  ].filter(Boolean).length;
   const setupHealthParts = [
     company.crmProvider && company.crmProvider !== 'NONE' ? `CRM: ${company.crmProvider}` : 'CRM missing',
     inboundNumbers.length > 0 ? 'Phone line ready' : 'Phone line missing',
@@ -398,7 +367,6 @@ export default async function ClientLiveLogPage({
           <div className="panel-stack">
             <div className="metric-label">Live log</div>
             <h3 className="section-title">Basic health</h3>
-            <div className="record-subtitle">Quick status up top, newest webhook and API events underneath.</div>
           </div>
           <div className="inline-actions">
             <Link className="button-secondary" href={`/clients/${company.id}/live-log`}>
@@ -407,36 +375,21 @@ export default async function ClientLiveLogPage({
           </div>
         </div>
 
-        <div className="metric-grid">
-          <section className="metric-card panel-stack">
-            <div className="metric-label">Status</div>
-            <div className="metric-value">{attentionEvents24h.length > 0 ? 'Attention' : 'Healthy'}</div>
-            <div className="metric-copy">{healthSummary}</div>
-          </section>
-          <section className="metric-card panel-stack">
+        <div className="live-log-health-bar">
+          <section className="live-log-health-card">
             <div className="metric-label">Failures (24h)</div>
-            <div className="metric-value">{criticalEvents24h.length}</div>
-            <div className="metric-copy">Hard failures in the last 24 hours.</div>
+            <div className="live-log-health-value">{criticalEvents24h.length}</div>
+            <div className="live-log-health-copy">{healthSummary}</div>
           </section>
-          <section className="metric-card panel-stack">
-            <div className="metric-label">Webhook activity (24h)</div>
-            <div className="metric-value">{webhooks24h}</div>
-            <div className="metric-copy">Webhook and messaging events in the last day.</div>
-          </section>
-          <section className="metric-card panel-stack">
-            <div className="metric-label">Latest event</div>
-            <div className="metric-value">{latestEvent ? formatCompactDateTime(latestEvent.createdAt) : '-'}</div>
-            <div className="metric-copy">{latestEvent ? humanizeEventType(latestEvent.eventType) : 'No client log entries yet.'}</div>
-          </section>
-          <section className="metric-card panel-stack">
+          <section className="live-log-health-card">
             <div className="metric-label">Connections</div>
-            <div className="metric-value">{setupHealthParts.filter((part) => !part.includes('missing')).length}/3</div>
-            <div className="metric-copy">{setupHealthParts.join(' · ')}</div>
+            <div className="live-log-health-value">{connectedCount}/3</div>
+            <div className="live-log-health-copy">{setupHealthParts.join(' · ')}</div>
           </section>
-          <section className="metric-card panel-stack">
+          <section className="live-log-health-card">
             <div className="metric-label">Setup changes (30d)</div>
-            <div className="metric-value">{setupChanges30d}</div>
-            <div className="metric-copy">Recent saved CRM, phone, calendar, or onboarding changes.</div>
+            <div className="live-log-health-value">{setupChanges30d}</div>
+            <div className="live-log-health-copy">Recent CRM, phone, calendar, or onboarding updates.</div>
           </section>
         </div>
       </section>
