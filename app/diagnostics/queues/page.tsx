@@ -167,6 +167,142 @@ export default async function QueueDiagnosticsPage() {
       </section>
 
       <section className="panel panel-stack">
+        <div className="record-header">
+          <div className="panel-stack">
+            <div className="metric-label">Voice reconciliation</div>
+            <h2 className="section-title">The same sweep now nudges stuck calendar sync work and flags stale unrouted calls.</h2>
+          </div>
+          <span className={`status-chip ${heartbeat.voice.stalePendingCount || heartbeat.voice.recentFailedCount || heartbeat.voice.staleUnroutedCount ? 'status-chip-attention' : ''}`}>
+            <span
+              className={`status-dot ${
+                heartbeat.voice.stalePendingCount || heartbeat.voice.recentFailedCount || heartbeat.voice.staleUnroutedCount ? 'warn' : 'ok'
+              }`}
+            />
+            {heartbeat.voice.stalePendingCount || heartbeat.voice.recentFailedCount || heartbeat.voice.staleUnroutedCount
+              ? 'attention needed'
+              : 'clear'}
+          </span>
+        </div>
+
+        <div className="key-value-grid">
+          <div className="key-value-card">
+            <span className="key-value-label">Stale pending syncs</span>
+            {heartbeat.voice.stalePendingCount}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Recent failed syncs</span>
+            {heartbeat.voice.recentFailedCount}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Stale unrouted events</span>
+            {heartbeat.voice.staleUnroutedCount}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Pending retries queued</span>
+            {heartbeat.voice.queuedPendingRetries}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Failed retries queued</span>
+            {heartbeat.voice.queuedFailedRetries}
+          </div>
+          <div className="key-value-card">
+            <span className="key-value-label">Sweep cadence</span>
+            Every 5 minutes
+          </div>
+        </div>
+
+        <div className="record-grid">
+          <article className="record-card">
+            <div className="record-card-live-head">
+              <span className="status-chip status-chip-attention">
+                <span className="status-dot warn" />
+                Pending appointments
+              </span>
+            </div>
+            {heartbeat.voice.samplePending.length === 0 ? (
+              <div className="text-muted">No stale pending appointments were found.</div>
+            ) : (
+              <div className="status-list">
+                {heartbeat.voice.samplePending.map((appointment) => (
+                  <div key={appointment.id} className="status-item" style={{ alignItems: 'flex-start' }}>
+                    <div className="panel-stack" style={{ gap: 6 }}>
+                      <span className="status-label">{appointment.companyName}</span>
+                      <span className="tiny-muted">
+                        {formatDateTime(appointment.startTime)} · {appointment.contactName || 'Unnamed contact'} · attempts {appointment.externalSyncAttempts}
+                      </span>
+                    </div>
+                    <a className="button-ghost" href="/meetings">
+                      Open meetings
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+
+          <article className="record-card">
+            <div className="record-card-live-head">
+              <span className="status-chip status-chip-attention">
+                <span className="status-dot error" />
+                Failed appointments
+              </span>
+            </div>
+            {heartbeat.voice.sampleFailed.length === 0 ? (
+              <div className="text-muted">No recent failed appointments are waiting for automated retry.</div>
+            ) : (
+              <div className="status-list">
+                {heartbeat.voice.sampleFailed.map((appointment) => (
+                  <div key={appointment.id} className="status-item" style={{ alignItems: 'flex-start' }}>
+                    <div className="panel-stack" style={{ gap: 6 }}>
+                      <span className="status-label">{appointment.companyName}</span>
+                      <span className="tiny-muted">
+                        {formatDateTime(appointment.startTime)} · {appointment.contactName || 'Unnamed contact'} · attempts {appointment.externalSyncAttempts}
+                      </span>
+                      <span className="tiny-muted">{appointment.externalSyncError || 'Unknown sync error'}</span>
+                    </div>
+                    <a className="button-ghost" href="/diagnostics/voice">
+                      Open voice diag
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+
+          <article className="record-card">
+            <div className="record-card-live-head">
+              <span className="status-chip status-chip-attention">
+                <span className="status-dot warn" />
+                Unrouted events
+              </span>
+            </div>
+            {heartbeat.voice.sampleUnrouted.length === 0 ? (
+              <div className="text-muted">No stale unrouted Telnyx events are waiting for review.</div>
+            ) : (
+              <div className="status-list">
+                {heartbeat.voice.sampleUnrouted.map((event) => (
+                  <div key={event.id} className="status-item" style={{ alignItems: 'flex-start' }}>
+                    <div className="panel-stack" style={{ gap: 6 }}>
+                      <span className="status-label">{event.eventType}</span>
+                      <span className="tiny-muted">
+                        {event.reason} · {formatDateTime(event.createdAt)}
+                      </span>
+                      <span className="tiny-muted">
+                        {event.inboundNumber || 'No inbound number'} · {event.fromNumber || 'No caller number'}
+                      </span>
+                    </div>
+                    <a className="button-ghost" href="/diagnostics/voice">
+                      Open voice diag
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+        </div>
+      </section>
+
+      <section className="panel panel-stack">
         <div className="metric-label">Queue detail</div>
         <div className="record-grid">
           {health.queueHealth.map((queue) => (
