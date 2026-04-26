@@ -7,18 +7,88 @@ type SpeakProspectNameButtonProps = {
   name: string;
 };
 
+const PREFERRED_VOICE_NAMES = [
+  'Google US English',
+  'Samantha',
+  'Ava',
+  'Allison',
+  'Aaron',
+  'Nicky',
+  'Joanna',
+  'Matthew',
+  'Aria',
+  'Jenny',
+  'Guy',
+  'Daniel'
+];
+
+function buildPronunciationText(name: string) {
+  return name
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b&\b/g, ' and ')
+    .replace(/\bco\b\.?/gi, ' company')
+    .replace(/\binc\b\.?/gi, ' incorporated')
+    .replace(/\bllc\b\.?/gi, ' L L C')
+    .replace(/\bltd\b\.?/gi, ' limited')
+    .replace(/\bpc\b\.?/gi, ' P C')
+    .replace(/\bpllc\b\.?/gi, ' P L L C')
+    .replace(/\bmd\b\.?/gi, ' M D')
+    .replace(/\bpa\b\.?/gi, ' P A')
+    .replace(/\beye\s?care\b/gi, ' eye care')
+    .replace(/\s*[-/|]\s*/g, ', ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function pickPreferredVoice(voices: SpeechSynthesisVoice[]) {
+  const englishVoices = voices.filter((voice) => voice.lang.toLowerCase().startsWith('en'));
+
+  for (const preferredName of PREFERRED_VOICE_NAMES) {
+    const preferredVoice = englishVoices.find((voice) =>
+      voice.name.toLowerCase().includes(preferredName.toLowerCase())
+    );
+
+    if (preferredVoice) {
+      return preferredVoice;
+    }
+  }
+
+  return (
+    englishVoices.find((voice) => voice.localService && /us|en-us/i.test(voice.lang)) ||
+    englishVoices.find((voice) => /female|natural|enhanced|premium/i.test(voice.name)) ||
+    englishVoices.find((voice) => voice.localService) ||
+    englishVoices[0] ||
+    null
+  );
+}
+
 export function SpeakProspectNameButton({ name }: SpeakProspectNameButtonProps) {
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const [isSupported, setIsSupported] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
-    setIsSupported(typeof window !== 'undefined' && 'speechSynthesis' in window);
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      setIsSupported(false);
+      return;
+    }
+
+    setIsSupported(true);
+
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+
+    loadVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
 
     return () => {
       if (typeof window !== 'undefined' && utteranceRef.current) {
         window.speechSynthesis.cancel();
       }
+
+      window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
     };
   }, []);
 
@@ -47,19 +117,17 @@ export function SpeakProspectNameButton({ name }: SpeakProspectNameButtonProps) 
 
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(name);
-    const availableVoices = window.speechSynthesis.getVoices();
-    const preferredVoice =
-      availableVoices.find((voice) => voice.lang.toLowerCase().startsWith('en') && voice.localService) ||
-      availableVoices.find((voice) => voice.lang.toLowerCase().startsWith('en')) ||
-      null;
+    const utterance = new SpeechSynthesisUtterance(buildPronunciationText(name));
+    const preferredVoice = pickPreferredVoice(voices.length ? voices : window.speechSynthesis.getVoices());
 
     if (preferredVoice) {
       utterance.voice = preferredVoice;
+      utterance.lang = preferredVoice.lang;
     }
 
-    utterance.rate = 0.96;
+    utterance.rate = 0.8;
     utterance.pitch = 1;
+    utterance.volume = 1;
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
     utteranceRef.current = utterance;
