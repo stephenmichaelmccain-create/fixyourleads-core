@@ -815,13 +815,13 @@ export default async function OurLeadsPage({
                           className="text-area"
                           placeholder={
                             'Paste one business per line in this order:\n' +
-                            'Business name, phone, city, contact, website, next action, notes\n\n' +
-                            'Glow Med Spa, (555) 555-5555, Austin, Jamie Reed, glowmedspa.com, 2026-04-30 10:00, Call after lunch\n' +
-                            'Premier Eye Center, (555) 111-2222, Denver, Alex Stone, premiereye.com, , Front desk asked for a callback next week'
+                            'Business name, phone, city, contact, website, hours, next action, notes\n\n' +
+                            'Glow Med Spa, (555) 555-5555, Austin, Jamie Reed, glowmedspa.com, Mon-Fri 8 AM-5 PM, 2026-04-30 10:00, \n' +
+                            'Premier Eye Center, (555) 111-2222, Denver, Alex Stone, premiereye.com, Sat 9 AM-1 PM, , '
                           }
                         />
                         <div className="tiny-muted">
-                          Paste comma, pipe, or tab-separated rows. Use one business per line in this order: business name, phone, city, contact, website, next action, notes.
+                          Paste comma, pipe, or tab-separated rows. Use one business per line in this order: business name, phone, city, contact, website, hours, next action, notes.
                         </div>
                       </div>
                       <div className="workspace-filter-actions">

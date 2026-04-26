@@ -621,7 +621,16 @@ export async function bulkCreateProspectsAction(formData: FormData) {
   let invalidSkippedCount = 0;
 
   for (const row of rows) {
-    const [nameRaw, phoneRaw = '', cityRaw = '', ownerNameRaw = '', websiteRaw = '', nextActionRaw = '', notesRaw = ''] =
+    const [
+      nameRaw,
+      phoneRaw = '',
+      cityRaw = '',
+      ownerNameRaw = '',
+      websiteRaw = '',
+      hoursRaw = '',
+      nextActionRaw = '',
+      notesRaw = ''
+    ] =
       splitBulkRow(row);
     const name = nameRaw?.trim();
 
@@ -674,7 +683,8 @@ export async function bulkCreateProspectsAction(formData: FormData) {
             status: ProspectStatus.NEW,
             nextActionAt,
             notes: buildProspectNotes({
-              plainNotes: notesRaw || null
+              plainNotes: notesRaw || null,
+              operatingHours: hoursRaw || null
             })
           },
           select: {
