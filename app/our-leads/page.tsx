@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { parseProspectNotes } from '@/lib/prospect-metadata';
-import { safeLoad } from '@/lib/ui-data';
+import { safeLoadDb } from '@/lib/ui-data';
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
 import {
   bulkCreateProspectsAction,
@@ -408,7 +408,7 @@ export default async function OurLeadsPage({
   };
   const now = new Date();
 
-  const allProspects = await safeLoad(
+  const allProspects = await safeLoadDb(
     () =>
       db.prospect.findMany({
         select: {
@@ -507,7 +507,7 @@ export default async function OurLeadsPage({
       : '';
 
   const selectedProspect = effectiveSelectedProspectId
-    ? await safeLoad(
+      ? await safeLoadDb(
         () =>
           db.prospect.findUnique({
             where: { id: effectiveSelectedProspectId },
