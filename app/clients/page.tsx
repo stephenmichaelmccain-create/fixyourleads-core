@@ -251,11 +251,21 @@ export default async function ClientsPage({
           <table className="data-table">
             <thead>
               <tr>
-                <th>Health</th>
-                <th>Client Name</th>
-                <th>Unread Msgs</th>
-                <th>Appts This Week</th>
-                <th>New Leads This Week</th>
+                <th className="client-table-col-health">
+                  <span className="client-table-header-label">Health</span>
+                </th>
+                <th className="client-table-col-name">
+                  <span className="client-table-header-label">Client Name</span>
+                </th>
+                <th className="client-table-col-metric client-table-metric-head">
+                  <span className="client-table-header-label">Unread Msgs</span>
+                </th>
+                <th className="client-table-col-metric client-table-metric-head">
+                  <span className="client-table-header-label">Appts This Week</span>
+                </th>
+                <th className="client-table-col-metric client-table-metric-head">
+                  <span className="client-table-header-label">New Leads This Week</span>
+                </th>
                 <th />
               </tr>
             </thead>
@@ -269,13 +279,13 @@ export default async function ClientsPage({
               ) : (
                 rows.map((row) => (
                   <tr key={row.id} id={`client-${row.id}`}>
-                    <td>
+                    <td className="client-table-col-health">
                       <span className="client-health-cell" title={`${row.health.label} · ${row.health.reason}`}>
                         <span className={`status-dot ${row.health.tone}`} />
                       </span>
                     </td>
-                    <td>
-                      <div className="panel-stack" style={{ gap: 6 }}>
+                    <td className="client-table-col-name">
+                      <div className="client-name-cell">
                         <Link className="table-link" href={`/clients/${row.id}`}>
                           <strong>{row.name}</strong>
                         </Link>
@@ -285,9 +295,15 @@ export default async function ClientsPage({
                         </span>
                       </div>
                     </td>
-                    <td>{row.unreadMessages}</td>
-                    <td>{row.appointmentsThisWeek}</td>
-                    <td>{row.leadsThisWeek}</td>
+                    <td className="client-table-col-metric client-table-metric-cell">
+                      <span className="client-table-metric-value">{row.unreadMessages}</span>
+                    </td>
+                    <td className="client-table-col-metric client-table-metric-cell">
+                      <span className="client-table-metric-value">{row.appointmentsThisWeek}</span>
+                    </td>
+                    <td className="client-table-col-metric client-table-metric-cell">
+                      <span className="client-table-metric-value">{row.leadsThisWeek}</span>
+                    </td>
                     <td className="client-row-actions-cell">
                       <div className="client-row-actions">
                         {row.websiteHref ? (
