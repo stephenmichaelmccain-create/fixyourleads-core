@@ -14,7 +14,7 @@ const desktopPrimaryItems: Array<{ key: NavKey; href: string; label: string }> =
 ];
 
 const desktopUtilityItems: Array<{ key: NavKey; href: string; label: string }> = [
-  { key: 'system', href: '/admin/system', label: 'Settings' }
+  { key: 'system', href: '/admin/system', label: 'Webhooks' }
 ];
 
 const mobileItems = [...desktopPrimaryItems, ...desktopUtilityItems];

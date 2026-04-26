@@ -178,7 +178,7 @@ export default async function AdminSystemPage() {
 
   return (
     <LayoutShell
-      title="Settings"
+      title="Webhooks"
       description="Live account hookup status by account."
       section="system"
       hidePageHeader
