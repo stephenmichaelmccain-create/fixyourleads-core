@@ -1622,45 +1622,36 @@ select {
   z-index: 0;
 }
 
+.activity-feed-card-violet,
+.activity-feed-card-green,
+.activity-feed-card-amber,
+.activity-feed-card-blue,
+.activity-feed-card-pink,
+.activity-feed-card-red {
+  background: linear-gradient(180deg, rgba(52, 45, 104, 0.9), rgba(31, 27, 66, 0.96));
+}
+
 .activity-feed-card-violet {
-  background:
-    linear-gradient(180deg, rgba(98, 74, 176, 0.24), rgba(54, 42, 113, 0.1)),
-    linear-gradient(135deg, rgba(43, 37, 86, 0.48), rgba(28, 24, 62, 0.42));
   border-color: rgba(182, 154, 255, 0.26);
 }
 
 .activity-feed-card-green {
-  background:
-    linear-gradient(180deg, rgba(68, 128, 97, 0.2), rgba(39, 72, 59, 0.08)),
-    linear-gradient(135deg, rgba(40, 35, 79, 0.46), rgba(27, 24, 57, 0.4));
   border-color: rgba(124, 227, 149, 0.22);
 }
 
 .activity-feed-card-amber {
-  background:
-    linear-gradient(180deg, rgba(146, 99, 44, 0.2), rgba(84, 53, 25, 0.1)),
-    linear-gradient(135deg, rgba(40, 35, 79, 0.46), rgba(27, 24, 57, 0.4));
   border-color: rgba(255, 196, 104, 0.22);
 }
 
 .activity-feed-card-blue {
-  background:
-    linear-gradient(180deg, rgba(61, 101, 164, 0.2), rgba(36, 61, 104, 0.1)),
-    linear-gradient(135deg, rgba(40, 35, 79, 0.46), rgba(27, 24, 57, 0.4));
   border-color: rgba(124, 184, 255, 0.22);
 }
 
 .activity-feed-card-pink {
-  background:
-    linear-gradient(180deg, rgba(125, 76, 156, 0.2), rgba(69, 44, 93, 0.1)),
-    linear-gradient(135deg, rgba(40, 35, 79, 0.46), rgba(27, 24, 57, 0.4));
   border-color: rgba(219, 158, 255, 0.22);
 }
 
 .activity-feed-card-red {
-  background:
-    linear-gradient(180deg, rgba(170, 62, 82, 0.24), rgba(94, 31, 46, 0.1)),
-    linear-gradient(135deg, rgba(52, 23, 44, 0.48), rgba(30, 17, 29, 0.42));
   border-color: rgba(255, 128, 152, 0.26);
 }
 
@@ -4084,45 +4075,36 @@ select {
     box-shadow: none;
   }
 
+  .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-violet,
+  .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-green,
+  .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-amber,
+  .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-blue,
+  .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-pink,
+  .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-red {
+    background: rgba(43, 37, 86, 0.44);
+  }
+
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-violet {
-    background:
-      linear-gradient(180deg, rgba(86, 66, 155, 0.22), rgba(53, 42, 109, 0.08)),
-      rgba(43, 37, 86, 0.44);
     border-color: rgba(173, 145, 255, 0.2);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-green {
-    background:
-      linear-gradient(180deg, rgba(68, 128, 97, 0.16), rgba(39, 72, 59, 0.06)),
-      rgba(40, 35, 79, 0.42);
     border-color: rgba(124, 227, 149, 0.16);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-amber {
-    background:
-      linear-gradient(180deg, rgba(146, 99, 44, 0.16), rgba(84, 53, 25, 0.08)),
-      rgba(40, 35, 79, 0.42);
     border-color: rgba(255, 196, 104, 0.16);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-blue {
-    background:
-      linear-gradient(180deg, rgba(61, 101, 164, 0.16), rgba(36, 61, 104, 0.08)),
-      rgba(40, 35, 79, 0.42);
     border-color: rgba(124, 184, 255, 0.16);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-pink {
-    background:
-      linear-gradient(180deg, rgba(125, 76, 156, 0.16), rgba(69, 44, 93, 0.08)),
-      rgba(40, 35, 79, 0.42);
     border-color: rgba(219, 158, 255, 0.16);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-red {
-    background:
-      linear-gradient(180deg, rgba(156, 58, 77, 0.18), rgba(88, 29, 43, 0.08)),
-      rgba(42, 28, 44, 0.42);
     border-color: rgba(255, 128, 152, 0.18);
   }
 
