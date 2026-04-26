@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
+import { CopyableCodeBlock } from '@/app/clients/[id]/workflow/CopyableCodeBlock';
 import { CopyableUrlField } from '@/app/clients/[id]/workflow/CopyableUrlField';
 import { saveClientWorkflowAction } from '@/app/clients/[id]/workflow/actions';
 import { LayoutShell } from '@/app/components/LayoutShell';
@@ -400,6 +401,24 @@ export default async function ClientWorkflowPage({
                     {workflowTarget || 'Not set'}
                   </div>
                 </div>
+                <div className="telnyx-setup-card telnyx-setup-card-wide">
+                  <div className="metric-label">Body parameters</div>
+                  <div className="key-value-grid">
+                    <div className="key-value-card">
+                      <span className="key-value-label">Required</span>
+                      phone, startTime
+                    </div>
+                    <div className="key-value-card">
+                      <span className="key-value-label">Client routing</span>
+                      companyId and calledNumber
+                    </div>
+                    <div className="key-value-card">
+                      <span className="key-value-label">Helpful extras</span>
+                      fullName, email, purpose, notes
+                    </div>
+                  </div>
+                  <CopyableCodeBlock label="Starter JSON body" value={voiceWebhookExamplePayload} copyButtonLabel="Copy JSON" />
+                </div>
               </div>
               <div className="text-muted">
                 Point the client&apos;s AI voice agent at this webhook when a real appointment is booked. Authorize with either
@@ -412,21 +431,6 @@ export default async function ClientWorkflowPage({
                   app will fall back to `INTERNAL_API_KEY` once that is present.
                 </div>
               )}
-              <details className="panel panel-stack">
-                <summary className="metric-label" style={{ cursor: 'pointer' }}>
-                  Sample booking payload
-                </summary>
-                <pre
-                  style={{
-                    margin: 0,
-                    whiteSpace: 'pre-wrap',
-                    overflowWrap: 'anywhere',
-                    color: 'rgba(231, 227, 255, 0.76)'
-                  }}
-                >
-                  {voiceWebhookExamplePayload}
-                </pre>
-              </details>
             </div>
           </div>
 
