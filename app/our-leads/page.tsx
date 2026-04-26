@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoadDb } from '@/lib/ui-data';
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
+import { SpeakProspectNameButton } from './SpeakProspectNameButton';
 import { LeadContextDialog } from './LeadContextDialog';
 import {
   bulkCreateProspectsAction,
@@ -886,7 +887,10 @@ export default async function OurLeadsPage({
                             <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
                           </div>
                           <div className="record-stack">
-                            <h2 className="form-title lead-company-name">{prospect.name}</h2>
+                            <div className="lead-company-name-row">
+                              <h2 className="form-title lead-company-name">{prospect.name}</h2>
+                              <SpeakProspectNameButton name={prospect.name} />
+                            </div>
                             <div className="lead-queue-subline">{leadSummary || 'No location or website saved yet'}</div>
                           </div>
 

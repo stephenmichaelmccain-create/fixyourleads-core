@@ -761,6 +761,69 @@ select {
   font-size: 1.15rem;
 }
 
+.lead-company-name-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.lead-company-name-row .lead-company-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lead-speak-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  padding: 0;
+  border: 1px solid rgba(124, 58, 237, 0.18);
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.1);
+  color: #d9c9ff;
+  cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  z-index: 4;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.lead-speak-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(167, 139, 250, 0.4);
+  background: rgba(124, 58, 237, 0.18);
+}
+
+.lead-speak-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.16);
+}
+
+.lead-speak-button.is-speaking {
+  border-color: rgba(167, 139, 250, 0.48);
+  background: rgba(124, 58, 237, 0.22);
+  color: var(--fyl-white);
+}
+
+.lead-speak-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .lead-master-card {
   display: grid;
   grid-template-rows: 1fr auto;
