@@ -422,7 +422,12 @@ function relatedRecordType(payload: unknown) {
 function eventTypeLooksLeadWorkspaceRelated(eventType: string) {
   const value = eventType.toLowerCase();
 
-  return value.startsWith('prospect_');
+  return (
+    value.startsWith('prospect_') ||
+    value.startsWith('lead_') ||
+    value === 'google_maps_import_completed' ||
+    value === 'voice_demo_requested'
+  );
 }
 
 function notificationViewForEvent(event: {
@@ -430,7 +435,12 @@ function notificationViewForEvent(event: {
   companyId: string;
   payload: unknown;
 }) {
-  if (event.companyId === 'fixyourleads' || relatedRecordType(event.payload) === 'prospect' || eventTypeLooksLeadWorkspaceRelated(event.eventType)) {
+  if (
+    event.companyId === 'fixyourleads' ||
+    relatedRecordType(event.payload) === 'prospect' ||
+    relatedRecordType(event.payload) === 'lead' ||
+    eventTypeLooksLeadWorkspaceRelated(event.eventType)
+  ) {
     return 'leads' satisfies NotificationView;
   }
 
@@ -447,7 +457,7 @@ function emptyStateCopy(view: NotificationView, hasActiveFilters: boolean) {
       title: 'No lead notifications yet.',
       body: hasActiveFilters
         ? 'We have not received any lead-tagged events for the current filters.'
-        : 'Lead notifications will appear here when a client signup, approval, rejection, or booking event is tagged as lead activity.',
+        : 'Lead notifications will appear here when lead workflow events like imports, callbacks, follow-ups, and outreach actions are recorded.',
       helper: 'If you expected events here, check your webhook mapping or clear the current filters.'
     };
   }

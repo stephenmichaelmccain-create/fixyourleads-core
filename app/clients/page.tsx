@@ -294,6 +294,13 @@ export default async function ClientsPage({
                             <strong>{row.name}</strong>
                           </Link>
                           <div className="client-inline-actions">
+                            {row.aiCallHref ? (
+                              <a className="button-secondary button-secondary-compact client-row-action-link" href={row.aiCallHref}>
+                                Call AI
+                              </a>
+                            ) : (
+                              <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Call AI</span>
+                            )}
                             {row.websiteHref ? (
                               <a
                                 className="button-secondary button-secondary-compact client-row-action-link"
@@ -312,13 +319,6 @@ export default async function ClientsPage({
                               </a>
                             ) : (
                               <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Call Owner</span>
-                            )}
-                            {row.aiCallHref ? (
-                              <a className="button-secondary button-secondary-compact client-row-action-link" href={row.aiCallHref}>
-                                Call AI
-                              </a>
-                            ) : (
-                              <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Call AI</span>
                             )}
                           </div>
                         </div>
