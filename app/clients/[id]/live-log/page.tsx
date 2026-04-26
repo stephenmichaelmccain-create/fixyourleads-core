@@ -445,7 +445,17 @@ export default async function ClientLiveLogPage({
 
                     <details className="panel-stack live-log-payload">
                       <summary className="details-summary">Raw payload</summary>
-                      <pre className="code-block live-log-code-block">{JSON.stringify(event.payload, null, 2)}</pre>
+                      <pre
+                        className="code-block live-log-code-block"
+                        style={{
+                          background: 'rgba(12, 10, 28, 0.96)',
+                          color: 'rgba(241, 245, 255, 0.94)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)'
+                        }}
+                      >
+                        {JSON.stringify(event.payload, null, 2)}
+                      </pre>
                     </details>
                   </div>
                 </article>
