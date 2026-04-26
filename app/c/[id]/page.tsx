@@ -187,32 +187,32 @@ export default async function ClientStatusPage({
 
           <section className="panel panel-stack client-public-support-card">
             <div className="metric-label">Quick view</div>
-            <div className="client-record-sidebar-grid">
+            <div className={`client-record-sidebar-grid ${styles.quickGrid}`}>
               <div className={`client-record-sidebar-item ${styles.quickCard}`}>
                 <span className="key-value-label">Business email</span>
-                <strong>{company.notificationEmail || 'Not set'}</strong>
-                <span className="tiny-muted">
+                <strong className={styles.quickValue}>{company.notificationEmail || 'Not set'}</strong>
+                <span className={`tiny-muted ${styles.quickCopy}`}>
                   {businessEmailReady ? 'Booking and notice emails can be routed here.' : 'Add the main inbox your team watches.'}
                 </span>
               </div>
               <div className={`client-record-sidebar-item ${styles.quickCard}`}>
                 <span className="key-value-label">Primary contact</span>
-                <strong>{primaryContactLine}</strong>
-                <span className="tiny-muted">
+                <strong className={styles.quickValue}>{primaryContactLine}</strong>
+                <span className={`tiny-muted ${styles.quickCopy}`}>
                   {primaryContactReady ? 'We have a live person to contact when setup changes.' : 'Add at least one contact method.'}
                 </span>
               </div>
               <div className={`client-record-sidebar-item ${styles.quickCard}`}>
                 <span className="key-value-label">CRM status</span>
-                <strong>{crmReady ? providerLabel(company.crmProvider) : 'Setup needed'}</strong>
-                <span className="tiny-muted">
+                <strong className={styles.quickValue}>{crmReady ? providerLabel(company.crmProvider) : 'Setup needed'}</strong>
+                <span className={`tiny-muted ${styles.quickCopy}`}>
                   {crmReady ? 'CRM provider and secure keys are on file.' : 'Choose a provider and save the API key when ready.'}
                 </span>
               </div>
               <div className={`client-record-sidebar-item ${styles.quickCard}`}>
                 <span className="key-value-label">Booking status</span>
-                <strong>{bookingReady ? bookingPlatformName || 'Connected' : 'Setup needed'}</strong>
-                <span className="tiny-muted">
+                <strong className={styles.quickValue}>{bookingReady ? bookingPlatformName || 'Connected' : 'Setup needed'}</strong>
+                <span className={`tiny-muted ${styles.quickCopy}`}>
                   {bookingReady ? 'Booking platform details are saved.' : 'Add the booking platform name, URL, and credentials.'}
                 </span>
               </div>

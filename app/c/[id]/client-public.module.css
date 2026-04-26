@@ -38,7 +38,29 @@
   max-width: 62ch;
 }
 
+.quickGrid {
+  align-items: stretch;
+}
+
 .quickCard {
+  min-width: 0;
   min-height: 112px;
   align-content: start;
+  gap: 8px;
+}
+
+.quickValue {
+  display: block;
+  min-width: 0;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.quickCopy {
+  display: block;
+  min-width: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
