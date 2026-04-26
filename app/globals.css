@@ -59,11 +59,11 @@ select {
 
 .app-header {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 16px;
-  min-height: 56px;
-  padding: 10px 14px;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 12px;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: linear-gradient(180deg, #12122a 0%, #0d0d1f 100%);
@@ -73,32 +73,34 @@ select {
 .app-header-brand {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   text-decoration: none;
+  align-self: stretch;
 }
 
 .brand-lockup {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  min-height: 40px;
+  width: 36px;
+  min-height: 36px;
 }
 
 .brand-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   flex: 0 0 auto;
-  border-radius: 12px;
-  background: rgba(124, 58, 237, 0.12);
+  border-radius: 11px;
+  background: rgba(124, 58, 237, 0.14);
 }
 
 .brand-mark-svg {
   display: block;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   filter: none;
 }
 
@@ -134,55 +136,54 @@ select {
 .app-nav {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
+  justify-content: flex-start;
+  gap: 6px;
   flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .app-nav-wrap {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   min-width: 0;
 }
 
 .app-nav-utility {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   flex-wrap: wrap;
   justify-content: flex-end;
-}
-
-.app-nav-utility-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding-left: 14px;
-  border-left: 1px solid var(--fyl-border-soft);
-}
-
-.app-nav-utility-group > .nav-utility-link + .nav-utility-link {
-  padding-left: 14px;
-  margin-left: 2px;
-  border-left: 1px solid var(--fyl-border-soft);
+  margin-left: auto;
 }
 
 .nav-utility-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
   color: rgba(255, 245, 237, 0.72);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
+  line-height: 1;
   text-decoration: none;
-  transition: color 160ms ease;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
   white-space: nowrap;
 }
 
 .nav-utility-link:hover,
 .nav-utility-link.is-active {
   color: #fff7f0;
+  background: rgba(124, 58, 237, 0.16);
+  border-color: rgba(167, 139, 250, 0.2);
 }
 
 .nav-utility-context {
@@ -1748,6 +1749,20 @@ select {
   flex-wrap: wrap;
 }
 
+.client-list-header {
+  gap: 16px;
+}
+
+.client-list-actions {
+  display: grid;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.client-list-actions > * {
+  width: 100%;
+}
+
 .record-subtitle {
   color: var(--fyl-muted);
   line-height: 1.5;
@@ -2874,19 +2889,19 @@ select {
 
 @media (max-width: 720px) {
   .brand-lockup {
-    min-height: 40px;
-    width: 40px;
+    min-height: 36px;
+    width: 36px;
   }
 
   .brand-mark {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
   }
 
   .brand-mark-svg {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
   }
 
   .app-shell {
@@ -2913,13 +2928,13 @@ select {
   .app-nav-wrap {
     width: 100%;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+    align-items: stretch;
+    gap: 8px;
   }
 
   .app-nav {
     width: 100%;
-    justify-content: stretch;
+    justify-content: space-between;
     gap: 8px;
   }
 
@@ -2932,24 +2947,14 @@ select {
     width: 100%;
     justify-content: flex-start;
     gap: 8px;
-  }
-
-  .app-nav-utility-group {
-    width: 100%;
-    padding-left: 0;
-    border-left: 0;
-    gap: 8px;
+    margin-left: 0;
   }
 
   .nav-utility-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 40px;
-    padding: 10px 12px;
+    min-height: 34px;
+    padding: 8px 12px;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.04);
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     text-align: center;
   }
 

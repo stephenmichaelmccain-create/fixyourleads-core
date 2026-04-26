@@ -221,15 +221,16 @@ export default async function ClientsPage({
       )}
 
       <section className="panel panel-stack">
-        <div className="record-header">
+        <div className="record-header client-list-header">
           <div className="panel-stack">
-            <div className="metric-label">Clients</div>
+            <h2 className="section-title">Client workspaces</h2>
+            <p className="record-subtitle">Keep intake front and center while the live client list stays below.</p>
           </div>
-          <div className="inline-actions">
-            <a className="button-ghost" href="/clients/intake">
+          <div className="client-list-actions">
+            <a className="button" href="/clients/intake">
               Intake queue
             </a>
-            <a className="button" href="/clients/new">
+            <a className="button-secondary" href="/clients/new">
               + Add Client
             </a>
           </div>

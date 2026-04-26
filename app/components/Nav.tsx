@@ -20,19 +20,15 @@ export function Nav({ current }: NavProps) {
         </a>
       </nav>
       <div className="app-nav-utility">
-        <div className="app-nav-utility-group">
-          <a className={`nav-utility-link${current === 'messages' ? ' is-active' : ''}`} href="/messages">
-            Messages
-          </a>
-        </div>
-        <div className="app-nav-utility-group">
-          <a
-            className={`nav-utility-link${current === 'system' || current === 'diagnostics' ? ' is-active' : ''}`}
-            href="/admin/system"
-          >
-            Settings
-          </a>
-        </div>
+        <a className={`nav-utility-link${current === 'messages' ? ' is-active' : ''}`} href="/messages">
+          Messages
+        </a>
+        <a
+          className={`nav-utility-link${current === 'system' || current === 'diagnostics' ? ' is-active' : ''}`}
+          href="/admin/system"
+        >
+          Settings
+        </a>
       </div>
     </div>
   );
