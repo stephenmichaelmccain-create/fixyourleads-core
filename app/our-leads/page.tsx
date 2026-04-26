@@ -797,10 +797,15 @@ export default async function OurLeadsPage({
                           id="prospect-bulk-rows"
                           name="rows"
                           className="text-area"
-                          placeholder={'Business name, phone, city, contact, website, next action, notes\nGlow Med Spa, (555) 555-5555, Austin, Jamie Reed, glowmedspa.com'}
+                          placeholder={
+                            'Paste one business per line in this order:\n' +
+                            'Business name, phone, city, contact, website, next action, notes\n\n' +
+                            'Glow Med Spa, (555) 555-5555, Austin, Jamie Reed, glowmedspa.com, 2026-04-30 10:00, Call after lunch\n' +
+                            'Premier Eye Center, (555) 111-2222, Denver, Alex Stone, premiereye.com, , Front desk asked for a callback next week'
+                          }
                         />
                         <div className="tiny-muted">
-                          Paste comma, pipe, or tab-separated rows. Order: business name, phone, city, contact, website, next action, notes.
+                          Paste comma, pipe, or tab-separated rows. Use one business per line in this order: business name, phone, city, contact, website, next action, notes.
                         </div>
                       </div>
                       <div className="workspace-filter-actions">
