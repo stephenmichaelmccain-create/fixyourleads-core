@@ -929,6 +929,53 @@ select {
   overflow-wrap: anywhere;
 }
 
+.lead-queue-contact-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.lead-queue-hours {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(20, 18, 42, 0.48);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.lead-queue-hours.is-empty {
+  color: rgba(255, 255, 255, 0.5);
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(20, 18, 42, 0.28);
+}
+
+.lead-queue-hours-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.lead-queue-hours-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .lead-queue-timing {
   display: grid;
   gap: 10px;
@@ -1421,6 +1468,12 @@ select {
 
 .lead-notes-grid > * {
   min-width: 0;
+}
+
+.lead-notes-meta-stack {
+  display: grid;
+  gap: 12px;
+  align-content: start;
 }
 
 .lead-notes-field {
@@ -4415,6 +4468,16 @@ select {
     align-self: start;
     font-size: 17px;
     line-height: 1.15;
+  }
+
+  .lead-queue-contact-row {
+    gap: 8px;
+  }
+
+  .lead-queue-hours {
+    min-height: 26px;
+    padding: 4px 8px;
+    font-size: 11px;
   }
 
   .lead-queue-timing-item {

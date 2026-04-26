@@ -8,6 +8,7 @@ export type ProspectProfile = {
   importBatch?: string;
   sourceRecord?: string;
   logoUrl?: string;
+  operatingHours?: string;
 };
 
 export function parseProspectNotes(notes?: string | null) {
@@ -50,6 +51,8 @@ export function parseProspectNotes(notes?: string | null) {
       profile.sourceRecord = value;
     } else if (key === 'logo_url') {
       profile.logoUrl = value;
+    } else if (key === 'operating_hours') {
+      profile.operatingHours = value;
     }
   }
 
@@ -67,7 +70,8 @@ export function buildProspectNotes({
   sourceLabel,
   importBatch,
   sourceRecord,
-  logoUrl
+  logoUrl,
+  operatingHours
 }: {
   plainNotes?: string | null;
   clinicType?: string | null;
@@ -77,6 +81,7 @@ export function buildProspectNotes({
   importBatch?: string | null;
   sourceRecord?: string | null;
   logoUrl?: string | null;
+  operatingHours?: string | null;
 }) {
   const metadataEntries = [
     ['clinic_type', clinicType],
@@ -85,7 +90,8 @@ export function buildProspectNotes({
     ['source', sourceLabel],
     ['import_batch', importBatch],
     ['source_record', sourceRecord],
-    ['logo_url', logoUrl]
+    ['logo_url', logoUrl],
+    ['operating_hours', operatingHours]
   ].filter((entry): entry is [string, string] => Boolean(entry[1] && String(entry[1]).trim()));
 
   const metadataLines = metadataEntries.map(([key, value]) => `${PROSPECT_META_PREFIX}${key}=${String(value).trim()}`);

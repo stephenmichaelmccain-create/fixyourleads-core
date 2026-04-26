@@ -87,10 +87,11 @@ function buildOurLeadsHref({
     phone?: string;
     city?: string;
     ownerName?: string;
-    website?: string;
-    nextActionAt?: string;
-    notes?: string;
-  };
+      website?: string;
+      hours?: string;
+      nextActionAt?: string;
+      notes?: string;
+    };
 }) {
   const params = new URLSearchParams();
 
@@ -178,6 +179,10 @@ function buildOurLeadsHref({
     params.set('draftWebsite', draft.website);
   }
 
+  if (draft?.hours) {
+    params.set('draftHours', draft.hours);
+  }
+
   if (draft?.nextActionAt) {
     params.set('draftNextActionAt', draft.nextActionAt);
   }
@@ -197,6 +202,7 @@ function readLeadDraft(formData: FormData) {
     city: readText(formData, 'city'),
     ownerName: readText(formData, 'ownerName'),
     website: readText(formData, 'website'),
+    hours: readText(formData, 'hours'),
     nextActionAt: readText(formData, 'nextActionAt'),
     notes: readText(formData, 'notes')
   };
@@ -399,6 +405,7 @@ export async function createProspectAction(formData: FormData) {
   const rawPhone = readText(formData, 'phone');
   const city = readText(formData, 'city') || null;
   const website = readText(formData, 'website') || null;
+  const operatingHours = readText(formData, 'hours') || null;
   const ownerName = readText(formData, 'ownerName') || null;
   const notes = readText(formData, 'notes') || null;
   const clinicType = readText(formData, 'clinicType') || null;
@@ -503,7 +510,8 @@ export async function createProspectAction(formData: FormData) {
             sourceLabel,
             importBatch,
             sourceRecord,
-            logoUrl
+            logoUrl,
+            operatingHours
           })
         },
         select: {
@@ -919,6 +927,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
   const city = readText(formData, 'city');
   const nextActionDue = readText(formData, 'nextActionDue');
   const notes = readText(formData, 'notes');
+  const hours = readText(formData, 'hours');
   const nextActionRaw = readText(formData, 'nextActionAt');
 
   if (!prospectId) {
@@ -956,8 +965,10 @@ export async function updateProspectDetailsAction(formData: FormData) {
 
   const parsed = parseProspectNotes(existing.notes);
   const previousPlainNotes = parsed.plainNotes.trim();
+  const previousHours = String(parsed.profile.operatingHours || '').trim();
   const previousNextAction = existing.nextActionAt?.toISOString() || '';
   const noteChanged = previousPlainNotes !== notes;
+  const hoursChanged = previousHours !== hours;
   const nextActionChanged = previousNextAction !== (nextActionAt?.toISOString() || '');
 
   await db.$transaction(async (tx) => {
@@ -973,25 +984,34 @@ export async function updateProspectDetailsAction(formData: FormData) {
           sourceLabel: parsed.profile.source,
           importBatch: parsed.profile.importBatch,
           sourceRecord: parsed.profile.sourceRecord,
-          logoUrl: parsed.profile.logoUrl
+          logoUrl: parsed.profile.logoUrl,
+          operatingHours: hours
         })
       }
     });
 
-    if (noteChanged || nextActionChanged) {
+    if (noteChanged || hoursChanged || nextActionChanged) {
       const historyParts: string[] = [];
       let outcome = 'Updated contact details';
 
-      if (noteChanged && nextActionChanged) {
-        outcome = nextActionAt ? 'Updated note and follow-up date' : 'Updated note and cleared follow-up date';
+      if ((noteChanged || hoursChanged) && nextActionChanged) {
+        outcome = nextActionAt ? 'Updated lead details and follow-up date' : 'Updated lead details and cleared follow-up date';
+      } else if (noteChanged && hoursChanged) {
+        outcome = 'Updated note and business hours';
       } else if (noteChanged) {
         outcome = notes ? 'Updated note' : 'Cleared note';
+      } else if (hoursChanged) {
+        outcome = hours ? 'Updated business hours' : 'Cleared business hours';
       } else if (nextActionChanged) {
         outcome = nextActionAt ? 'Updated follow-up date' : 'Cleared follow-up date';
       }
 
       if (noteChanged) {
         historyParts.push(notes ? 'Note updated.' : 'Note cleared.');
+      }
+
+      if (hoursChanged) {
+        historyParts.push(hours ? `Business hours set to ${hours}.` : 'Business hours cleared.');
       }
 
       if (nextActionChanged) {

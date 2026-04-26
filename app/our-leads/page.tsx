@@ -39,6 +39,7 @@ type SearchParamShape = Promise<{
   draftCity?: string;
   draftOwnerName?: string;
   draftWebsite?: string;
+  draftHours?: string;
   draftNextActionAt?: string;
   draftNotes?: string;
 }>;
@@ -409,6 +410,7 @@ export default async function OurLeadsPage({
     city: String(params.draftCity || '').trim(),
     ownerName: String(params.draftOwnerName || '').trim(),
     website: String(params.draftWebsite || '').trim(),
+    hours: String(params.draftHours || '').trim(),
     nextActionAt: String(params.draftNextActionAt || '').trim(),
     notes: String(params.draftNotes || '').trim()
   };
@@ -732,6 +734,18 @@ export default async function OurLeadsPage({
                       />
                     </div>
                     <div className="field-stack">
+                      <label className="key-value-label" htmlFor="prospect-hours">
+                        Hours
+                      </label>
+                      <input
+                        id="prospect-hours"
+                        name="hours"
+                        className="text-input"
+                        defaultValue={draftValues.hours}
+                        placeholder="Mon-Fri 8 AM-5 PM"
+                      />
+                    </div>
+                    <div className="field-stack">
                       <label className="key-value-label" htmlFor="prospect-next-action">
                         Next action
                       </label>
@@ -927,7 +941,18 @@ export default async function OurLeadsPage({
                                 <span className="tiny-muted">{nextActionState(prospect.nextActionAt, now)}</span>
                               </div>
                             </div>
-                            <div className="lead-queue-phone">{detailValue(prospect.phone)}</div>
+                            <div className="lead-queue-contact-row">
+                              <div className="lead-queue-phone">{detailValue(prospect.phone)}</div>
+                              <div className={`lead-queue-hours${prospect.profile.operatingHours ? '' : ' is-empty'}`}>
+                                <span className="lead-queue-hours-icon" aria-hidden="true">
+                                  <svg viewBox="0 0 20 20" focusable="false">
+                                    <circle cx="10" cy="10" r="6.25" />
+                                    <path d="M10 6.8v3.6l2.6 1.6" />
+                                  </svg>
+                                </span>
+                                <span>{prospect.profile.operatingHours || 'Hours not set'}</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1089,18 +1114,33 @@ export default async function OurLeadsPage({
                     <input type="hidden" name="city" value={selectedCity} />
                     <input type="hidden" name="nextActionDue" value={selectedDue} />
                     <div className="lead-notes-grid lead-notes-grid-streamlined">
-                      <div className="field-stack lead-date-field">
-                        <label className="key-value-label" htmlFor="lead-next-action-at">
-                          Custom follow-up date
-                        </label>
-                        <input
-                          id="lead-next-action-at"
-                          name="nextActionAt"
-                          type="datetime-local"
-                          className="text-input"
-                          defaultValue={formatDateTimeInput(selectedProspectView.nextActionAt)}
-                        />
-                        <div className="tiny-muted">Use this when the quick callback buttons are too broad.</div>
+                      <div className="lead-notes-meta-stack">
+                        <div className="field-stack lead-date-field">
+                          <label className="key-value-label" htmlFor="lead-hours-editor">
+                            Hours of operation
+                          </label>
+                          <input
+                            id="lead-hours-editor"
+                            name="hours"
+                            className="text-input"
+                            defaultValue={selectedProspectView.profile.operatingHours || ''}
+                            placeholder="Mon-Fri 8 AM-5 PM"
+                          />
+                          <div className="tiny-muted">Shows next to the phone number on the lead card.</div>
+                        </div>
+                        <div className="field-stack lead-date-field">
+                          <label className="key-value-label" htmlFor="lead-next-action-at">
+                            Custom follow-up date
+                          </label>
+                          <input
+                            id="lead-next-action-at"
+                            name="nextActionAt"
+                            type="datetime-local"
+                            className="text-input"
+                            defaultValue={formatDateTimeInput(selectedProspectView.nextActionAt)}
+                          />
+                          <div className="tiny-muted">Use this when the quick callback buttons are too broad.</div>
+                        </div>
                       </div>
                       <div className="field-stack lead-notes-field">
                         <label className="key-value-label" htmlFor="lead-notes-editor">
