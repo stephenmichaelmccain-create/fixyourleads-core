@@ -17,10 +17,31 @@ function startOfTrailingDays(days: number) {
   return value;
 }
 
+function startOfToday() {
+  const value = new Date();
+  value.setHours(0, 0, 0, 0);
+  return value;
+}
+
+function startOfCurrentMonth() {
+  const value = new Date();
+  value.setHours(0, 0, 0, 0);
+  value.setDate(1);
+  return value;
+}
+
+function isAnsweredCallOutcome(outcome: string) {
+  const normalized = outcome.trim().toLowerCase();
+  return normalized !== 'no answer' && normalized !== 'left voicemail';
+}
+
 function healthState(options: {
-  unreadMessages: number;
   hasRouting: boolean;
   hasNotificationEmail: boolean;
+  callsToday: number;
+  answeredCalls: number;
+  callsThisMonth: number;
+  appointmentsThisWeek: number;
 }) {
   if (!options.hasRouting || !options.hasNotificationEmail) {
     return {
@@ -30,18 +51,42 @@ function healthState(options: {
     };
   }
 
-  if (options.unreadMessages > 0) {
+  if (options.callsThisMonth === 0) {
     return {
       tone: 'warn' as const,
-      label: 'Attention',
-      reason: `${options.unreadMessages} unread message${options.unreadMessages === 1 ? '' : 's'}`
+      label: 'Quiet',
+      reason: 'No calls logged this month'
+    };
+  }
+
+  if (options.answeredCalls === 0) {
+    return {
+      tone: 'warn' as const,
+      label: 'Needs review',
+      reason: 'No answered calls this month'
+    };
+  }
+
+  if (options.appointmentsThisWeek > 0) {
+    return {
+      tone: 'ok' as const,
+      label: 'Healthy',
+      reason: `${options.appointmentsThisWeek} appt${options.appointmentsThisWeek === 1 ? '' : 's'} this week`
+    };
+  }
+
+  if (options.callsToday > 0) {
+    return {
+      tone: 'ok' as const,
+      label: 'Active',
+      reason: `${options.callsToday} call${options.callsToday === 1 ? '' : 's'} today`
     };
   }
 
   return {
     tone: 'ok' as const,
     label: 'Healthy',
-    reason: 'Everything running smooth'
+    reason: `${options.answeredCalls} answered call${options.answeredCalls === 1 ? '' : 's'} this month`
   };
 }
 
@@ -81,6 +126,8 @@ export default async function ClientsPage({
   }
 
   const weekStart = startOfTrailingDays(7);
+  const todayStart = startOfToday();
+  const monthStart = startOfCurrentMonth();
 
   const clients = await safeLoadDb(
     () =>
@@ -96,13 +143,6 @@ export default async function ClientsPage({
           createdAt: true,
           telnyxInboundNumbers: {
             select: { number: true }
-          },
-          leads: {
-            where: {
-              createdAt: { gte: weekStart }
-            },
-            select: { createdAt: true },
-            orderBy: { createdAt: 'desc' }
           },
           appointments: {
             where: {
@@ -172,20 +212,23 @@ export default async function ClientsPage({
   const liveClients = clients.filter((client) => approvedCompanyIds.has(client.id) || !isLikelyTestWorkspaceName(client.name));
   const companyIds = liveClients.map((client) => client.id);
 
-  const conversationRows = await (companyIds.length > 0
+  const prospectCallRows = await (companyIds.length > 0
     ? safeLoadDb(
         () =>
-          db.conversation.findMany({
+          db.prospect.findMany({
             where: {
               companyId: { in: companyIds }
             },
-            include: {
-              messages: {
-                orderBy: { createdAt: 'desc' },
-                take: 1,
+            select: {
+              companyId: true,
+              lastCallAt: true,
+              callLogs: {
+                where: {
+                  createdAt: { gte: monthStart }
+                },
                 select: {
-                  direction: true,
-                  createdAt: true
+                  createdAt: true,
+                  outcome: true
                 }
               }
             }
@@ -194,24 +237,60 @@ export default async function ClientsPage({
       )
     : Promise.resolve([]));
 
-  const unreadByCompanyId = new Map<string, number>();
-  for (const conversation of conversationRows) {
-    if (conversation.messages[0]?.direction !== 'INBOUND') {
-      continue;
+  const callMetricsByCompanyId = new Map<
+    string,
+    { callsToday: number; answeredCalls: number; callsThisMonth: number; latestCallAt: Date | null }
+  >();
+
+  for (const row of prospectCallRows) {
+    const current = callMetricsByCompanyId.get(row.companyId) || {
+      callsToday: 0,
+      answeredCalls: 0,
+      callsThisMonth: 0,
+      latestCallAt: null
+    };
+
+    if (row.lastCallAt && (!current.latestCallAt || row.lastCallAt > current.latestCallAt)) {
+      current.latestCallAt = row.lastCallAt;
     }
 
-    unreadByCompanyId.set(conversation.companyId, (unreadByCompanyId.get(conversation.companyId) || 0) + 1);
+    for (const call of row.callLogs) {
+      current.callsThisMonth += 1;
+
+      if (call.createdAt >= todayStart) {
+        current.callsToday += 1;
+      }
+
+      if (isAnsweredCallOutcome(call.outcome)) {
+        current.answeredCalls += 1;
+      }
+
+      if (!current.latestCallAt || call.createdAt > current.latestCallAt) {
+        current.latestCallAt = call.createdAt;
+      }
+    }
+
+    callMetricsByCompanyId.set(row.companyId, current);
   }
 
   const rows = liveClients
     .map((client) => {
-      const unreadMessages = unreadByCompanyId.get(client.id) || 0;
+      const callMetrics = callMetricsByCompanyId.get(client.id) || {
+        callsToday: 0,
+        answeredCalls: 0,
+        callsThisMonth: 0,
+        latestCallAt: null
+      };
+      const appointmentsThisWeek = client.appointments.length;
       const health = healthState({
-        unreadMessages,
         hasRouting: hasInboundRouting(client),
-        hasNotificationEmail: Boolean(client.notificationEmail)
+        hasNotificationEmail: Boolean(client.notificationEmail),
+        callsToday: callMetrics.callsToday,
+        answeredCalls: callMetrics.answeredCalls,
+        callsThisMonth: callMetrics.callsThisMonth,
+        appointmentsThisWeek
       });
-      const lastActivityAt = client.events[0]?.createdAt || client.appointments[0]?.createdAt || client.leads[0]?.createdAt || null;
+      const lastActivityAt = callMetrics.latestCallAt || client.appointments[0]?.createdAt || client.events[0]?.createdAt || client.createdAt;
       const inboundNumbers = allInboundNumbers(client);
       const connectedNumbers = inboundNumbers.length;
       const normalizedOwnerPhone = normalizePhone(client.primaryContactPhone || '');
@@ -220,10 +299,11 @@ export default async function ClientsPage({
       return {
         id: client.id,
         name: client.name,
-        unreadMessages,
         health,
-        leadsThisWeek: client.leads.length,
-        appointmentsThisWeek: client.appointments.length,
+        callsToday: callMetrics.callsToday,
+        answeredCalls: callMetrics.answeredCalls,
+        callsThisMonth: callMetrics.callsThisMonth,
+        appointmentsThisWeek,
         lastActivityAt,
         connectedNumbers,
         websiteHref: websiteHref(client.website),
@@ -237,8 +317,20 @@ export default async function ClientsPage({
         return toneRank[left.health.tone] - toneRank[right.health.tone];
       }
 
-      if (left.unreadMessages !== right.unreadMessages) {
-        return right.unreadMessages - left.unreadMessages;
+      if (left.callsToday !== right.callsToday) {
+        return right.callsToday - left.callsToday;
+      }
+
+      if (left.answeredCalls !== right.answeredCalls) {
+        return right.answeredCalls - left.answeredCalls;
+      }
+
+      if (left.callsThisMonth !== right.callsThisMonth) {
+        return right.callsThisMonth - left.callsThisMonth;
+      }
+
+      if (left.appointmentsThisWeek !== right.appointmentsThisWeek) {
+        return right.appointmentsThisWeek - left.appointmentsThisWeek;
       }
 
       return left.name.localeCompare(right.name);
@@ -292,13 +384,13 @@ export default async function ClientsPage({
                   <span className="client-table-header-label">Client Name</span>
                 </th>
                 <th className="client-table-col-metric client-table-metric-head">
-                  <span className="client-table-header-label">Unread Msgs</span>
+                  <span className="client-table-header-label">Calls Today</span>
                 </th>
                 <th className="client-table-col-metric client-table-metric-head">
-                  <span className="client-table-header-label">Appts This Week</span>
+                  <span className="client-table-header-label">Calls This Month</span>
                 </th>
                 <th className="client-table-col-metric client-table-metric-head">
-                  <span className="client-table-header-label">New Leads This Week</span>
+                  <span className="client-table-header-label">Answered Calls</span>
                 </th>
                 <th />
               </tr>
@@ -360,13 +452,13 @@ export default async function ClientsPage({
                       </div>
                     </td>
                     <td className="client-table-col-metric client-table-metric-cell">
-                      <span className="client-table-metric-value">{row.unreadMessages}</span>
+                      <span className="client-table-metric-value">{row.callsToday}</span>
                     </td>
                     <td className="client-table-col-metric client-table-metric-cell">
-                      <span className="client-table-metric-value">{row.appointmentsThisWeek}</span>
+                      <span className="client-table-metric-value">{row.callsThisMonth}</span>
                     </td>
                     <td className="client-table-col-metric client-table-metric-cell">
-                      <span className="client-table-metric-value">{row.leadsThisWeek}</span>
+                      <span className="client-table-metric-value">{row.answeredCalls}</span>
                     </td>
                     <td className="client-row-actions-cell">
                       <div className="client-row-actions">
