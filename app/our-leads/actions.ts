@@ -738,9 +738,10 @@ export async function updateProspectOutcomeAction(formData: FormData) {
       nextActionAt: addDaysFromNow(1, 11)
     },
     not_interested: {
-      status: ProspectStatus.GATEKEEPER,
-      lastCallOutcome: 'Not interested - retry later',
-      nextActionAt: addDaysFromNow(45, 10)
+      status: ProspectStatus.NOT_INTERESTED,
+      lastCallOutcome: 'Not interested',
+      nextActionAt: addDaysFromNow(45, 10),
+      notesSuffix: 'Not interested. Revisit later if priorities change.'
     },
     do_not_contact: {
       status: ProspectStatus.DEAD,

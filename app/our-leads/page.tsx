@@ -61,6 +61,8 @@ function humanizeStatus(status: ProspectStatus) {
       return 'Voicemail left';
     case ProspectStatus.GATEKEEPER:
       return 'Call back later';
+    case ProspectStatus.NOT_INTERESTED:
+      return 'Not interested';
     case ProspectStatus.BOOKED_DEMO:
       return 'Booked';
     case ProspectStatus.CLOSED:
@@ -300,9 +302,11 @@ function queueChipLabel(status: ProspectStatus) {
     case ProspectStatus.NO_ANSWER:
       return 'No answer';
     case ProspectStatus.VM_LEFT:
-      return 'Voicemail';
+      return 'Left voicemail';
     case ProspectStatus.GATEKEEPER:
-      return 'Callback';
+      return 'Call back later';
+    case ProspectStatus.NOT_INTERESTED:
+      return 'Not interested';
     case ProspectStatus.BOOKED_DEMO:
       return 'Booked';
     case ProspectStatus.CLOSED:
@@ -490,6 +494,8 @@ export default async function OurLeadsPage({
     overdue: prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'overdue', now)).length,
     today: prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'today', now)).length,
     waiting: prospectRows.filter((prospect) => prospect.status === ProspectStatus.GATEKEEPER).length,
+    voicemail: prospectRows.filter((prospect) => prospect.status === ProspectStatus.VM_LEFT).length,
+    notInterested: prospectRows.filter((prospect) => prospect.status === ProspectStatus.NOT_INTERESTED).length,
     booked: prospectRows.filter((prospect) => prospect.status === ProspectStatus.BOOKED_DEMO).length,
     noAnswer: prospectRows.filter((prospect) => prospect.status === ProspectStatus.NO_ANSWER).length,
     sold: prospectRows.filter((prospect) => prospect.status === ProspectStatus.CLOSED).length,
@@ -811,6 +817,20 @@ export default async function OurLeadsPage({
                 scroll={false}
               >
                 Call back later {queueCounts.waiting}
+              </Link>
+              <Link
+                className={`filter-chip${selectedStatus === ProspectStatus.VM_LEFT ? ' is-active' : ''}`}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.VM_LEFT })}
+                scroll={false}
+              >
+                Left voicemail {queueCounts.voicemail}
+              </Link>
+              <Link
+                className={`filter-chip${selectedStatus === ProspectStatus.NOT_INTERESTED ? ' is-active' : ''}`}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.NOT_INTERESTED })}
+                scroll={false}
+              >
+                Not interested {queueCounts.notInterested}
               </Link>
               <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.BOOKED_DEMO ? ' is-active' : ''}`}
