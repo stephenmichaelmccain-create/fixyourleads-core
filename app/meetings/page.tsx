@@ -156,6 +156,10 @@ export default async function MeetingsPage({
           id: true,
           startTime: true,
           status: true,
+          purpose: true,
+          meetingUrl: true,
+          displayCompanyName: true,
+          sourceProspectId: true,
           notes: true,
           externalSyncStatus: true,
           externalSyncError: true,
@@ -198,14 +202,18 @@ export default async function MeetingsPage({
 
   const approvedCompanyIds = new Set(approvedRows.map((event) => event.companyId));
   const liveAppointments = appointments.filter(
-    (appointment) => approvedCompanyIds.has(appointment.company.id) || !isLikelyTestWorkspaceName(appointment.company.name)
+    (appointment) =>
+      Boolean(appointment.displayCompanyName) ||
+      approvedCompanyIds.has(appointment.company.id) ||
+      !isLikelyTestWorkspaceName(appointment.company.name)
   );
 
   const rows = liveAppointments.map((appointment) => {
-    const meetingLink = extractMeetingLink(appointment.notes);
+    const meetingLink = appointment.meetingUrl?.trim() || extractMeetingLink(appointment.notes);
 
     return {
       ...appointment,
+      companyLabel: appointment.displayCompanyName?.trim() || appointment.company.name,
       contactPhone: normalizePhone(appointment.contact.phone),
       meetingLink
     };
@@ -255,8 +263,8 @@ export default async function MeetingsPage({
                 <span className={styles.heroBadge}>{meetingsToday} today</span>
               </div>
               <p className={styles.heroNote}>
-                Exactly what the meeting taker needs next. Join links only appear when a Google Meet, Zoom, or Teams URL was
-                added to the appointment notes.
+                Exactly what the meeting taker needs next. Lead callers can book from the Leads page, and this board will show the
+                saved join link here for the meeting team.
               </p>
             </div>
 
@@ -318,7 +326,8 @@ export default async function MeetingsPage({
                   {rows.map((appointment) => {
                     const contactName = appointment.contact.name?.trim() || 'Unnamed contact';
                     const meetingLabel = appointment.meetingLink ? meetingLinkLabel(appointment.meetingLink) : 'No link yet';
-                    const noteCopy = appointment.notes?.trim() || 'No appointment notes yet';
+                    const noteCopy = appointment.notes?.trim() || '';
+                    const purposeCopy = appointment.purpose?.trim() || 'No purpose yet';
                     const syncLabel = formatSyncStatus(appointment.externalSyncStatus);
 
                     return (
@@ -337,7 +346,7 @@ export default async function MeetingsPage({
                         </div>
 
                         <div>
-                          <div className={styles.primaryText}>{appointment.company.name}</div>
+                          <div className={styles.primaryText}>{appointment.companyLabel}</div>
                           <div className={styles.secondaryText}>
                             <span className={`${styles.statusDot} ${statusClassName(appointment.status)}`} aria-hidden="true" />{' '}
                             {formatStatus(appointment.status)}
@@ -350,7 +359,10 @@ export default async function MeetingsPage({
                           {appointment.contact.email?.trim() ? <div className={styles.contactMeta}>{appointment.contact.email.trim()}</div> : null}
                         </div>
 
-                        <div className={styles.purposeText}>{noteCopy}</div>
+                        <div className={styles.purposeText}>
+                          <strong>{purposeCopy}</strong>
+                          {noteCopy ? `\n${noteCopy}` : ''}
+                        </div>
 
                         <div className={styles.actions}>
                           <span className={`${styles.syncStatus} ${syncStatusClassName(appointment.externalSyncStatus)}`}>
@@ -367,9 +379,15 @@ export default async function MeetingsPage({
                           ) : (
                             <span className={`${styles.actionSecondary} ${styles.actionGhost}`}>{meetingLabel}</span>
                           )}
-                          <Link className={styles.actionSecondary} href={`/clients/${appointment.company.id}`}>
-                            Open client
-                          </Link>
+                          {appointment.sourceProspectId ? (
+                            <Link className={styles.actionSecondary} href={`/leads?prospectId=${appointment.sourceProspectId}`}>
+                              Open lead
+                            </Link>
+                          ) : (
+                            <Link className={styles.actionSecondary} href={`/clients/${appointment.company.id}`}>
+                              Open client
+                            </Link>
+                          )}
                           {appointment.externalSyncStatus !== AppointmentExternalSyncStatus.SYNCED ? (
                             <form action={retryMeetingCalendarSyncAction}>
                               <input type="hidden" name="appointmentId" value={appointment.id} />
@@ -392,7 +410,8 @@ export default async function MeetingsPage({
                   {rows.map((appointment) => {
                     const contactName = appointment.contact.name?.trim() || 'Unnamed contact';
                     const meetingLabel = appointment.meetingLink ? meetingLinkLabel(appointment.meetingLink) : 'No link yet';
-                    const noteCopy = appointment.notes?.trim() || 'No appointment notes yet';
+                    const noteCopy = appointment.notes?.trim() || '';
+                    const purposeCopy = appointment.purpose?.trim() || 'No purpose yet';
                     const syncLabel = formatSyncStatus(appointment.externalSyncStatus);
 
                     return (
@@ -408,7 +427,7 @@ export default async function MeetingsPage({
                         <div className={styles.mobileFields}>
                           <div>
                             <div className={styles.mobileFieldLabel}>Client</div>
-                            <div className={styles.mobileFieldValue}>{appointment.company.name}</div>
+                            <div className={styles.mobileFieldValue}>{appointment.companyLabel}</div>
                           </div>
                           <div>
                             <div className={styles.mobileFieldLabel}>Contact</div>
@@ -421,7 +440,10 @@ export default async function MeetingsPage({
                           </div>
                           <div>
                             <div className={styles.mobileFieldLabel}>Purpose</div>
-                            <div className={styles.mobileFieldValue}>{noteCopy}</div>
+                            <div className={styles.mobileFieldValue}>
+                              {purposeCopy}
+                              {noteCopy ? `\n${noteCopy}` : ''}
+                            </div>
                           </div>
                           <div>
                             <div className={styles.mobileFieldLabel}>Calendar sync</div>
@@ -442,9 +464,15 @@ export default async function MeetingsPage({
                           ) : (
                             <span className={`${styles.actionSecondary} ${styles.actionGhost}`}>{meetingLabel}</span>
                           )}
-                          <Link className={styles.actionSecondary} href={`/clients/${appointment.company.id}`}>
-                            Open client
-                          </Link>
+                          {appointment.sourceProspectId ? (
+                            <Link className={styles.actionSecondary} href={`/leads?prospectId=${appointment.sourceProspectId}`}>
+                              Open lead
+                            </Link>
+                          ) : (
+                            <Link className={styles.actionSecondary} href={`/clients/${appointment.company.id}`}>
+                              Open client
+                            </Link>
+                          )}
                           {appointment.externalSyncStatus !== AppointmentExternalSyncStatus.SYNCED ? (
                             <form action={retryMeetingCalendarSyncAction} className={styles.actionForm}>
                               <input type="hidden" name="appointmentId" value={appointment.id} />

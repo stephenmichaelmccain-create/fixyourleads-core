@@ -1,12 +1,13 @@
 "use server";
 
-import { Prisma, ProspectDedupKeyType, ProspectStatus } from '@prisma/client';
+import { AppointmentStatus, Prisma, ProspectDedupKeyType, ProspectStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { normalizeClinicKey, normalizeWebsiteKey } from '@/lib/client-intake';
 import { db } from '@/lib/db';
 import { normalizePhone } from '@/lib/phone';
 import { buildProspectNotes, parseProspectNotes } from '@/lib/prospect-metadata';
+import { resolveAppointmentStartTime } from '@/services/booking';
 
 const INTERNAL_COMPANY_ID = 'fixyourleads';
 
@@ -34,6 +35,7 @@ function revalidateLeadSurfaces() {
   revalidatePath('/leads');
   revalidatePath('/');
   revalidatePath('/events');
+  revalidatePath('/meetings');
 }
 
 function addDaysFromNow(days: number, hour: number) {
@@ -75,6 +77,8 @@ function buildOurLeadsHref({
   error,
   duplicateReason,
   duplicateCompanyId,
+  bookMeeting,
+  meetingError,
   draft
 }: {
   prospectId?: string;
@@ -93,6 +97,8 @@ function buildOurLeadsHref({
   error?: string;
   duplicateReason?: string;
   duplicateCompanyId?: string;
+  bookMeeting?: string;
+  meetingError?: string;
   draft?: {
     name?: string;
     phone?: string;
@@ -168,6 +174,14 @@ function buildOurLeadsHref({
 
   if (duplicateCompanyId) {
     params.set('duplicateCompanyId', duplicateCompanyId);
+  }
+
+  if (bookMeeting) {
+    params.set('bookMeeting', bookMeeting);
+  }
+
+  if (meetingError) {
+    params.set('meetingError', meetingError);
   }
 
   if (draft?.name) {
@@ -802,6 +816,20 @@ export async function updateProspectOutcomeAction(formData: FormData) {
     redirect(buildOurLeadsHref({ prospectId, q, view, status, city, nextActionDue }));
   }
 
+  if (outcome === 'booked') {
+    redirect(
+      buildOurLeadsHref({
+        prospectId,
+        q,
+        view,
+        status,
+        city,
+        nextActionDue,
+        bookMeeting: '1'
+      })
+    );
+  }
+
   const existing = await db.prospect.findUnique({
     where: { id: prospectId },
     select: {
@@ -864,6 +892,285 @@ export async function updateProspectOutcomeAction(formData: FormData) {
       city,
       nextActionDue,
       updated: outcome
+    })
+  );
+}
+
+export async function createProspectMeetingAction(formData: FormData) {
+  const prospectId = readText(formData, 'prospectId');
+  const nextProspectId = readText(formData, 'nextProspectId');
+  const q = readText(formData, 'q');
+  const view = readText(formData, 'view');
+  const status = readText(formData, 'status');
+  const city = readText(formData, 'city');
+  const nextActionDue = readText(formData, 'nextActionDue');
+  const meetingAtRaw = readText(formData, 'meetingAt');
+  const contactName = readText(formData, 'contactName');
+  const contactPhoneRaw = readText(formData, 'contactPhone');
+  const meetingUrl = readText(formData, 'meetingUrl');
+  const purpose = readText(formData, 'purpose');
+  const notes = readText(formData, 'notes');
+
+  if (!prospectId) {
+    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
+  }
+
+  const normalizedPhone = normalizePhone(contactPhoneRaw);
+
+  if (!normalizedPhone) {
+    redirect(
+      buildOurLeadsHref({
+        prospectId,
+        q,
+        view,
+        status,
+        city,
+        nextActionDue,
+        bookMeeting: '1',
+        meetingError: 'phone_required'
+      })
+    );
+  }
+
+  if (!meetingAtRaw) {
+    redirect(
+      buildOurLeadsHref({
+        prospectId,
+        q,
+        view,
+        status,
+        city,
+        nextActionDue,
+        bookMeeting: '1',
+        meetingError: 'meetingAt_required'
+      })
+    );
+  }
+
+  if (!purpose) {
+    redirect(
+      buildOurLeadsHref({
+        prospectId,
+        q,
+        view,
+        status,
+        city,
+        nextActionDue,
+        bookMeeting: '1',
+        meetingError: 'purpose_required'
+      })
+    );
+  }
+
+  if (!meetingUrl) {
+    redirect(
+      buildOurLeadsHref({
+        prospectId,
+        q,
+        view,
+        status,
+        city,
+        nextActionDue,
+        bookMeeting: '1',
+        meetingError: 'meetingUrl_required'
+      })
+    );
+  }
+
+  let parsedMeetingUrl: URL;
+
+  try {
+    parsedMeetingUrl = new URL(meetingUrl);
+  } catch {
+    redirect(
+      buildOurLeadsHref({
+        prospectId,
+        q,
+        view,
+        status,
+        city,
+        nextActionDue,
+        bookMeeting: '1',
+        meetingError: 'meetingUrl_invalid'
+      })
+    );
+  }
+
+  if (!['http:', 'https:'].includes(parsedMeetingUrl.protocol)) {
+    redirect(
+      buildOurLeadsHref({
+        prospectId,
+        q,
+        view,
+        status,
+        city,
+        nextActionDue,
+        bookMeeting: '1',
+        meetingError: 'meetingUrl_invalid'
+      })
+    );
+  }
+
+  let appointmentTime: Date;
+
+  try {
+    appointmentTime = resolveAppointmentStartTime(new Date(meetingAtRaw));
+  } catch (error) {
+    redirect(
+      buildOurLeadsHref({
+        prospectId,
+        q,
+        view,
+        status,
+        city,
+        nextActionDue,
+        bookMeeting: '1',
+        meetingError: error instanceof Error ? error.message : 'meetingAt_invalid'
+      })
+    );
+  }
+
+  const existing = await db.prospect.findUnique({
+    where: { id: prospectId },
+    select: {
+      id: true,
+      name: true,
+      ownerName: true,
+      phone: true,
+      website: true,
+      notes: true
+    }
+  });
+
+  if (!existing) {
+    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
+  }
+
+  await ensureInternalCompany();
+
+  const resolvedContactName = contactName || existing.ownerName || existing.name;
+  const noteParts = [notes];
+  if (existing.website) {
+    noteParts.push(`Website: ${existing.website}`);
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.prospect.update({
+      where: { id: prospectId },
+      data: {
+        ownerName: resolvedContactName,
+        phone: normalizedPhone,
+        status: ProspectStatus.BOOKED_DEMO,
+        lastCallAt: new Date(),
+        lastCallOutcome: 'Booked demo',
+        nextActionAt: appointmentTime
+      }
+    });
+
+    const contact = await tx.contact.upsert({
+      where: {
+        companyId_phone: {
+          companyId: INTERNAL_COMPANY_ID,
+          phone: normalizedPhone
+        }
+      },
+      update: {
+        name: resolvedContactName
+      },
+      create: {
+        companyId: INTERNAL_COMPANY_ID,
+        name: resolvedContactName,
+        phone: normalizedPhone
+      }
+    });
+
+    await tx.conversation.upsert({
+      where: {
+        companyId_contactId: {
+          companyId: INTERNAL_COMPANY_ID,
+          contactId: contact.id
+        }
+      },
+      update: {},
+      create: {
+        companyId: INTERNAL_COMPANY_ID,
+        contactId: contact.id
+      }
+    });
+
+    const existingAppointment = await tx.appointment.findFirst({
+      where: {
+        companyId: INTERNAL_COMPANY_ID,
+        contactId: contact.id,
+        startTime: appointmentTime
+      },
+      select: { id: true }
+    });
+
+    const appointmentPayload = {
+      companyId: INTERNAL_COMPANY_ID,
+      contactId: contact.id,
+      startTime: appointmentTime,
+      status: AppointmentStatus.BOOKED,
+      purpose,
+      meetingUrl: parsedMeetingUrl.toString(),
+      displayCompanyName: existing.name,
+      sourceProspectId: prospectId,
+      notes: noteParts.filter(Boolean).join('\n')
+    };
+
+    if (existingAppointment) {
+      await tx.appointment.update({
+        where: { id: existingAppointment.id },
+        data: {
+          purpose,
+          meetingUrl: parsedMeetingUrl.toString(),
+          displayCompanyName: existing.name,
+          sourceProspectId: prospectId,
+          notes: noteParts.filter(Boolean).join('\n')
+        }
+      });
+    } else {
+      await tx.appointment.create({
+        data: appointmentPayload
+      });
+    }
+
+    await tx.callLog.create({
+      data: {
+        prospectId,
+        outcome: 'Booked demo',
+        notes: `Meeting booked for ${appointmentTime.toLocaleString()}. ${purpose}`
+      }
+    });
+
+    await tx.eventLog.create({
+      data: {
+        companyId: INTERNAL_COMPANY_ID,
+        eventType: 'prospect_meeting_booked',
+        payload: {
+          prospectId,
+          contactName: resolvedContactName,
+          contactPhone: normalizedPhone,
+          purpose,
+          meetingUrl: parsedMeetingUrl.toString(),
+          startTime: appointmentTime.toISOString(),
+          displayCompanyName: existing.name
+        }
+      }
+    });
+  });
+
+  revalidateLeadSurfaces();
+  redirect(
+    buildOurLeadsHref({
+      prospectId: nextProspectId || prospectId,
+      q,
+      view,
+      status,
+      city,
+      nextActionDue,
+      updated: 'meeting_booked'
     })
   );
 }

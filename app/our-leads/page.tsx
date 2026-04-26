@@ -4,6 +4,7 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoadDb } from '@/lib/ui-data';
+import { LeadBookMeetingDialog } from './LeadBookMeetingDialog';
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
 import { LeadNotesComposer } from './LeadNotesComposer';
 import { SpeakProspectNameButton } from './SpeakProspectNameButton';
@@ -32,6 +33,8 @@ type SearchParamShape = Promise<{
   bulkError?: string;
   updated?: string;
   error?: string;
+  bookMeeting?: string;
+  meetingError?: string;
   duplicateReason?: string;
   duplicateCompanyId?: string;
   draftName?: string;
@@ -505,6 +508,8 @@ export default async function OurLeadsPage({
   const bulkError = String(params.bulkError || '').trim();
   const updated = String(params.updated || '').trim();
   const error = String(params.error || '').trim();
+  const bookMeeting = String(params.bookMeeting || '').trim();
+  const meetingError = String(params.meetingError || '').trim();
   const duplicateReason = String(params.duplicateReason || '').trim();
   const duplicateCompanyId = String(params.duplicateCompanyId || '').trim();
   const draftValues = {
@@ -672,10 +677,11 @@ export default async function OurLeadsPage({
           ? 'The prospect could not be saved. Try again.'
           : '';
   const shouldOpenAddProspect = error !== 'duplicate' && Boolean(errorMessage || Object.values(draftValues).some((value) => value));
+  const shouldOpenBookMeeting = bookMeeting === '1' || Boolean(meetingError);
 
   return (
     <LayoutShell title="Leads" section="leads" variant="workspace" hidePageHeader>
-      {updated || added || bulkAdded || bulkSkipped || bulkError || errorMessage ? (
+      {updated || added || bulkAdded || bulkSkipped || bulkError || errorMessage || meetingError ? (
         <section className="panel prospect-update-bar">
           {updated ? (
             <span className="inline-row">
@@ -688,10 +694,12 @@ export default async function OurLeadsPage({
                     ? 'Not interested saved'
                     : updated === 'callback'
                       ? 'Callback scheduled'
-                      : updated === 'do_not_contact'
-                        ? 'Suppressed'
+                        : updated === 'do_not_contact'
+                          ? 'Suppressed'
                         : updated === 'booked'
                           ? 'Marked booked'
+                          : updated === 'meeting_booked'
+                            ? 'Meeting booked'
                           : updated === 'sold'
                             ? 'Marked sold'
                             : updated === 'details'
@@ -727,6 +735,24 @@ export default async function OurLeadsPage({
             <span className="inline-row">
               <span className="status-dot error" />
               {errorMessage}
+            </span>
+          ) : null}
+          {meetingError ? (
+            <span className="inline-row">
+              <span className="status-dot error" />
+              {meetingError === 'phone_required'
+                ? 'A valid phone number is required before booking.'
+                : meetingError === 'meetingAt_required'
+                  ? 'Pick the meeting date and time.'
+                  : meetingError === 'purpose_required'
+                    ? 'Add the meeting purpose.'
+                    : meetingError === 'meetingUrl_required'
+                      ? 'Paste the meeting link.'
+                      : meetingError === 'meetingUrl_invalid'
+                        ? 'Meeting link must be a valid URL.'
+                        : meetingError === 'startTime_in_past'
+                          ? 'Meeting time must be in the future.'
+                          : 'Meeting could not be booked.'}
             </span>
           ) : null}
           {error === 'duplicate' && selectedProspectId ? (
@@ -1140,7 +1166,9 @@ export default async function OurLeadsPage({
                         <input type="hidden" name="status" value={selectedStatus} />
                         <input type="hidden" name="city" value={selectedCity} />
                         <input type="hidden" name="nextActionDue" value={selectedDue} />
-                        {leadOutcomeCommands.map((command) => (
+                        {leadOutcomeCommands
+                          .filter((command) => command.value !== 'booked')
+                          .map((command) => (
                           <button
                             key={command.value}
                             type="submit"
@@ -1154,6 +1182,24 @@ export default async function OurLeadsPage({
                           </button>
                         ))}
                       </form>
+
+                      <LeadBookMeetingDialog
+                        initialOpen={shouldOpenBookMeeting}
+                        prospectId={selectedProspectView.id}
+                        nextProspectId={nextQueueProspectId}
+                        q={searchQuery}
+                        view={selectedView}
+                        status={selectedStatus}
+                        city={selectedCity}
+                        nextActionDue={selectedDue}
+                        companyName={selectedProspectView.name}
+                        contactName={selectedProspectView.ownerName || ''}
+                        contactPhone={selectedProspectView.phone || ''}
+                        website={selectedProspectView.website || ''}
+                        purpose="Discovery call"
+                        notes={selectedProspectView.plainNotes || ''}
+                        meetingError={meetingError || undefined}
+                      />
 
                       <form
                         action={scheduleProspectCallbackAction}

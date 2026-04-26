@@ -197,6 +197,10 @@ model Appointment {
   contactId                String
   startTime                DateTime
   status                   AppointmentStatus             @default(BOOKED)
+  purpose                  String?
+  meetingUrl               String?
+  displayCompanyName       String?
+  sourceProspectId         String?
   notes                    String?
   externalCalendarProvider String?
   externalCalendarEventId  String?
