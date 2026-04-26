@@ -1118,7 +1118,7 @@ select {
   display: grid;
   gap: 16px;
   grid-template-columns: minmax(0, 1.18fr) minmax(340px, 0.92fr);
-  align-items: start;
+  align-items: stretch;
   width: 100%;
   min-width: 0;
 }
@@ -1367,10 +1367,8 @@ select {
   position: relative;
   z-index: 1;
   min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
+  width: 100%;
+  min-height: 100%;
   gap: 14px;
 }
 
@@ -1378,7 +1376,8 @@ select {
   gap: 16px;
   width: 100%;
   min-width: 0;
-  align-self: start;
+  align-self: stretch;
+  min-height: 100%;
 }
 
 .lead-follow-up-header {
@@ -2798,7 +2797,7 @@ select {
 }
 
 .activity-view-switcher {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .workspace-tab-link {
@@ -3517,10 +3516,6 @@ select {
 
   .lead-follow-up-panel {
     order: 2;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
     gap: 10px;
   }
 
@@ -3675,16 +3670,10 @@ select {
 
 @media (max-width: 520px) {
   .lead-action-panel,
-  .lead-preview-panel {
-    padding: 14px;
-  }
-
+  .lead-preview-panel,
   .lead-follow-up-panel,
   .lead-notes-panel {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
+    padding: 14px;
   }
 
   .lead-action-pill-grid,
@@ -4297,47 +4286,46 @@ select {
   }
 
   .lead-queue-panel > .workspace-search-bar {
-    display: flex;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
-    align-items: center;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-bottom: 2px;
+    align-items: stretch;
+    overflow: visible;
+    padding-bottom: 0;
   }
 
   .lead-queue-panel > .workspace-search-bar > form.workspace-search-bar {
-    display: flex;
-    flex: 1 1 auto;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    width: 100%;
     gap: 8px;
-    min-width: 0;
+    min-width: 100%;
     align-items: center;
   }
 
   .lead-queue-panel > .workspace-search-bar > form.workspace-search-bar .text-input {
     min-width: 0;
-    flex: 1 1 180px;
+    width: 100%;
+    flex: none;
   }
 
   .lead-queue-panel > .workspace-search-bar > form.workspace-search-bar .button-ghost {
-    flex: 0 0 auto;
+    width: auto;
     min-height: 40px;
     padding: 8px 12px;
     white-space: nowrap;
   }
 
   .lead-queue-panel .workspace-action-rail {
-    display: inline-flex;
-    flex: 0 0 auto;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
     gap: 8px;
   }
 
   .lead-queue-panel .workspace-action-rail > * {
-    flex: 0 0 auto;
-    width: auto;
-    min-width: auto;
+    width: 100%;
+    min-width: 0;
   }
 
   .lead-queue-panel .prospect-add-drawer,

@@ -354,12 +354,6 @@ function labelForNotificationView(view: NotificationView) {
   return view === 'leads' ? 'Lead notifications' : 'Client notifications';
 }
 
-function helperTextForNotificationView(view: NotificationView) {
-  return view === 'leads'
-    ? 'Lead imports, queue activity, and follow-up events for prospects.'
-    : 'System health, client messaging, bookings, onboarding, and everything outside the lead queue.';
-}
-
 function humanizeRelatedRecordType(value: string) {
   if (value === 'unclassified') {
     return 'Unclassified';
@@ -675,39 +669,30 @@ export async function ActivityPage({
         </>
       ) : null}
 
-      <section className={`panel panel-stack${compact ? ' activity-view-switcher-panel-compact' : ''}`}>
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">Notification view</div>
-            <h2 className="section-title">
-              {selectedView === 'clients' ? 'Client notifications' : 'Lead notifications'}
-            </h2>
-            <div className="tiny-muted">{helperTextForNotificationView(selectedView)}</div>
-          </div>
-          <div className="workspace-tab-row activity-view-switcher">
-            <Link
-              className={`workspace-tab-link${selectedView === 'clients' ? ' is-active' : ''}`}
-              href={buildEventsHref(basePath, {
-                companyId: selectedCompanyId || undefined,
-                window: selectedWindow,
-                q: searchQuery || undefined,
-                view: 'clients'
-              })}
-            >
-              Clients
-            </Link>
-            <Link
-              className={`workspace-tab-link${selectedView === 'leads' ? ' is-active' : ''}`}
-              href={buildEventsHref(basePath, {
-                companyId: selectedCompanyId || undefined,
-                window: selectedWindow,
-                q: searchQuery || undefined,
-                view: 'leads'
-              })}
-            >
-              Leads
-            </Link>
-          </div>
+      <section className={`panel${compact ? ' activity-view-switcher-panel-compact' : ''}`}>
+        <div className="workspace-tab-row activity-view-switcher">
+          <Link
+            className={`workspace-tab-link${selectedView === 'clients' ? ' is-active' : ''}`}
+            href={buildEventsHref(basePath, {
+              companyId: selectedCompanyId || undefined,
+              window: selectedWindow,
+              q: searchQuery || undefined,
+              view: 'clients'
+            })}
+          >
+            Clients
+          </Link>
+          <Link
+            className={`workspace-tab-link${selectedView === 'leads' ? ' is-active' : ''}`}
+            href={buildEventsHref(basePath, {
+              companyId: selectedCompanyId || undefined,
+              window: selectedWindow,
+              q: searchQuery || undefined,
+              view: 'leads'
+            })}
+          >
+            Leads
+          </Link>
         </div>
       </section>
 
