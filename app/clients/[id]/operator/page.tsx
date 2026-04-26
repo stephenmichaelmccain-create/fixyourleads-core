@@ -466,6 +466,10 @@ export default async function ClientCommsLabPage({
                 <li>Post bookings to the voice webhook saved in Workflow.</li>
                 <li>Capture recording, transcript, and booking handoff on the Meetings board.</li>
               </ul>
+              <div className="tiny-muted">
+                Use the exact webhook URL shown in Workflow. The booking payload must include `phone` and `startTime`, then
+                either `companyId`, `telnyxAssistantId`, or `calledNumber` so the booking lands on the right client.
+              </div>
             </section>
 
             <section className="panel panel-stack comms-lab-card">

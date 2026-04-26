@@ -29,6 +29,33 @@ function formatCompactDateTime(value: Date | string | null | undefined) {
   }).format(new Date(value));
 }
 
+function buildVoiceWebhookExamplePayload(input: {
+  companyId: string;
+  businessName: string;
+  calledNumber: string | null;
+}) {
+  return JSON.stringify(
+    {
+      companyId: input.companyId,
+      calledNumber: input.calledNumber || '+13035550199',
+      phone: '+13125550123',
+      fullName: 'Jordan Avery',
+      email: 'jordan@example.com',
+      purpose: 'Consultation',
+      startTime: '2026-04-28T15:00:00.000Z',
+      meetingUrl: 'https://meet.google.com/example-link',
+      displayCompanyName: input.businessName,
+      notes: 'Booked by AI voice agent after qualifying the caller.',
+      callId: 'telnyx-call-control-id',
+      recordingUrl: 'https://storage.telnyx.com/recording.mp3',
+      transcriptUrl: 'https://storage.telnyx.com/transcript.json',
+      transcriptText: 'Caller asked for a consultation and accepted Tuesday at 10 AM.'
+    },
+    null,
+    2
+  );
+}
+
 export default async function ClientWorkflowPage({
   params,
   searchParams
@@ -90,6 +117,11 @@ export default async function ClientWorkflowPage({
   const defaultVoiceWebhookUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/appointments` : '';
   const workflowPageUrl = appBaseUrl ? `${appBaseUrl}/clients/${company.id}/workflow` : '';
   const voiceWebhookTarget = voiceState.webhookUrl || '';
+  const voiceWebhookExamplePayload = buildVoiceWebhookExamplePayload({
+    companyId: company.id,
+    businessName: company.name,
+    calledNumber: voiceState.phoneNumber
+  });
 
   const crmConnected = Boolean(company.crmCredentialsEncrypted);
   const bookingConnected = Boolean(
@@ -245,6 +277,43 @@ export default async function ClientWorkflowPage({
                 fallbackCopyValue={voiceState.automationUrl || workflowPageUrl}
                 label="Workflow URL"
               />
+            </div>
+            <div className="panel panel-dark panel-stack" style={{ marginTop: 16 }}>
+              <div className="metric-label">Voice webhook contract</div>
+              <div className="text-muted">
+                Point the client&apos;s AI voice agent at this webhook when a real appointment is booked. Authorize with either
+                `Authorization: Bearer $VOICE_BOOKING_WEBHOOK_SECRET` or `X-Voice-Webhook-Secret: $VOICE_BOOKING_WEBHOOK_SECRET`.
+                If signature verification is enabled, keep sending the normal Telnyx signature headers too.
+              </div>
+              <div className="key-value-grid">
+                <div className="key-value-card">
+                  <span className="key-value-label">Must send</span>
+                  phone, startTime
+                </div>
+                <div className="key-value-card">
+                  <span className="key-value-label">Routing options</span>
+                  companyId or telnyxAssistantId or calledNumber
+                </div>
+                <div className="key-value-card">
+                  <span className="key-value-label">Evidence fields</span>
+                  callId, recordingUrl, transcriptUrl, transcriptText
+                </div>
+              </div>
+              <details className="panel panel-stack">
+                <summary className="metric-label" style={{ cursor: 'pointer' }}>
+                  Sample booking payload
+                </summary>
+                <pre
+                  style={{
+                    margin: 0,
+                    whiteSpace: 'pre-wrap',
+                    overflowWrap: 'anywhere',
+                    color: 'rgba(231, 227, 255, 0.76)'
+                  }}
+                >
+                  {voiceWebhookExamplePayload}
+                </pre>
+              </details>
             </div>
           </div>
 
