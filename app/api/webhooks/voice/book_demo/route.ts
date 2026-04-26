@@ -18,7 +18,9 @@ const voiceDemoSchema = z.object({
   telnyxAssistantId: z.string().trim().min(1).optional(),
   calledNumber: z.string().trim().min(7).optional(),
   callId: z.string().trim().min(1).optional(),
-  transcriptUrl: z.string().trim().min(1).optional()
+  recordingUrl: z.string().trim().min(1).optional(),
+  transcriptUrl: z.string().trim().min(1).optional(),
+  transcriptText: z.string().trim().min(1).optional()
 });
 
 const corsHeaders = {
@@ -58,7 +60,9 @@ function normalizePayload(body: unknown) {
     telnyxAssistantId: pickString(payload, ['telnyx_assistant_id', 'telnyxAssistantId', 'assistant_id', 'assistantId']),
     calledNumber: pickString(payload, ['called_number', 'calledNumber', 'to', 'to_number']),
     callId: pickString(payload, ['call_id', 'callId', 'telnyx_call_control_id', 'call_control_id']),
-    transcriptUrl: pickString(payload, ['transcript_url', 'transcriptUrl', 'recording_url', 'recordingUrl'])
+    recordingUrl: pickString(payload, ['recording_url', 'recordingUrl']),
+    transcriptUrl: pickString(payload, ['transcript_url', 'transcriptUrl']),
+    transcriptText: pickString(payload, ['transcript_text', 'transcriptText', 'transcript', 'call_transcript'])
   };
 }
 

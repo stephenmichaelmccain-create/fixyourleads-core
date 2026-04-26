@@ -21,7 +21,9 @@ export type VoiceDemoBookingInput = {
   telnyxAssistantId?: string;
   calledNumber?: string;
   callId?: string;
+  recordingUrl?: string;
   transcriptUrl?: string;
+  transcriptText?: string;
   rawPayload?: unknown;
 };
 
@@ -181,7 +183,9 @@ export async function bookVoiceDemo(input: VoiceDemoBookingInput): Promise<Voice
     business_name: input.businessName,
     source: 'voice_agent',
     call_id: callId,
+    recording_url: input.recordingUrl,
     transcript_url: input.transcriptUrl,
+    transcript_text: input.transcriptText,
     notes: [input.reason, input.preferredTime ? `Preferred time: ${input.preferredTime}` : null]
       .filter(Boolean)
       .join('\n'),
@@ -228,6 +232,10 @@ export async function bookVoiceDemo(input: VoiceDemoBookingInput): Promise<Voice
         reason: input.reason || null,
         email: input.email,
         phone: input.phone,
+        callId,
+        recordingUrl: input.recordingUrl || null,
+        transcriptUrl: input.transcriptUrl || null,
+        transcriptText: input.transcriptText || null,
         calendlyUrl,
         crmSync,
         standardLead,

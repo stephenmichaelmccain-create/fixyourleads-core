@@ -375,6 +375,18 @@ function shortPayload(eventType: string, payload: unknown) {
     return parts.join(' · ');
   }
 
+  if (value === 'voice_demo_requested') {
+    const parts = [
+      record.businessName ? String(record.businessName) : null,
+      record.phone ? `phone ${String(record.phone)}` : null,
+      record.recordingUrl ? 'recording ready' : null,
+      record.transcriptUrl || record.transcriptText ? 'transcript ready' : null,
+      record.callId ? `call ${String(record.callId).slice(-6)}` : null
+    ].filter(Boolean) as string[];
+
+    return parts.join(' · ');
+  }
+
   const summaryParts = [
     record.contactId ? `contact ${String(record.contactId).slice(-6)}` : null,
     record.leadId ? `lead ${String(record.leadId).slice(-6)}` : null,
@@ -384,7 +396,10 @@ function shortPayload(eventType: string, payload: unknown) {
     record.deliveryStatus ? `delivery ${String(record.deliveryStatus)}` : null,
     record.notificationStatus ? `email ${String(record.notificationStatus)}` : null,
     record.confirmationStatus ? `sms ${String(record.confirmationStatus)}` : null,
-    record.query ? `query ${String(record.query)}` : null
+    record.query ? `query ${String(record.query)}` : null,
+    record.callRecordingUrl ? 'recording ready' : null,
+    record.callTranscriptUrl || record.hasCallTranscriptText ? 'transcript ready' : null,
+    record.callExternalId ? `call ${String(record.callExternalId).slice(-6)}` : null
   ].filter(Boolean) as string[];
 
   return summaryParts.length > 0 ? summaryParts.join(' · ') : null;

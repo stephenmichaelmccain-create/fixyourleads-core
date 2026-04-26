@@ -161,6 +161,10 @@ export default async function MeetingsPage({
           displayCompanyName: true,
           sourceProspectId: true,
           notes: true,
+          callExternalId: true,
+          callRecordingUrl: true,
+          callTranscriptUrl: true,
+          callTranscriptText: true,
           externalSyncStatus: true,
           externalSyncError: true,
           externalSyncedAt: true,
@@ -223,9 +227,15 @@ export default async function MeetingsPage({
   const missingLinkCount = rows.filter((appointment) => !appointment.meetingLink).length;
   const syncIssueCount = rows.filter((appointment) => appointment.externalSyncStatus === AppointmentExternalSyncStatus.FAILED).length;
   const syncPendingCount = rows.filter((appointment) => appointment.externalSyncStatus === AppointmentExternalSyncStatus.PENDING).length;
+  const evidenceMissingCount = rows.filter(
+    (appointment) => !appointment.callRecordingUrl?.trim() && !appointment.callTranscriptUrl?.trim() && !appointment.callTranscriptText?.trim()
+  ).length;
   const needsPrepCount = rows.filter(
     (appointment) =>
-      !appointment.meetingLink || !appointment.notes?.trim() || appointment.externalSyncStatus !== AppointmentExternalSyncStatus.SYNCED
+      !appointment.meetingLink ||
+      !appointment.notes?.trim() ||
+      appointment.externalSyncStatus !== AppointmentExternalSyncStatus.SYNCED ||
+      (!appointment.callRecordingUrl?.trim() && !appointment.callTranscriptUrl?.trim() && !appointment.callTranscriptText?.trim())
   ).length;
   const nextMeeting = rows[0] || null;
 
@@ -295,7 +305,7 @@ export default async function MeetingsPage({
                   <div className={styles.heroStatLabel}>Needs prep</div>
                   <div className={styles.heroStatValue}>{needsPrepCount}</div>
                   <div className={styles.heroStatCopy}>
-                    {missingLinkCount} missing a join link, {syncIssueCount + syncPendingCount} need calendar sync attention
+                    {missingLinkCount} missing a join link, {syncIssueCount + syncPendingCount} need calendar sync attention, {evidenceMissingCount} missing call evidence
                   </div>
                 </div>
               </div>
@@ -329,6 +339,7 @@ export default async function MeetingsPage({
                     const noteCopy = appointment.notes?.trim() || '';
                     const purposeCopy = appointment.purpose?.trim() || 'No purpose yet';
                     const syncLabel = formatSyncStatus(appointment.externalSyncStatus);
+                    const transcriptSnippet = appointment.callTranscriptText?.trim() || '';
 
                     return (
                       <article key={appointment.id} className={styles.row}>
@@ -362,6 +373,7 @@ export default async function MeetingsPage({
                         <div className={styles.purposeText}>
                           <strong>{purposeCopy}</strong>
                           {noteCopy ? `\n${noteCopy}` : ''}
+                          {transcriptSnippet ? `\n\nTranscript: ${transcriptSnippet.slice(0, 220)}${transcriptSnippet.length > 220 ? '…' : ''}` : ''}
                         </div>
 
                         <div className={styles.actions}>
@@ -388,6 +400,16 @@ export default async function MeetingsPage({
                               Open client
                             </Link>
                           )}
+                          {appointment.callRecordingUrl?.trim() ? (
+                            <a className={styles.actionSecondary} href={appointment.callRecordingUrl.trim()} target="_blank" rel="noreferrer">
+                              Recording
+                            </a>
+                          ) : null}
+                          {appointment.callTranscriptUrl?.trim() ? (
+                            <a className={styles.actionSecondary} href={appointment.callTranscriptUrl.trim()} target="_blank" rel="noreferrer">
+                              Transcript
+                            </a>
+                          ) : null}
                           {appointment.externalSyncStatus !== AppointmentExternalSyncStatus.SYNCED ? (
                             <form action={retryMeetingCalendarSyncAction}>
                               <input type="hidden" name="appointmentId" value={appointment.id} />
@@ -399,6 +421,9 @@ export default async function MeetingsPage({
                           ) : null}
                           {appointment.externalSyncError ? (
                             <div className={styles.syncErrorText}>{appointment.externalSyncError}</div>
+                          ) : null}
+                          {appointment.callExternalId?.trim() ? (
+                            <div className={styles.syncMetaText}>Call ID {appointment.callExternalId.trim()}</div>
                           ) : null}
                         </div>
                       </article>
@@ -413,6 +438,7 @@ export default async function MeetingsPage({
                     const noteCopy = appointment.notes?.trim() || '';
                     const purposeCopy = appointment.purpose?.trim() || 'No purpose yet';
                     const syncLabel = formatSyncStatus(appointment.externalSyncStatus);
+                    const transcriptSnippet = appointment.callTranscriptText?.trim() || '';
 
                     return (
                       <article key={`${appointment.id}-mobile`} className={styles.mobileCard}>
@@ -443,6 +469,7 @@ export default async function MeetingsPage({
                             <div className={styles.mobileFieldValue}>
                               {purposeCopy}
                               {noteCopy ? `\n${noteCopy}` : ''}
+                              {transcriptSnippet ? `\n\nTranscript: ${transcriptSnippet.slice(0, 220)}${transcriptSnippet.length > 220 ? '…' : ''}` : ''}
                             </div>
                           </div>
                           <div>
@@ -473,6 +500,16 @@ export default async function MeetingsPage({
                               Open client
                             </Link>
                           )}
+                          {appointment.callRecordingUrl?.trim() ? (
+                            <a className={styles.actionSecondary} href={appointment.callRecordingUrl.trim()} target="_blank" rel="noreferrer">
+                              Recording
+                            </a>
+                          ) : null}
+                          {appointment.callTranscriptUrl?.trim() ? (
+                            <a className={styles.actionSecondary} href={appointment.callTranscriptUrl.trim()} target="_blank" rel="noreferrer">
+                              Transcript
+                            </a>
+                          ) : null}
                           {appointment.externalSyncStatus !== AppointmentExternalSyncStatus.SYNCED ? (
                             <form action={retryMeetingCalendarSyncAction} className={styles.actionForm}>
                               <input type="hidden" name="appointmentId" value={appointment.id} />

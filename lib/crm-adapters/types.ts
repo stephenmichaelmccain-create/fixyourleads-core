@@ -5,7 +5,9 @@ export type StandardLead = {
   business_name?: string;
   source: 'voice_agent';
   call_id: string;
+  recording_url?: string;
   transcript_url?: string;
+  transcript_text?: string;
   notes?: string;
   created_at: string;
 };

@@ -383,6 +383,14 @@
   overflow-wrap: anywhere;
 }
 
+.syncMetaText {
+  flex-basis: 100%;
+  color: rgba(231, 227, 255, 0.56);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .mobileCards {
   display: none;
 }

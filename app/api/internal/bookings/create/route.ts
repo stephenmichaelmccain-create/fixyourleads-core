@@ -8,7 +8,20 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { companyId, contactId, startTime } = body;
+  const {
+    companyId,
+    contactId,
+    startTime,
+    purpose,
+    meetingUrl,
+    displayCompanyName,
+    sourceProspectId,
+    notes,
+    callExternalId,
+    callRecordingUrl,
+    callTranscriptUrl,
+    callTranscriptText
+  } = body;
 
   if (!companyId || !contactId || !startTime) {
     return NextResponse.json({ error: 'companyId_contactId_startTime_required' }, { status: 400 });
@@ -22,7 +35,16 @@ export async function POST(request: NextRequest) {
     const result = await createAppointmentFlow({
       companyId,
       contactId,
-      startTime: resolveAppointmentStartTime(new Date(startTime))
+      startTime: resolveAppointmentStartTime(new Date(startTime)),
+      purpose,
+      meetingUrl,
+      displayCompanyName,
+      sourceProspectId,
+      notes,
+      callExternalId,
+      callRecordingUrl,
+      callTranscriptUrl,
+      callTranscriptText
     });
 
     return NextResponse.json(

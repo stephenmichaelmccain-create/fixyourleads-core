@@ -14,6 +14,15 @@ type CreateAppointmentInput = {
   companyId: string;
   contactId: string;
   startTime?: Date;
+  purpose?: string | null;
+  meetingUrl?: string | null;
+  displayCompanyName?: string | null;
+  sourceProspectId?: string | null;
+  notes?: string | null;
+  callExternalId?: string | null;
+  callRecordingUrl?: string | null;
+  callTranscriptUrl?: string | null;
+  callTranscriptText?: string | null;
 };
 
 type BookingStatus = 'created' | 'existing';
@@ -47,6 +56,11 @@ function defaultAppointmentStartTime() {
 
 function bookingDetailsRequestText(companyName: string) {
   return `Thanks for reaching back out to ${companyName}. What day and time works best for your appointment? Reply with something like "Tuesday at 2pm" and we will confirm it.`;
+}
+
+function cleanOptionalText(value?: string | null) {
+  const cleaned = String(value || '').trim();
+  return cleaned || null;
 }
 
 export function resolveAppointmentStartTime(startTime?: Date) {
@@ -247,7 +261,20 @@ export async function requestBookingDetailsFlow({
   }
 }
 
-export async function createAppointmentFlow({ companyId, contactId, startTime }: CreateAppointmentInput): Promise<CreateAppointmentResult> {
+export async function createAppointmentFlow({
+  companyId,
+  contactId,
+  startTime,
+  purpose,
+  meetingUrl,
+  displayCompanyName,
+  sourceProspectId,
+  notes,
+  callExternalId,
+  callRecordingUrl,
+  callTranscriptUrl,
+  callTranscriptText
+}: CreateAppointmentInput): Promise<CreateAppointmentResult> {
   const appointmentTime = resolveAppointmentStartTime(startTime);
 
   const company = await db.company.findUniqueOrThrow({
@@ -285,6 +312,25 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
   });
 
   if (existingAppointment) {
+    const duplicateUpdateData = {
+      purpose: cleanOptionalText(purpose) || undefined,
+      meetingUrl: cleanOptionalText(meetingUrl) || undefined,
+      displayCompanyName: cleanOptionalText(displayCompanyName) || undefined,
+      sourceProspectId: cleanOptionalText(sourceProspectId) || undefined,
+      notes: cleanOptionalText(notes) || undefined,
+      callExternalId: cleanOptionalText(callExternalId) || undefined,
+      callRecordingUrl: cleanOptionalText(callRecordingUrl) || undefined,
+      callTranscriptUrl: cleanOptionalText(callTranscriptUrl) || undefined,
+      callTranscriptText: cleanOptionalText(callTranscriptText) || undefined
+    };
+    const hasDuplicateUpdates = Object.values(duplicateUpdateData).some(Boolean);
+    const appointmentForReturn = hasDuplicateUpdates
+      ? await db.appointment.update({
+          where: { id: existingAppointment.id },
+          data: duplicateUpdateData
+        })
+      : existingAppointment;
+
     await db.lead.updateMany({
       where: { companyId, contactId },
       data: {
@@ -299,9 +345,10 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
         companyId,
         eventType: 'appointment_booking_duplicate',
         payload: {
-          appointmentId: existingAppointment.id,
+          appointmentId: appointmentForReturn.id,
           contactId,
-          startTime: existingAppointment.startTime.toISOString()
+          startTime: appointmentForReturn.startTime.toISOString(),
+          evidenceUpdated: hasDuplicateUpdates
         }
       }
     });
@@ -321,7 +368,7 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
     });
 
     return {
-      appointment: existingAppointment,
+      appointment: appointmentForReturn,
       bookingStatus: 'existing',
       notification: {
         status: 'skipped',
@@ -338,7 +385,16 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
       companyId,
       contactId,
       startTime: appointmentTime,
-      status: AppointmentStatus.BOOKED
+      status: AppointmentStatus.BOOKED,
+      purpose: cleanOptionalText(purpose),
+      meetingUrl: cleanOptionalText(meetingUrl),
+      displayCompanyName: cleanOptionalText(displayCompanyName),
+      sourceProspectId: cleanOptionalText(sourceProspectId),
+      notes: cleanOptionalText(notes),
+      callExternalId: cleanOptionalText(callExternalId),
+      callRecordingUrl: cleanOptionalText(callRecordingUrl),
+      callTranscriptUrl: cleanOptionalText(callTranscriptUrl),
+      callTranscriptText: cleanOptionalText(callTranscriptText)
     }
   });
 
@@ -395,6 +451,14 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
         contactId,
         bookingStatus: 'created',
         startTime: appointment.startTime.toISOString(),
+        purpose: appointment.purpose || null,
+        meetingUrl: appointment.meetingUrl || null,
+        displayCompanyName: appointment.displayCompanyName || null,
+        sourceProspectId: appointment.sourceProspectId || null,
+        callExternalId: appointment.callExternalId || null,
+        callRecordingUrl: appointment.callRecordingUrl || null,
+        callTranscriptUrl: appointment.callTranscriptUrl || null,
+        hasCallTranscriptText: Boolean(appointment.callTranscriptText?.trim()),
         confirmationStatus,
         confirmationDetail,
         confirmationMessageId,

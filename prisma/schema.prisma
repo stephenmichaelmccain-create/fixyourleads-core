@@ -202,6 +202,10 @@ model Appointment {
   displayCompanyName       String?
   sourceProspectId         String?
   notes                    String?
+  callExternalId           String?
+  callRecordingUrl         String?
+  callTranscriptUrl        String?
+  callTranscriptText       String?
   externalCalendarProvider String?
   externalCalendarEventId  String?
   externalSyncStatus       AppointmentExternalSyncStatus @default(PENDING)
