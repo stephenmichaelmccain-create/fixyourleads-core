@@ -72,6 +72,7 @@ function buildOurLeadsHref({
   duplicateCompanyId,
   bookMeeting,
   meetingError,
+  bookingDraft,
   draft
 }: {
   prospectId?: string;
@@ -92,6 +93,15 @@ function buildOurLeadsHref({
   duplicateCompanyId?: string;
   bookMeeting?: string;
   meetingError?: string;
+  bookingDraft?: {
+    contactName?: string;
+    contactPhone?: string;
+    meetingAt?: string;
+    purpose?: string;
+    meetingUrl?: string;
+    hostEmail?: string;
+    notes?: string;
+  };
   draft?: {
     name?: string;
     phone?: string;
@@ -175,6 +185,34 @@ function buildOurLeadsHref({
 
   if (meetingError) {
     params.set('meetingError', meetingError);
+  }
+
+  if (bookingDraft?.contactName) {
+    params.set('bookingContactName', bookingDraft.contactName);
+  }
+
+  if (bookingDraft?.contactPhone) {
+    params.set('bookingContactPhone', bookingDraft.contactPhone);
+  }
+
+  if (bookingDraft?.meetingAt) {
+    params.set('bookingMeetingAt', bookingDraft.meetingAt);
+  }
+
+  if (bookingDraft?.purpose) {
+    params.set('bookingPurpose', bookingDraft.purpose);
+  }
+
+  if (bookingDraft?.meetingUrl) {
+    params.set('bookingMeetingUrl', bookingDraft.meetingUrl);
+  }
+
+  if (bookingDraft?.hostEmail) {
+    params.set('bookingHostEmail', bookingDraft.hostEmail);
+  }
+
+  if (bookingDraft?.notes) {
+    params.set('bookingNotes', bookingDraft.notes);
   }
 
   if (draft?.name) {
@@ -904,6 +942,15 @@ export async function createProspectMeetingAction(formData: FormData) {
   const purpose = readText(formData, 'purpose');
   const hostEmailRaw = readText(formData, 'hostEmail');
   const notes = readText(formData, 'notes');
+  const bookingDraft = {
+    contactName,
+    contactPhone: contactPhoneRaw,
+    meetingAt: meetingAtRaw,
+    purpose,
+    meetingUrl,
+    hostEmail: hostEmailRaw,
+    notes
+  };
 
   if (!prospectId) {
     redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
@@ -921,7 +968,8 @@ export async function createProspectMeetingAction(formData: FormData) {
         city,
         nextActionDue,
         bookMeeting: '1',
-        meetingError: 'phone_required'
+        meetingError: 'phone_required',
+        bookingDraft
       })
     );
   }
@@ -936,7 +984,8 @@ export async function createProspectMeetingAction(formData: FormData) {
         city,
         nextActionDue,
         bookMeeting: '1',
-        meetingError: 'meetingAt_required'
+        meetingError: 'meetingAt_required',
+        bookingDraft
       })
     );
   }
@@ -951,7 +1000,8 @@ export async function createProspectMeetingAction(formData: FormData) {
         city,
         nextActionDue,
         bookMeeting: '1',
-        meetingError: 'purpose_required'
+        meetingError: 'purpose_required',
+        bookingDraft
       })
     );
   }
@@ -966,7 +1016,8 @@ export async function createProspectMeetingAction(formData: FormData) {
         city,
         nextActionDue,
         bookMeeting: '1',
-        meetingError: 'meetingUrl_required'
+        meetingError: 'meetingUrl_required',
+        bookingDraft
       })
     );
   }
@@ -985,7 +1036,8 @@ export async function createProspectMeetingAction(formData: FormData) {
         city,
         nextActionDue,
         bookMeeting: '1',
-        meetingError: 'meetingUrl_invalid'
+        meetingError: 'meetingUrl_invalid',
+        bookingDraft
       })
     );
   }
@@ -1000,7 +1052,8 @@ export async function createProspectMeetingAction(formData: FormData) {
         city,
         nextActionDue,
         bookMeeting: '1',
-        meetingError: 'meetingUrl_invalid'
+        meetingError: 'meetingUrl_invalid',
+        bookingDraft
       })
     );
   }
@@ -1019,7 +1072,8 @@ export async function createProspectMeetingAction(formData: FormData) {
         city,
         nextActionDue,
         bookMeeting: '1',
-        meetingError: error instanceof Error ? error.message : 'meetingAt_invalid'
+        meetingError: error instanceof Error ? error.message : 'meetingAt_invalid',
+        bookingDraft
       })
     );
   }
@@ -1054,7 +1108,8 @@ export async function createProspectMeetingAction(formData: FormData) {
         city,
         nextActionDue,
         bookMeeting: '1',
-        meetingError: 'host_invalid'
+        meetingError: 'host_invalid',
+        bookingDraft
       })
     );
   }
@@ -1069,7 +1124,8 @@ export async function createProspectMeetingAction(formData: FormData) {
         city,
         nextActionDue,
         bookMeeting: '1',
-        meetingError: 'host_invalid'
+        meetingError: 'host_invalid',
+        bookingDraft
       })
     );
   }

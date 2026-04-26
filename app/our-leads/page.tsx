@@ -46,6 +46,13 @@ type SearchParamShape = Promise<{
   draftHours?: string;
   draftNextActionAt?: string;
   draftNotes?: string;
+  bookingContactName?: string;
+  bookingContactPhone?: string;
+  bookingMeetingAt?: string;
+  bookingPurpose?: string;
+  bookingMeetingUrl?: string;
+  bookingHostEmail?: string;
+  bookingNotes?: string;
 }>;
 
 function startOfDay(date: Date) {
@@ -522,6 +529,15 @@ export default async function OurLeadsPage({
     hours: String(params.draftHours || '').trim(),
     nextActionAt: String(params.draftNextActionAt || '').trim(),
     notes: String(params.draftNotes || '').trim()
+  };
+  const bookingDraftValues = {
+    contactName: String(params.bookingContactName || '').trim(),
+    contactPhone: String(params.bookingContactPhone || '').trim(),
+    meetingAt: String(params.bookingMeetingAt || '').trim(),
+    purpose: String(params.bookingPurpose || '').trim(),
+    meetingUrl: String(params.bookingMeetingUrl || '').trim(),
+    hostEmail: String(params.bookingHostEmail || '').trim(),
+    notes: String(params.bookingNotes || '').trim()
   };
   const now = new Date();
 
@@ -1185,12 +1201,15 @@ export default async function OurLeadsPage({
                               city={selectedCity}
                               nextActionDue={selectedDue}
                               companyName={selectedProspectView.name}
-                              contactName={selectedProspectView.ownerName || ''}
-                              contactPhone={selectedProspectView.phone || ''}
+                              contactName={bookingDraftValues.contactName || selectedProspectView.ownerName || ''}
+                              contactPhone={bookingDraftValues.contactPhone || selectedProspectView.phone || ''}
                               website={selectedProspectView.website || ''}
-                              purpose="Discovery call"
-                              notes={selectedProspectView.plainNotes || ''}
+                              purpose={bookingDraftValues.purpose || 'Discovery call'}
+                              notes={bookingDraftValues.notes || selectedProspectView.plainNotes || ''}
+                              initialMeetingAt={bookingDraftValues.meetingAt || undefined}
+                              initialMeetingUrl={bookingDraftValues.meetingUrl || undefined}
                               defaultAttendeeEmails={meetingTeamDefaults.defaultAttendeeEmails}
+                              initialHostEmail={bookingDraftValues.hostEmail || undefined}
                               meetingError={meetingError || undefined}
                             />
                           ) : (

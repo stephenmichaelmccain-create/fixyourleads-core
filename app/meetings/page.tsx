@@ -260,14 +260,30 @@ export default async function MeetingsPage({
           {query.notice && (
             <section className={styles.noticeBanner}>
               <div className={styles.noticeTitle}>
-                {query.notice === 'calendar_sync_synced'
+                {query.notice === 'meeting_default_attendee_added'
+                  ? 'Default attendee added.'
+                  : query.notice === 'meeting_default_attendee_removed'
+                    ? 'Default attendee removed.'
+                    : query.notice === 'meeting_default_attendee_exists'
+                      ? 'That attendee is already on the default list.'
+                      : query.notice === 'meeting_default_attendee_invalid'
+                        ? 'Add a valid attendee email.'
+                        : query.notice === 'calendar_sync_synced'
                   ? 'Calendar sync worked.'
                   : query.notice === 'calendar_sync_retry_queued'
                     ? 'Calendar retry queued.'
                     : 'Calendar sync still needs attention.'}
               </div>
               <div className={styles.noticeCopy}>
-                {query.notice === 'calendar_sync_synced'
+                {query.notice === 'meeting_default_attendee_added'
+                  ? 'New lead-booked meetings will now auto-add that email.'
+                  : query.notice === 'meeting_default_attendee_removed'
+                    ? 'Future lead-booked meetings will stop auto-adding that email.'
+                    : query.notice === 'meeting_default_attendee_exists'
+                      ? 'Use the current auto-added people list below to remove or review it.'
+                      : query.notice === 'meeting_default_attendee_invalid'
+                        ? 'Use a full email address like name@gmail.com.'
+                        : query.notice === 'calendar_sync_synced'
                   ? 'The external calendar event is now linked to this meeting.'
                   : query.notice === 'calendar_sync_retry_queued'
                     ? 'We saved the failure and queued another sync attempt in the background.'
@@ -415,6 +431,9 @@ export default async function MeetingsPage({
                           <div className={styles.contactMeta}>{appointment.contactPhone || 'No phone yet'}</div>
                           {appointment.contact.email?.trim() ? <div className={styles.contactMeta}>{appointment.contact.email.trim()}</div> : null}
                           <div className={styles.contactMeta}>Host: {appointment.hostEmail || 'None assigned'}</div>
+                          <div className={styles.contactMeta}>
+                            Auto-added: {appointment.attendeeEmails.length > 0 ? appointment.attendeeEmails.join(', ') : 'None'}
+                          </div>
                         </div>
 
                         <div className={styles.purposeText}>
@@ -510,6 +529,7 @@ export default async function MeetingsPage({
                               {appointment.contactPhone || 'No phone yet'}
                               {appointment.contact.email?.trim() ? `\n${appointment.contact.email.trim()}` : ''}
                               {`\nHost: ${appointment.hostEmail || 'None assigned'}`}
+                              {`\nAuto-added: ${appointment.attendeeEmails.length > 0 ? appointment.attendeeEmails.join(', ') : 'None'}`}
                             </div>
                           </div>
                           <div>

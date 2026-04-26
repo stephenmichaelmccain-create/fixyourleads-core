@@ -19,6 +19,8 @@ type LeadBookMeetingDialogProps = {
   website: string;
   purpose: string;
   notes: string;
+  initialMeetingAt?: string;
+  initialMeetingUrl?: string;
   defaultAttendeeEmails: string[];
   initialHostEmail?: string;
   meetingError?: string;
@@ -70,6 +72,8 @@ export function LeadBookMeetingDialog({
   website,
   purpose,
   notes,
+  initialMeetingAt,
+  initialMeetingUrl,
   defaultAttendeeEmails,
   initialHostEmail,
   meetingError
@@ -225,7 +229,7 @@ export function LeadBookMeetingDialog({
                 type="datetime-local"
                 name="meetingAt"
                 className="text-input"
-                defaultValue={defaultMeetingInputValue()}
+                defaultValue={initialMeetingAt || defaultMeetingInputValue()}
                 min={minMeetingInputValue()}
                 step={900}
                 required
@@ -273,6 +277,7 @@ export function LeadBookMeetingDialog({
                 id="lead-booking-link"
                 name="meetingUrl"
                 className="text-input"
+                defaultValue={initialMeetingUrl}
                 placeholder="https://meet.google.com/..."
                 required
               />

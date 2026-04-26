@@ -43,26 +43,30 @@ export async function addMeetingDefaultAttendeeAction(formData: FormData) {
   const email = normalizeMeetingEmail(String(formData.get('email') || ''));
 
   if (!email) {
-    redirect('/meetings');
+    redirect('/meetings?notice=meeting_default_attendee_invalid');
   }
 
   const existing = await getMeetingTeamDefaults();
+  if (existing.defaultAttendeeEmails.includes(email)) {
+    redirect('/meetings?notice=meeting_default_attendee_exists');
+  }
+
   await saveMeetingTeamDefaults([...existing.defaultAttendeeEmails, email]);
   revalidatePath('/meetings');
-  redirect('/meetings');
+  redirect('/meetings?notice=meeting_default_attendee_added');
 }
 
 export async function removeMeetingDefaultAttendeeAction(formData: FormData) {
   const email = normalizeMeetingEmail(String(formData.get('email') || ''));
 
   if (!email) {
-    redirect('/meetings');
+    redirect('/meetings?notice=meeting_default_attendee_invalid');
   }
 
   const existing = await getMeetingTeamDefaults();
   await saveMeetingTeamDefaults(existing.defaultAttendeeEmails.filter((value) => value !== email));
   revalidatePath('/meetings');
-  redirect('/meetings');
+  redirect('/meetings?notice=meeting_default_attendee_removed');
 }
 
 export async function retryMeetingCalendarSyncAction(formData: FormData) {
