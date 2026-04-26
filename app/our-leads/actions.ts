@@ -956,7 +956,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
   const city = readText(formData, 'city');
   const nextActionDue = readText(formData, 'nextActionDue');
   const notes = readText(formData, 'notes');
-  const hours = readText(formData, 'hours');
+  const hoursInput = formData.has('hours') ? readText(formData, 'hours') : null;
   const nextActionRaw = readText(formData, 'nextActionAt');
 
   if (!prospectId) {
@@ -997,6 +997,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
   const parsed = parseProspectNotes(existing.notes);
   const previousPlainNotes = parsed.plainNotes.trim();
   const previousHours = String(parsed.profile.operatingHours || '').trim();
+  const hours = hoursInput === null ? previousHours : hoursInput;
   const previousNextAction = existing.nextActionAt?.toISOString() || '';
   const noteChanged = previousPlainNotes !== notes;
   const hoursChanged = previousHours !== hours;

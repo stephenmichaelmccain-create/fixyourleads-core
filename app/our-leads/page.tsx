@@ -138,6 +138,64 @@ function formatDateOnly(date?: Date | null) {
   }).format(date);
 }
 
+function formatHistoryDate(date?: Date | null) {
+  if (!date) {
+    return 'Not set';
+  }
+
+  const now = new Date();
+  const sameDay =
+    now.getFullYear() === date.getFullYear() &&
+    now.getMonth() === date.getMonth() &&
+    now.getDate() === date.getDate();
+
+  if (sameDay) {
+    return `Today, ${new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(date)}`;
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  }).format(date);
+}
+
+function formatHistoryTime(date?: Date | null) {
+  if (!date) {
+    return '';
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit'
+  }).format(date);
+}
+
+function historyOutcomeTone(outcome: string) {
+  const normalized = outcome.toLowerCase();
+
+  if (normalized.includes('no answer')) {
+    return 'lead-history-chip is-no-answer';
+  }
+
+  if (normalized.includes('voicemail')) {
+    return 'lead-history-chip is-voicemail';
+  }
+
+  if (normalized.includes('connect') || normalized.includes('booked') || normalized.includes('sold')) {
+    return 'lead-history-chip is-positive';
+  }
+
+  if (normalized.includes('not interested') || normalized.includes('do not contact')) {
+    return 'lead-history-chip is-negative';
+  }
+
+  return 'lead-history-chip';
+}
+
 function websiteHref(website?: string | null) {
   if (!website) {
     return '';
@@ -1121,57 +1179,95 @@ export default async function OurLeadsPage({
                   </section>
                 </div>
 
-                <div className="lead-preview-grid">
-                  <section className="panel panel-stack lead-preview-panel">
-                    <div className="inline-row justify-between lead-panel-header">
-                      <span className="metric-label">Contact history</span>
-                      <span className="tiny-muted">{selectedProspectView.callLogs.length}</span>
-                    </div>
-                    {selectedProspectView.callLogs.length === 0 ? (
-                      <div className="empty-state lead-preview-empty">No contact history yet.</div>
-                    ) : (
-                      <div className="lead-history-list">
-                        {selectedProspectView.callLogs.slice(0, 3).map((call) => (
-                          <div key={call.id} className="lead-history-item">
-                            <div className="inline-row justify-between lead-history-row">
-                              <span className="status-label">
-                                <span className="status-dot ok" />
-                                {call.outcome}
-                              </span>
-                              <span className="tiny-muted">{formatDateTime(call.createdAt)}</span>
+                  <div className="lead-preview-grid">
+                    <section className="panel panel-stack lead-preview-panel">
+                      <div className="inline-row justify-between lead-panel-header">
+                        <span className="metric-label">Contact history</span>
+                        {selectedProspectView.callLogs.length > 3 ? (
+                          <details className="lead-history-disclosure">
+                            <summary className="button-secondary lead-history-summary">View all history</summary>
+                            <div className="lead-history-disclosure-panel">
+                              {selectedProspectView.callLogs.slice(3).map((call) => (
+                                <article key={call.id} className="lead-history-entry">
+                                  <div className="lead-history-rail">
+                                    <span className="lead-history-node" aria-hidden="true">
+                                      <svg viewBox="0 0 20 20" focusable="false">
+                                        <path d="M6.2 3.8c-.5-.5-1.3-.5-1.8 0L2.8 5.3c-.6.6-.8 1.6-.4 2.4 2 4 5 7 9 9 .8.4 1.8.2 2.4-.4l1.5-1.5c.5-.5.5-1.3 0-1.8l-2.1-2.1c-.4-.4-1-.5-1.5-.2l-1.4.8a12.2 12.2 0 0 1-2.8-2.8l.8-1.4c.3-.5.2-1.1-.2-1.5L6.2 3.8Z" />
+                                      </svg>
+                                    </span>
+                                  </div>
+                                  <div className="lead-history-card">
+                                    <div className="lead-history-card-top">
+                                      <div className="lead-history-title-row">
+                                        <strong>Outbound call</strong>
+                                        <span className={historyOutcomeTone(call.outcome)}>{call.outcome}</span>
+                                      </div>
+                                      <div className="lead-history-meta">
+                                        <span>{formatHistoryDate(call.createdAt)}</span>
+                                        <span>{formatHistoryTime(call.createdAt)}</span>
+                                        <span>by You</span>
+                                      </div>
+                                    </div>
+                                    <div className="text-muted lead-history-note-copy">
+                                      {call.notes || 'No call notes captured.'}
+                                    </div>
+                                  </div>
+                                </article>
+                              ))}
                             </div>
-                            <span className="text-muted">
-                              {call.notes || 'No call notes captured.'}
-                              {typeof call.durationSeconds === 'number' ? ` • ${call.durationSeconds}s` : ''}
-                            </span>
-                          </div>
-                        ))}
+                          </details>
+                        ) : null}
                       </div>
-                    )}
-                  </section>
-
-                  <form action={updateProspectDetailsAction} className="panel panel-stack lead-notes-panel">
-                    <input type="hidden" name="prospectId" value={selectedProspectView.id} />
-                    <input type="hidden" name="q" value={searchQuery} />
-                    <input type="hidden" name="view" value={selectedView} />
-                    <input type="hidden" name="status" value={selectedStatus} />
-                    <input type="hidden" name="city" value={selectedCity} />
-                    <input type="hidden" name="nextActionDue" value={selectedDue} />
-                    <div className="lead-notes-grid lead-notes-grid-streamlined">
-                      <div className="lead-notes-meta-stack">
-                        <div className="field-stack lead-date-field">
-                          <label className="key-value-label" htmlFor="lead-hours-editor">
-                            Hours of operation
-                          </label>
-                          <input
-                            id="lead-hours-editor"
-                            name="hours"
-                            className="text-input"
-                            defaultValue={selectedProspectView.profile.operatingHours || ''}
-                            placeholder="Mon-Fri 8 AM-5 PM"
-                          />
-                          <div className="tiny-muted">Shows next to the phone number on the lead card.</div>
+                      {selectedProspectView.callLogs.length === 0 ? (
+                        <div className="empty-state lead-history-empty">
+                          <strong>No more contact history</strong>
+                          <span>Start calling to see a timeline of touches here.</span>
                         </div>
+                      ) : (
+                        <div className="lead-history-timeline">
+                          {selectedProspectView.callLogs.slice(0, 3).map((call) => (
+                            <article key={call.id} className="lead-history-entry">
+                              <div className="lead-history-rail">
+                                <span className="lead-history-node" aria-hidden="true">
+                                  <svg viewBox="0 0 20 20" focusable="false">
+                                    <path d="M6.2 3.8c-.5-.5-1.3-.5-1.8 0L2.8 5.3c-.6.6-.8 1.6-.4 2.4 2 4 5 7 9 9 .8.4 1.8.2 2.4-.4l1.5-1.5c.5-.5.5-1.3 0-1.8l-2.1-2.1c-.4-.4-1-.5-1.5-.2l-1.4.8a12.2 12.2 0 0 1-2.8-2.8l.8-1.4c.3-.5.2-1.1-.2-1.5L6.2 3.8Z" />
+                                  </svg>
+                                </span>
+                              </div>
+                              <div className="lead-history-card">
+                                <div className="lead-history-card-top">
+                                  <div className="lead-history-title-row">
+                                    <strong>Outbound call</strong>
+                                    <span className={historyOutcomeTone(call.outcome)}>{call.outcome}</span>
+                                  </div>
+                                  <div className="lead-history-meta">
+                                    <span>{formatHistoryDate(call.createdAt)}</span>
+                                    <span>{formatHistoryTime(call.createdAt)}</span>
+                                    <span>by You</span>
+                                  </div>
+                                </div>
+                                <div className="text-muted lead-history-note-copy">
+                                  {call.notes || 'No call notes captured.'}
+                                  {typeof call.durationSeconds === 'number' ? ` • ${call.durationSeconds}s` : ''}
+                                </div>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    <form action={updateProspectDetailsAction} className="panel panel-stack lead-notes-panel">
+                      <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                      <input type="hidden" name="q" value={searchQuery} />
+                      <input type="hidden" name="view" value={selectedView} />
+                      <input type="hidden" name="status" value={selectedStatus} />
+                      <input type="hidden" name="city" value={selectedCity} />
+                      <input type="hidden" name="nextActionDue" value={selectedDue} />
+                      <div className="lead-notes-header">
+                        <span className="metric-label">Follow-up &amp; notes</span>
+                      </div>
+                      <div className="lead-notes-body">
                         <div className="field-stack lead-date-field">
                           <label className="key-value-label" htmlFor="lead-next-action-at">
                             Custom follow-up date
@@ -1180,33 +1276,35 @@ export default async function OurLeadsPage({
                             id="lead-next-action-at"
                             name="nextActionAt"
                             type="datetime-local"
-                            className="text-input"
+                            className="text-input lead-follow-up-input"
                             defaultValue={formatDateTimeInput(selectedProspectView.nextActionAt)}
                           />
-                          <div className="tiny-muted">Use this when the quick callback buttons are too broad.</div>
+                        </div>
+                        <div className="field-stack lead-notes-field">
+                          <label className="key-value-label" htmlFor="lead-notes-editor">
+                            Caller notes
+                          </label>
+                          <textarea
+                            id="lead-notes-editor"
+                            name="notes"
+                            className="text-area lead-notes-editor"
+                            defaultValue={selectedProspectView.plainNotes}
+                            placeholder="Add notes about this call..."
+                          />
                         </div>
                       </div>
-                      <div className="field-stack lead-notes-field">
-                        <label className="key-value-label" htmlFor="lead-notes-editor">
-                          Caller notes
-                        </label>
-                        <textarea
-                          id="lead-notes-editor"
-                          name="notes"
-                          className="text-area"
-                          defaultValue={selectedProspectView.plainNotes}
-                          placeholder="Anything the next caller should know."
-                        />
+                      <div className="inline-actions lead-notes-actions">
+                        <button type="submit" className="button-secondary button-secondary-strong">
+                          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                            <path d="M4 3.5h9l3 3V16a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 16V3.5Z" />
+                            <path d="M7 3.5v4h5v-4" />
+                            <path d="M7 16v-4h6v4" />
+                          </svg>
+                          Save next step
+                        </button>
                       </div>
-                    </div>
-                    <div className="inline-actions lead-notes-actions">
-                      <span className="tiny-muted">One save updates the handoff note and the custom follow-up date.</span>
-                      <button type="submit" className="button-secondary button-secondary-strong">
-                        Save next step
-                      </button>
-                    </div>
-                  </form>
-                </div>
+                    </form>
+                  </div>
               </>
             )}
           </section>
