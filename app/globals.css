@@ -940,6 +940,7 @@ select {
 .lead-notes-panel {
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
 
 .lead-notes-grid {
@@ -947,14 +948,34 @@ select {
   gap: 12px;
   grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
   align-items: start;
+  min-width: 0;
+}
+
+.lead-notes-grid > * {
+  min-width: 0;
 }
 
 .lead-notes-field {
   min-width: 0;
 }
 
+.lead-notes-panel .field-stack {
+  min-width: 0;
+}
+
+.lead-notes-panel .inline-row {
+  min-width: 0;
+}
+
 .lead-notes-panel .text-area {
   min-height: 120px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.lead-notes-panel .text-input {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .lead-notes-actions {
