@@ -25,7 +25,7 @@ export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsPr
           className={`workspace-tab-link ${active === 'workflow' ? 'is-active' : ''}`}
           href={`/clients/${companyId}/workflow`}
         >
-          Workflow
+          Telnyx
         </Link>
       </div>
     </section>
