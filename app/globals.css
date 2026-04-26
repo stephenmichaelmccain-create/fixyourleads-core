@@ -882,17 +882,23 @@ select {
   gap: 14px;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.95fr);
   align-items: stretch;
+  width: 100%;
+  min-width: 0;
 }
 
 .lead-action-panel,
 .lead-notes-panel {
   gap: 12px;
   padding: 16px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .lead-panel-header {
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .lead-action-pill-grid {
@@ -918,11 +924,14 @@ select {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
 }
 
 .lead-callback-meta {
   margin-top: 2px;
   text-align: right;
+  min-width: 0;
 }
 
 .lead-action-panel .button-secondary {
@@ -953,6 +962,7 @@ select {
   grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
   align-items: start;
   min-width: 0;
+  width: 100%;
 }
 
 .lead-notes-grid > * {
@@ -991,6 +1001,10 @@ select {
   max-height: none;
   overflow: visible;
   padding-right: 0;
+}
+
+.lead-call-layout .lead-sidebar-panel > * {
+  min-width: 0;
 }
 
 .lead-sidebar-panel::-webkit-scrollbar {
