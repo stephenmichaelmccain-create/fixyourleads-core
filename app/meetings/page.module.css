@@ -1,111 +1,218 @@
-.noticeCopy {
-  margin: 0;
-  color: var(--fyl-black);
-  line-height: 1.55;
+.board {
+  position: relative;
+  overflow: hidden;
+  padding: 28px;
+  border-radius: 24px;
+  border: 1px solid rgba(126, 103, 255, 0.2);
+  background:
+    radial-gradient(circle at top right, rgba(124, 92, 255, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(42, 35, 92, 0.98) 0%, rgba(33, 28, 74, 0.98) 100%);
+  box-shadow: 0 26px 60px rgba(7, 6, 20, 0.34);
 }
 
-.meetingList {
+.board::after {
+  content: '';
+  position: absolute;
+  inset: auto -10% -42% auto;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(110, 90, 255, 0.18) 0%, rgba(110, 90, 255, 0) 72%);
+  pointer-events: none;
+}
+
+.boardContent {
+  position: relative;
   display: grid;
-  gap: 16px;
+  gap: 24px;
 }
 
-.meetingCard {
-  display: grid;
-  gap: 16px;
-}
-
-.meetingHeader {
+.hero {
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
   align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
 }
 
-.timeBlock {
-  display: grid;
-  gap: 4px;
-}
-
-.timeValue {
-  font-size: clamp(1.15rem, 2vw, 1.45rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-}
-
-.timeMeta {
-  color: var(--fyl-muted);
-  font-size: 0.92rem;
-}
-
-.meetingMeta {
+.heroTitleWrap {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 14px;
   flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
-.relativeChip,
-.statusChip {
+.heroTitle {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 2.7rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.heroBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: rgba(111, 76, 255, 0.18);
+  border: 1px solid rgba(126, 103, 255, 0.22);
+  color: #baa8ff;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.heroNote {
+  margin: 10px 0 0;
+  max-width: 720px;
+  color: rgba(231, 227, 255, 0.78);
+  line-height: 1.5;
+}
+
+.heroStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(170px, 1fr));
+  gap: 0;
+  min-width: min(100%, 410px);
+  border-radius: 18px;
+  border: 1px solid rgba(126, 103, 255, 0.18);
+  background: rgba(34, 29, 77, 0.72);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.heroStat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.heroStat + .heroStat {
+  border-left: 1px solid rgba(126, 103, 255, 0.14);
+}
+
+.heroStatIcon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 0 12px;
+  width: 38px;
+  height: 38px;
   border-radius: 999px;
-  border: 1px solid var(--fyl-border-soft);
-  font-size: 0.82rem;
+  border: 1px solid rgba(126, 103, 255, 0.22);
+  color: #baa8ff;
+  background: rgba(103, 72, 241, 0.16);
+  flex: 0 0 auto;
+}
+
+.heroStatAlert {
+  color: #ff9ab0;
+  background: rgba(255, 92, 138, 0.12);
+  border-color: rgba(255, 92, 138, 0.18);
+}
+
+.heroStatLabel {
+  color: rgba(231, 227, 255, 0.62);
+  font-size: 0.85rem;
   font-weight: 700;
 }
 
-.relativeChip {
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--fyl-white);
+.heroStatValue {
+  margin-top: 2px;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.06em;
+  line-height: 1;
 }
 
-.statusBooked {
-  background: rgba(90, 136, 255, 0.16);
-  border-color: rgba(90, 136, 255, 0.26);
-  color: #d7e2ff;
+.heroStatCopy {
+  margin-top: 4px;
+  color: rgba(231, 227, 255, 0.66);
+  font-size: 0.82rem;
 }
 
-.statusConfirmed {
-  background: rgba(52, 199, 89, 0.16);
-  border-color: rgba(52, 199, 89, 0.26);
-  color: #d9ffe4;
-}
-
-.statusRescheduled {
-  background: rgba(255, 184, 77, 0.16);
-  border-color: rgba(255, 184, 77, 0.28);
-  color: #ffe6bb;
-}
-
-.fieldGrid {
+.tableShell {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
+  gap: 0;
+  border-radius: 22px;
+  border: 1px solid rgba(126, 103, 255, 0.16);
+  background: rgba(20, 18, 47, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  overflow: hidden;
 }
 
-.field {
+.tableHeader,
+.row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.9fr) minmax(190px, 1.4fr) minmax(160px, 1fr) minmax(240px, 1.5fr) minmax(220px, 1.15fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.tableHeader {
+  padding: 18px 22px;
+  color: rgba(231, 227, 255, 0.58);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.tableBody {
+  display: grid;
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.row {
+  padding: 18px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(126, 103, 255, 0.14);
+  background: linear-gradient(180deg, rgba(44, 37, 92, 0.78) 0%, rgba(37, 31, 79, 0.78) 100%);
+}
+
+.timeCell {
   display: grid;
   gap: 6px;
 }
 
-.fieldLabel {
-  color: var(--fyl-muted);
-  font-size: 11px;
+.timeTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
-.fieldValue {
-  min-width: 0;
+.clockIcon {
+  color: #8c76ff;
+}
+
+.relativeText {
+  color: #ff9ab0;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.primaryText {
+  font-size: 1.02rem;
+  font-weight: 700;
   overflow-wrap: anywhere;
 }
 
-.notesValue {
+.secondaryText {
+  color: rgba(231, 227, 255, 0.72);
+  overflow-wrap: anywhere;
+}
+
+.contactMeta {
+  margin-top: 4px;
+  color: rgba(231, 227, 255, 0.58);
+  font-size: 0.92rem;
+}
+
+.purposeText {
+  color: rgba(241, 238, 255, 0.88);
+  line-height: 1.58;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
@@ -113,15 +220,188 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  align-items: center;
+  justify-content: flex-start;
 }
 
-@media (max-width: 760px) {
-  .meetingHeader {
+.actionPrimary,
+.actionSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.actionPrimary {
+  gap: 9px;
+  background: linear-gradient(90deg, #6c4eff 0%, #8b68ff 100%);
+  border: 1px solid rgba(170, 146, 255, 0.32);
+  color: white;
+  box-shadow: 0 10px 22px rgba(101, 74, 234, 0.28);
+}
+
+.actionSecondary {
+  border: 1px solid rgba(126, 103, 255, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(231, 227, 255, 0.88);
+}
+
+.actionGhost {
+  color: rgba(231, 227, 255, 0.66);
+}
+
+.emptyState {
+  padding: 36px 24px 32px;
+  border-top: 1px solid rgba(126, 103, 255, 0.12);
+}
+
+.emptyCard {
+  border: 1px dashed rgba(126, 103, 255, 0.22);
+  border-radius: 16px;
+  padding: 28px 24px;
+  background: rgba(48, 40, 102, 0.34);
+}
+
+.emptyTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.emptyCopy {
+  margin-top: 10px;
+  color: rgba(231, 227, 255, 0.68);
+  line-height: 1.5;
+}
+
+.footerNote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(231, 227, 255, 0.54);
+  font-size: 0.94rem;
+}
+
+.statusDot {
+  display: inline-flex;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
+}
+
+.statusBooked {
+  background: #8c76ff;
+}
+
+.statusConfirmed {
+  background: #3fd47d;
+}
+
+.statusRescheduled {
+  background: #ffb45c;
+}
+
+.mobileCards {
+  display: none;
+}
+
+.mobileCard {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(126, 103, 255, 0.14);
+  background: linear-gradient(180deg, rgba(44, 37, 92, 0.78) 0%, rgba(37, 31, 79, 0.78) 100%);
+}
+
+.mobileTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mobileFields {
+  display: grid;
+  gap: 10px;
+}
+
+.mobileFieldLabel {
+  color: rgba(231, 227, 255, 0.58);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.mobileFieldValue {
+  margin-top: 4px;
+  color: rgba(241, 238, 255, 0.88);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 1100px) {
+  .hero {
     flex-direction: column;
   }
 
-  .meetingMeta {
-    justify-content: flex-start;
+  .heroStats {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 920px) {
+  .board {
+    padding: 22px;
+  }
+
+  .tableHeader,
+  .tableBody {
+    display: none;
+  }
+
+  .mobileCards {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .board {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .heroStats {
+    grid-template-columns: 1fr;
+  }
+
+  .heroStat + .heroStat {
+    border-left: 0;
+    border-top: 1px solid rgba(126, 103, 255, 0.14);
+  }
+
+  .heroTitleWrap {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actionPrimary,
+  .actionSecondary {
+    width: 100%;
   }
 }

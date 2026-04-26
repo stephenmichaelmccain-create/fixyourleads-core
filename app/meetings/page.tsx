@@ -30,9 +30,6 @@ function addDays(date: Date, days: number) {
 
 function formatMeetingTime(value: Date) {
   return new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
     hour: 'numeric',
     minute: '2-digit'
   }).format(value);
@@ -62,6 +59,27 @@ function formatRelativeTime(value: Date) {
   return `Starts in ${days} day${days === 1 ? '' : 's'}`;
 }
 
+function formatNextCallCountdown(value: Date | null) {
+  if (!value) {
+    return 'No calls';
+  }
+
+  const diffMinutes = Math.max(Math.round((value.getTime() - Date.now()) / 60_000), 0);
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes} min`;
+  }
+
+  const hours = Math.floor(diffMinutes / 60);
+  const minutes = diffMinutes % 60;
+
+  if (minutes === 0) {
+    return `${hours} hr`;
+  }
+
+  return `${hours}h ${minutes}m`;
+}
+
 function formatStatus(status: AppointmentStatus) {
   return status.charAt(0) + status.slice(1).toLowerCase();
 }
@@ -81,7 +99,6 @@ function statusClassName(status: AppointmentStatus) {
 export default async function MeetingsPage() {
   const now = new Date();
   const todayStart = startOfToday();
-  const nextWeek = addDays(todayStart, 7);
 
   const appointments = await safeLoadDb(
     () =>
@@ -149,125 +166,204 @@ export default async function MeetingsPage() {
   });
 
   const meetingsToday = rows.filter((appointment) => appointment.startTime >= todayStart && appointment.startTime < addDays(todayStart, 1)).length;
-  const meetingsThisWeek = rows.filter((appointment) => appointment.startTime < nextWeek).length;
   const missingLinkCount = rows.filter((appointment) => !appointment.meetingLink).length;
+  const needsPrepCount = rows.filter((appointment) => !appointment.meetingLink || !appointment.notes?.trim()).length;
+  const nextMeeting = rows[0] || null;
 
   return (
     <LayoutShell
       title="Meetings"
-      description="Upcoming video calls for the person taking the call. This view is intentionally minimal and uses the current appointment records."
       section="meetings"
+      hidePageHeader
     >
-      <div className="panel-grid">
-        <section className="panel">
-          <div className="metric-label">Link readiness</div>
-          <p className={styles.noticeCopy}>
-            Google Meet links are not stored on appointments yet. This page only shows a join link when a Google Meet, Zoom, or
-            Teams URL was pasted into the appointment notes.
-          </p>
-        </section>
-      </div>
+      <section className={styles.board}>
+        <div className={styles.boardContent}>
+          <div className={styles.hero}>
+            <div>
+              <div className={styles.heroTitleWrap}>
+                <h1 className={styles.heroTitle}>Upcoming meetings</h1>
+                <span className={styles.heroBadge}>{meetingsToday} today</span>
+              </div>
+              <p className={styles.heroNote}>
+                Exactly what the meeting taker needs next. Join links only appear when a Google Meet, Zoom, or Teams URL was
+                added to the appointment notes.
+              </p>
+            </div>
 
-      <section className="metric-grid">
-        <div className="metric-card">
-          <div className="metric-label">Today</div>
-          <div className="metric-value">{meetingsToday}</div>
-          <div className="metric-copy">Calls starting before tomorrow.</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">Next 7 Days</div>
-          <div className="metric-value">{meetingsThisWeek}</div>
-          <div className="metric-copy">Booked or confirmed appointments on deck.</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">Missing Link</div>
-          <div className="metric-value">{missingLinkCount}</div>
-          <div className="metric-copy">Appointments that still need a join URL added somewhere.</div>
-        </div>
-      </section>
+            <div className={styles.heroStats}>
+              <div className={styles.heroStat}>
+                <span className={styles.heroStatIcon} aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="8" />
+                    <path d="M12 8v4l2.5 2.5" />
+                  </svg>
+                </span>
+                <div>
+                  <div className={styles.heroStatLabel}>Next call in</div>
+                  <div className={styles.heroStatValue}>{formatNextCallCountdown(nextMeeting?.startTime || null)}</div>
+                  <div className={styles.heroStatCopy}>{nextMeeting ? formatMeetingDay(nextMeeting.startTime) : 'Nothing booked yet'}</div>
+                </div>
+              </div>
 
-      <section className="panel panel-stack">
-        <div>
-          <div className="metric-label">Upcoming queue</div>
-          <h2 className="form-title">What the meeting taker needs next</h2>
-          <div className="text-muted">Time, contact details, notes, and a join link if one already exists.</div>
-        </div>
-
-        {rows.length === 0 ? (
-          <div className="empty-state">No upcoming appointments are booked right now.</div>
-        ) : (
-          <div className={styles.meetingList}>
-            {rows.map((appointment) => {
-              const contactName = appointment.contact.name?.trim() || 'Unnamed contact';
-
-              return (
-                <article key={appointment.id} className={`panel ${styles.meetingCard}`}>
-                  <div className={styles.meetingHeader}>
-                    <div className={styles.timeBlock}>
-                      <div className={styles.timeValue}>{formatMeetingTime(appointment.startTime)}</div>
-                      <div className={styles.timeMeta}>{formatMeetingDay(appointment.startTime)}</div>
-                    </div>
-                    <div className={styles.meetingMeta}>
-                      <span className={styles.relativeChip}>{formatRelativeTime(appointment.startTime)}</span>
-                      <span className={`${styles.statusChip} ${statusClassName(appointment.status)}`}>{formatStatus(appointment.status)}</span>
-                    </div>
-                  </div>
-
-                  <div className={styles.fieldGrid}>
-                    <div className={styles.field}>
-                      <div className={styles.fieldLabel}>Client</div>
-                      <div className={styles.fieldValue}>{appointment.company.name}</div>
-                    </div>
-                    <div className={styles.field}>
-                      <div className={styles.fieldLabel}>Contact</div>
-                      <div className={styles.fieldValue}>{contactName}</div>
-                    </div>
-                    <div className={styles.field}>
-                      <div className={styles.fieldLabel}>Phone</div>
-                      <div className={styles.fieldValue}>{appointment.contactPhone || 'No phone yet'}</div>
-                    </div>
-                    <div className={styles.field}>
-                      <div className={styles.fieldLabel}>Email</div>
-                      <div className={styles.fieldValue}>{appointment.contact.email?.trim() || 'No email yet'}</div>
-                    </div>
-                    <div className={styles.field}>
-                      <div className={styles.fieldLabel}>Meeting link</div>
-                      <div className={styles.fieldValue}>
-                        {appointment.meetingLink ? (
-                          <a href={appointment.meetingLink} target="_blank" rel="noreferrer">
-                            {meetingLinkLabel(appointment.meetingLink)}
-                          </a>
-                        ) : (
-                          'No meeting link yet'
-                        )}
-                      </div>
-                    </div>
-                    <div className={styles.field}>
-                      <div className={styles.fieldLabel}>Notes</div>
-                      <div className={`${styles.fieldValue} ${styles.notesValue}`}>
-                        {appointment.notes?.trim() || 'No appointment notes yet'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={styles.actions}>
-                    {appointment.meetingLink ? (
-                      <a className="button-secondary" href={appointment.meetingLink} target="_blank" rel="noreferrer">
-                        Join {meetingLinkLabel(appointment.meetingLink)}
-                      </a>
-                    ) : null}
-                    <Link className="button-ghost" href={`/clients/${appointment.company.id}/operator`}>
-                      Open operator
-                    </Link>
-                    <Link className="button-ghost" href={`/clients/${appointment.company.id}`}>
-                      Open client
-                    </Link>
-                  </div>
-                </article>
-              );
-            })}
+              <div className={styles.heroStat}>
+                <span className={`${styles.heroStatIcon} ${styles.heroStatAlert}`} aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="8" />
+                    <path d="M12 8v5" />
+                    <circle cx="12" cy="16.5" r="0.9" fill="currentColor" stroke="none" />
+                  </svg>
+                </span>
+                <div>
+                  <div className={styles.heroStatLabel}>Needs prep</div>
+                  <div className={styles.heroStatValue}>{needsPrepCount}</div>
+                  <div className={styles.heroStatCopy}>{missingLinkCount} missing a join link</div>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
+
+          <section className={styles.tableShell} aria-label="Upcoming meetings">
+            <div className={styles.tableHeader}>
+              <div>Time</div>
+              <div>Client / Company</div>
+              <div>Contact</div>
+              <div>Purpose</div>
+              <div>Actions</div>
+            </div>
+
+            {rows.length === 0 ? (
+              <div className={styles.emptyState}>
+                <div className={styles.emptyCard}>
+                  <div className={styles.emptyTitle}>No upcoming appointments are booked right now.</div>
+                  <div className={styles.emptyCopy}>
+                    Once new calls are booked, this board will show time, contact details, notes, and the join link in one place.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className={styles.tableBody}>
+                  {rows.map((appointment) => {
+                    const contactName = appointment.contact.name?.trim() || 'Unnamed contact';
+                    const meetingLabel = appointment.meetingLink ? meetingLinkLabel(appointment.meetingLink) : 'No link yet';
+                    const noteCopy = appointment.notes?.trim() || 'No appointment notes yet';
+
+                    return (
+                      <article key={appointment.id} className={styles.row}>
+                        <div className={styles.timeCell}>
+                          <div className={styles.timeTop}>
+                            <span className={styles.clockIcon} aria-hidden="true">
+                              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="8" />
+                                <path d="M12 8v4l2.5 2.5" />
+                              </svg>
+                            </span>
+                            <span>{formatMeetingTime(appointment.startTime)}</span>
+                          </div>
+                          <div className={styles.relativeText}>{formatRelativeTime(appointment.startTime)}</div>
+                        </div>
+
+                        <div>
+                          <div className={styles.primaryText}>{appointment.company.name}</div>
+                          <div className={styles.secondaryText}>
+                            <span className={`${styles.statusDot} ${statusClassName(appointment.status)}`} aria-hidden="true" />{' '}
+                            {formatStatus(appointment.status)}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className={styles.primaryText}>{contactName}</div>
+                          <div className={styles.contactMeta}>{appointment.contactPhone || 'No phone yet'}</div>
+                          {appointment.contact.email?.trim() ? <div className={styles.contactMeta}>{appointment.contact.email.trim()}</div> : null}
+                        </div>
+
+                        <div className={styles.purposeText}>{noteCopy}</div>
+
+                        <div className={styles.actions}>
+                          {appointment.meetingLink ? (
+                            <a className={styles.actionPrimary} href={appointment.meetingLink} target="_blank" rel="noreferrer">
+                              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                                <path d="M15 8.5v7l5-3.5v-5z" />
+                                <rect x="3" y="6" width="13" height="12" rx="2.5" fill="currentColor" />
+                              </svg>
+                              Join on {meetingLabel}
+                            </a>
+                          ) : (
+                            <span className={`${styles.actionSecondary} ${styles.actionGhost}`}>{meetingLabel}</span>
+                          )}
+                          <Link className={styles.actionSecondary} href={`/clients/${appointment.company.id}`}>
+                            Open client
+                          </Link>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                <div className={styles.mobileCards}>
+                  {rows.map((appointment) => {
+                    const contactName = appointment.contact.name?.trim() || 'Unnamed contact';
+                    const meetingLabel = appointment.meetingLink ? meetingLinkLabel(appointment.meetingLink) : 'No link yet';
+                    const noteCopy = appointment.notes?.trim() || 'No appointment notes yet';
+
+                    return (
+                      <article key={`${appointment.id}-mobile`} className={styles.mobileCard}>
+                        <div className={styles.mobileTop}>
+                          <div>
+                            <div className={styles.primaryText}>{formatMeetingTime(appointment.startTime)}</div>
+                            <div className={styles.relativeText}>{formatRelativeTime(appointment.startTime)}</div>
+                          </div>
+                          <div className={styles.secondaryText}>{formatStatus(appointment.status)}</div>
+                        </div>
+
+                        <div className={styles.mobileFields}>
+                          <div>
+                            <div className={styles.mobileFieldLabel}>Client</div>
+                            <div className={styles.mobileFieldValue}>{appointment.company.name}</div>
+                          </div>
+                          <div>
+                            <div className={styles.mobileFieldLabel}>Contact</div>
+                            <div className={styles.mobileFieldValue}>
+                              {contactName}
+                              {'\n'}
+                              {appointment.contactPhone || 'No phone yet'}
+                              {appointment.contact.email?.trim() ? `\n${appointment.contact.email.trim()}` : ''}
+                            </div>
+                          </div>
+                          <div>
+                            <div className={styles.mobileFieldLabel}>Purpose</div>
+                            <div className={styles.mobileFieldValue}>{noteCopy}</div>
+                          </div>
+                        </div>
+
+                        <div className={styles.actions}>
+                          {appointment.meetingLink ? (
+                            <a className={styles.actionPrimary} href={appointment.meetingLink} target="_blank" rel="noreferrer">
+                              Join on {meetingLabel}
+                            </a>
+                          ) : (
+                            <span className={`${styles.actionSecondary} ${styles.actionGhost}`}>{meetingLabel}</span>
+                          )}
+                          <Link className={styles.actionSecondary} href={`/clients/${appointment.company.id}`}>
+                            Open client
+                          </Link>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </section>
+
+          <div className={styles.footerNote}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="4" y="5" width="16" height="15" rx="2.5" />
+              <path d="M8 3.5v3M16 3.5v3M4 9.5h16" />
+            </svg>
+            <span>All times shown in your local time.</span>
+          </div>
+        </div>
       </section>
     </LayoutShell>
   );
