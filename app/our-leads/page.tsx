@@ -976,81 +976,88 @@ export default async function OurLeadsPage({
                     </div>
                   </form>
 
-                  <form action={scheduleProspectCallbackAction} className="panel panel-stack lead-action-panel">
-                    <div className="inline-row justify-between lead-panel-header">
-                      <div className="metric-label">Callback</div>
-                      <div className="tiny-muted">Current: {callbackSummary(selectedProspectView.nextActionAt, now)}</div>
+                  <section className="panel panel-stack lead-follow-up-panel">
+                    <div className="lead-follow-up-header">
+                      <div className="panel-stack lead-follow-up-copy">
+                        <div className="metric-label">Next step</div>
+                        <strong className="lead-follow-up-title">{callbackSummary(selectedProspectView.nextActionAt, now)}</strong>
+                        <div className="tiny-muted">
+                          Set the next follow-up time fast, then leave a clean handoff note for the next caller.
+                        </div>
+                      </div>
+                      <div className="tiny-muted lead-follow-up-status">
+                        {selectedProspectView.nextActionAt ? formatDateTime(selectedProspectView.nextActionAt) : 'No callback scheduled yet.'}
+                      </div>
                     </div>
-                    <input type="hidden" name="prospectId" value={selectedProspectView.id} />
-                    <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
-                    <input type="hidden" name="q" value={searchQuery} />
-                    <input type="hidden" name="view" value={selectedView} />
-                    <input type="hidden" name="status" value={selectedStatus} />
-                    <input type="hidden" name="city" value={selectedCity} />
-                    <input type="hidden" name="nextActionDue" value={selectedDue} />
-                    <div className="lead-callback-grid">
-                      <button type="submit" className="button-secondary" name="preset" value="tomorrow">
-                        Tomorrow
-                      </button>
-                      <button type="submit" className="button-secondary" name="preset" value="3_days">
-                        3 days
-                      </button>
-                      <button type="submit" className="button-secondary" name="preset" value="1_week">
-                        1 week
-                      </button>
-                      <button type="submit" className="button-secondary" name="preset" value="1_month">
-                        1 month
-                      </button>
-                    </div>
-                    <div className="tiny-muted lead-callback-meta">
-                      {selectedProspectView.nextActionAt ? formatDateTime(selectedProspectView.nextActionAt) : 'No callback scheduled yet.'}
-                    </div>
-                  </form>
-                </div>
 
-                <form action={updateProspectDetailsAction} className="panel panel-stack lead-notes-panel">
-                  <div className="inline-row justify-between">
-                    <div className="metric-label">Lead notes and follow-up</div>
-                    <div className="tiny-muted">Tracked on this lead</div>
-                  </div>
-                  <input type="hidden" name="prospectId" value={selectedProspectView.id} />
-                  <input type="hidden" name="q" value={searchQuery} />
-                  <input type="hidden" name="view" value={selectedView} />
-                  <input type="hidden" name="status" value={selectedStatus} />
-                  <input type="hidden" name="city" value={selectedCity} />
-                  <input type="hidden" name="nextActionDue" value={selectedDue} />
-                  <div className="lead-notes-grid">
-                    <div className="field-stack">
-                    <label className="key-value-label" htmlFor="lead-next-action-at">
-                      Follow-up date
-                    </label>
-                    <input
-                      id="lead-next-action-at"
-                      name="nextActionAt"
-                      type="datetime-local"
-                      className="text-input"
-                      defaultValue={formatDateTimeInput(selectedProspectView.nextActionAt)}
-                    />
-                    </div>
-                    <div className="field-stack lead-notes-field">
-                    <label className="key-value-label" htmlFor="lead-notes-editor">
-                      Notes
-                    </label>
-                    <textarea
-                      id="lead-notes-editor"
-                      name="notes"
-                      className="text-area"
-                      defaultValue={selectedProspectView.plainNotes}
-                      placeholder="Anything the next caller should know."
-                    />
-                    </div>
-                  </div>
-                  <div className="inline-actions lead-notes-actions">
-                    <button type="submit" className="button-secondary button-secondary-strong">
-                      Save note or date
-                    </button>
-                  </div>
-                </form>
+                    <form action={scheduleProspectCallbackAction} className="panel-stack lead-callback-form">
+                      <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                      <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
+                      <input type="hidden" name="q" value={searchQuery} />
+                      <input type="hidden" name="view" value={selectedView} />
+                      <input type="hidden" name="status" value={selectedStatus} />
+                      <input type="hidden" name="city" value={selectedCity} />
+                      <input type="hidden" name="nextActionDue" value={selectedDue} />
+                      <div className="key-value-label">Quick callback</div>
+                      <div className="lead-callback-grid lead-callback-grid-compact">
+                        <button type="submit" className="button-secondary" name="preset" value="tomorrow">
+                          Tomorrow
+                        </button>
+                        <button type="submit" className="button-secondary" name="preset" value="3_days">
+                          3 days
+                        </button>
+                        <button type="submit" className="button-secondary" name="preset" value="1_week">
+                          1 week
+                        </button>
+                        <button type="submit" className="button-secondary" name="preset" value="1_month">
+                          1 month
+                        </button>
+                      </div>
+                    </form>
+
+                    <form action={updateProspectDetailsAction} className="panel-stack lead-notes-panel">
+                      <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                      <input type="hidden" name="q" value={searchQuery} />
+                      <input type="hidden" name="view" value={selectedView} />
+                      <input type="hidden" name="status" value={selectedStatus} />
+                      <input type="hidden" name="city" value={selectedCity} />
+                      <input type="hidden" name="nextActionDue" value={selectedDue} />
+                      <div className="lead-notes-grid lead-notes-grid-streamlined">
+                        <div className="field-stack lead-date-field">
+                          <label className="key-value-label" htmlFor="lead-next-action-at">
+                            Custom follow-up date
+                          </label>
+                          <input
+                            id="lead-next-action-at"
+                            name="nextActionAt"
+                            type="datetime-local"
+                            className="text-input"
+                            defaultValue={formatDateTimeInput(selectedProspectView.nextActionAt)}
+                          />
+                          <div className="tiny-muted">Use this when the quick callback buttons are too broad.</div>
+                        </div>
+                        <div className="field-stack lead-notes-field">
+                          <label className="key-value-label" htmlFor="lead-notes-editor">
+                            Caller notes
+                          </label>
+                          <textarea
+                            id="lead-notes-editor"
+                            name="notes"
+                            className="text-area"
+                            defaultValue={selectedProspectView.plainNotes}
+                            placeholder="Anything the next caller should know."
+                          />
+                        </div>
+                      </div>
+                      <div className="inline-actions lead-notes-actions">
+                        <span className="tiny-muted">One save updates the handoff note and the custom follow-up date.</span>
+                        <button type="submit" className="button-secondary button-secondary-strong">
+                          Save next step
+                        </button>
+                      </div>
+                    </form>
+                  </section>
+                </div>
 
                 <details className="routing-details" open={selectedProspectView.callLogs.length > 0}>
                   <summary className="routing-summary">

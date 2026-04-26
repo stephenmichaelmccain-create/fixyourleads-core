@@ -40,6 +40,16 @@ body {
     linear-gradient(180deg, #221d46 0%, #17142f 48%, #121024 100%);
 }
 
+@keyframes fyl-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 a {
   color: inherit;
 }
@@ -55,6 +65,97 @@ select {
   max-width: 1360px;
   margin: 0 auto;
   padding: 16px 20px 56px;
+}
+
+.loading-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.loading-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+  animation: fyl-shimmer 1.25s ease-in-out infinite;
+}
+
+.loading-line {
+  height: 14px;
+  border-radius: 999px;
+}
+
+.loading-line-short {
+  width: 32%;
+}
+
+.loading-line-medium {
+  width: 56%;
+}
+
+.loading-line-long {
+  width: 82%;
+}
+
+.loading-pill {
+  width: 110px;
+  height: 38px;
+  border-radius: 12px;
+}
+
+.loading-panel {
+  min-height: 180px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.loading-table {
+  display: grid;
+  gap: 12px;
+}
+
+.loading-table-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1.4fr) repeat(3, minmax(0, 0.7fr)) 120px;
+  gap: 16px;
+  align-items: center;
+}
+
+.loading-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+}
+
+.loading-action-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.loading-queue-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
+  gap: 16px;
+}
+
+.loading-queue-list {
+  display: grid;
+  gap: 12px;
+}
+
+.loading-queue-card {
+  min-height: 128px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.loading-card-stack {
+  display: grid;
+  gap: 10px;
 }
 
 .app-header {
@@ -963,6 +1064,47 @@ select {
   position: relative;
   z-index: 1;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: 14px;
+}
+
+.lead-follow-up-panel {
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+}
+
+.lead-follow-up-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.lead-follow-up-copy {
+  min-width: 0;
+  gap: 6px;
+}
+
+.lead-follow-up-title {
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.lead-follow-up-status {
+  text-align: right;
+  max-width: 220px;
+}
+
+.lead-callback-form {
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(34, 30, 72, 0.55);
 }
 
 .lead-notes-grid {
@@ -1001,9 +1143,22 @@ select {
   max-width: 100%;
 }
 
+.lead-notes-grid-streamlined {
+  grid-template-columns: minmax(220px, 0.82fr) minmax(0, 1.18fr);
+}
+
+.lead-date-field {
+  align-content: start;
+}
+
 .lead-notes-actions {
-  justify-content: flex-start;
+  justify-content: space-between;
+  align-items: center;
   padding-top: 2px;
+}
+
+.lead-notes-actions .tiny-muted {
+  max-width: 320px;
 }
 
 .lead-call-layout .lead-sidebar-panel {
@@ -1833,13 +1988,17 @@ select {
 }
 
 .client-list-actions {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
   gap: 8px;
-  min-width: 180px;
+  min-width: 0;
 }
 
 .client-list-actions > * {
-  width: 100%;
+  width: auto;
+  flex: 0 0 auto;
 }
 
 .record-subtitle {
@@ -2717,6 +2876,22 @@ select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .lead-follow-up-header,
+  .lead-notes-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .lead-follow-up-status {
+    max-width: none;
+    text-align: left;
+  }
+
+  .lead-notes-grid,
+  .lead-notes-grid-streamlined {
+    grid-template-columns: 1fr;
+  }
+
   .lead-panel-header {
     align-items: flex-start;
     flex-direction: column;
@@ -2786,7 +2961,8 @@ select {
 
 @media (max-width: 520px) {
   .lead-action-panel,
-  .lead-notes-panel {
+  .lead-notes-panel,
+  .lead-follow-up-panel {
     padding: 14px;
   }
 
@@ -2801,6 +2977,14 @@ select {
     min-height: 46px;
     padding-inline: 12px;
     font-size: 0.92rem;
+  }
+
+  .lead-follow-up-panel {
+    gap: 14px;
+  }
+
+  .lead-callback-form {
+    padding: 12px;
   }
 
   .record-card-live-head {
@@ -3048,6 +3232,15 @@ select {
 }
 
 @media (max-width: 720px) {
+  .loading-table-row,
+  .loading-queue-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .loading-action-row {
+    justify-content: flex-start;
+  }
+
   .brand-lockup {
     min-height: 38px;
     width: 38px;
