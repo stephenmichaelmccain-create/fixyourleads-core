@@ -431,34 +431,6 @@ function eventTypeLooksLeadWorkspaceRelated(eventType: string) {
   );
 }
 
-function eventTypeLooksWebhookRelated(eventType: string, payload: unknown) {
-  const value = eventType.toLowerCase();
-  const record = payloadRecord(payload);
-  const source = stringValue(record?.source)?.toLowerCase() || '';
-
-  return (
-    value.includes('webhook') ||
-    value.startsWith('telnyx_') ||
-    value.startsWith('review_') ||
-    value.startsWith('booking_') ||
-    value === 'message_received' ||
-    value === 'manual_message_sent' ||
-    value === 'operator_messaging_test_sent' ||
-    value === 'operator_messaging_test_failed' ||
-    value === 'client_signup_received' ||
-    value === 'client_onboarding_received' ||
-    value === 'client_signup_approved' ||
-    value === 'client_onboarding_approved' ||
-    value.includes('message') ||
-    value.includes('delivery') ||
-    value.includes('confirmation') ||
-    value.includes('review') ||
-    value.includes('booking') ||
-    source === 'website' ||
-    source === 'onboarding'
-  );
-}
-
 function notificationViewForEvent(event: {
   eventType: string;
   companyId: string;
@@ -471,10 +443,6 @@ function notificationViewForEvent(event: {
     eventTypeLooksLeadWorkspaceRelated(event.eventType)
   ) {
     return 'leads' satisfies NotificationFeedView;
-  }
-
-  if (eventTypeLooksWebhookRelated(event.eventType, event.payload)) {
-    return 'webhooks' satisfies NotificationFeedView;
   }
 
   return 'clients' satisfies NotificationFeedView;
