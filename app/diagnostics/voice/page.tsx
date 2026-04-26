@@ -3,8 +3,17 @@ import Link from 'next/link';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { getRuntimeHealth } from '@/lib/health';
+import {
+  assignUnroutedTelnyxNumberAction,
+  markUnroutedTelnyxEventHandledAction
+} from './actions';
 
 export const dynamic = 'force-dynamic';
+
+type SearchParamShape = Promise<{
+  notice?: string;
+  detail?: string;
+}>;
 
 function formatDateTime(value: Date | string | null) {
   if (!value) {
@@ -39,10 +48,15 @@ function jsonPreview(payload: unknown) {
   }
 }
 
-export default async function VoiceDiagnosticsPage() {
+export default async function VoiceDiagnosticsPage({
+  searchParams
+}: {
+  searchParams?: SearchParamShape;
+}) {
+  const query = (await searchParams) || {};
   const health = await getRuntimeHealth();
 
-  const [failedAppointments, pendingAppointments, unroutedEvents] = await Promise.all([
+  const [failedAppointments, pendingAppointments, unroutedEvents, companies] = await Promise.all([
     db.appointment.findMany({
       where: {
         externalSyncStatus: AppointmentExternalSyncStatus.FAILED
@@ -109,6 +123,13 @@ export default async function VoiceDiagnosticsPage() {
         payload: true,
         createdAt: true
       }
+    }),
+    db.company.findMany({
+      orderBy: [{ name: 'asc' }],
+      select: {
+        id: true,
+        name: true
+      }
     })
   ]);
 
@@ -118,6 +139,26 @@ export default async function VoiceDiagnosticsPage() {
       description="Production voice failures that need operator attention: calendar sync issues, Google readiness, and unrouted Telnyx webhooks."
       section="diagnostics"
     >
+      {query.notice ? (
+        <section className="panel panel-stack" style={{ marginBottom: 20 }}>
+          <div className="metric-label">Voice diagnostics update</div>
+          <h2 className="section-title" style={{ marginBottom: 4 }}>
+            {query.notice === 'unrouted_handled'
+              ? 'Unrouted event marked handled.'
+              : query.notice === 'unrouted_assigned'
+                ? 'Inbound number assigned.'
+                : 'Could not update the unrouted event.'}
+          </h2>
+          <div className="text-muted">
+            {query.notice === 'unrouted_handled'
+              ? 'That event will drop out of the open unrouted queue on the next refresh.'
+              : query.notice === 'unrouted_assigned'
+                ? `Future Telnyx traffic for this number should now resolve to ${query.detail || 'the selected client'}.`
+                : query.detail?.replace(/_/g, ' ') || 'Check the event details and try again.'}
+          </div>
+        </section>
+      ) : null}
+
       <div className="metric-grid">
         <section className="metric-card panel-stack">
           <div className="metric-label">Calendar sync failed</div>
@@ -271,6 +312,47 @@ export default async function VoiceDiagnosticsPage() {
                   <strong>{event.eventType}</strong>
                   <div className="text-muted">to {event.inboundNumber || 'unknown'} · from {event.fromNumber || 'unknown'}</div>
                   <div className="text-muted">event {event.eventId || 'missing'} · message {event.messageId || 'missing'}</div>
+                </div>
+                <div className="action-cluster">
+                  {event.inboundNumber ? (
+                    <form action={assignUnroutedTelnyxNumberAction} className="panel panel-dark panel-stack">
+                      <input type="hidden" name="eventId" value={event.id} />
+                      <label className="metric-label" htmlFor={`assign-${event.id}`}>
+                        Assign inbound number
+                      </label>
+                      <select
+                        id={`assign-${event.id}`}
+                        name="companyId"
+                        defaultValue=""
+                        style={{
+                          minHeight: 42,
+                          borderRadius: 14,
+                          border: '1px solid rgba(136, 92, 255, 0.28)',
+                          background: 'rgba(14, 10, 28, 0.96)',
+                          color: 'rgba(245, 243, 255, 0.96)',
+                          padding: '0 14px'
+                        }}
+                      >
+                        <option value="" disabled>
+                          Select client workspace
+                        </option>
+                        {companies.map((company) => (
+                          <option key={company.id} value={company.id}>
+                            {company.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="submit" className="button-secondary">
+                        Route {event.inboundNumber}
+                      </button>
+                    </form>
+                  ) : null}
+                  <form action={markUnroutedTelnyxEventHandledAction}>
+                    <input type="hidden" name="eventId" value={event.id} />
+                    <button type="submit" className="button-ghost">
+                      Mark handled
+                    </button>
+                  </form>
                 </div>
                 <details className="panel panel-dark panel-stack">
                   <summary className="metric-label">Payload preview</summary>
