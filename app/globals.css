@@ -4282,41 +4282,47 @@ select {
   }
 
   .lead-queue-panel > .workspace-search-bar {
-    display: grid;
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-wrap: nowrap;
     gap: 8px;
-    align-items: stretch;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 2px;
   }
 
   .lead-queue-panel > .workspace-search-bar > form.workspace-search-bar {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
     gap: 8px;
-    width: 100%;
+    min-width: 0;
     align-items: center;
   }
 
   .lead-queue-panel > .workspace-search-bar > form.workspace-search-bar .text-input {
     min-width: 0;
-    flex: initial;
+    flex: 1 1 180px;
   }
 
   .lead-queue-panel > .workspace-search-bar > form.workspace-search-bar .button-ghost {
+    flex: 0 0 auto;
     min-height: 40px;
     padding: 8px 12px;
     white-space: nowrap;
   }
 
   .lead-queue-panel .workspace-action-rail {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: inline-flex;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
     gap: 8px;
-    width: 100%;
   }
 
   .lead-queue-panel .workspace-action-rail > * {
-    width: 100%;
-    min-width: 0;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: auto;
   }
 
   .lead-queue-panel .prospect-add-drawer,
