@@ -1,0 +1,105 @@
+.toolbarButton {
+  gap: 10px;
+  padding-inline: 18px 14px;
+}
+
+.toolbarBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--fyl-white);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.clientNameCell {
+  gap: 10px;
+}
+
+.clientNameMain {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.healthLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.healthChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.healthChipOk {
+  border-color: rgba(52, 199, 89, 0.2);
+  background: rgba(26, 156, 89, 0.12);
+  color: #a8f0c5;
+}
+
+.healthChipWarn {
+  border-color: rgba(214, 157, 16, 0.22);
+  background: rgba(214, 157, 16, 0.12);
+  color: #f3d17a;
+}
+
+.healthChipError {
+  border-color: rgba(255, 107, 138, 0.24);
+  background: rgba(255, 107, 138, 0.12);
+  color: #ffc3d0;
+}
+
+.inlineActions {
+  flex-wrap: wrap;
+}
+
+.metricValue {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 54px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(174, 139, 255, 0.16);
+  background: rgba(18, 15, 38, 0.48);
+  color: var(--fyl-white);
+  line-height: 1;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.metricValueEmpty {
+  color: rgba(229, 220, 255, 0.62);
+  background: rgba(18, 15, 38, 0.28);
+}
+
+@media (max-width: 980px) {
+  .healthLine {
+    align-items: flex-start;
+  }
+}

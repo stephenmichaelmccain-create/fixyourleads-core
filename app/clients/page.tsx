@@ -5,6 +5,7 @@ import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
 import { normalizePhone } from '@/lib/phone';
 import { isLikelyTestWorkspaceName } from '@/lib/test-workspaces';
 import { safeLoadDb } from '@/lib/ui-data';
+import styles from '@/app/clients/ClientsPage.module.css';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -107,6 +108,12 @@ function websiteHref(website?: string | null) {
   }
 
   return /^https?:\/\//i.test(website) ? website : `https://${website}`;
+}
+
+function healthChipToneClass(tone: 'ok' | 'warn' | 'error') {
+  if (tone === 'ok') return styles.healthChipOk;
+  if (tone === 'warn') return styles.healthChipWarn;
+  return styles.healthChipError;
 }
 
 export default async function ClientsPage({
@@ -364,8 +371,9 @@ export default async function ClientsPage({
       <section className="panel panel-stack">
         <div className="record-header client-list-header client-list-header-actions-only">
           <div className="client-list-actions">
-            <Link className="button" href="/clients/intake">
-              Intake queue {pendingSignupCount}
+            <Link className={`button ${styles.toolbarButton}`} href="/clients/intake">
+              <span>Intake queue</span>
+              <span className={styles.toolbarBadge}>{pendingSignupCount}</span>
             </Link>
             <Link className="button-secondary" href="/clients/new">
               + Add Client
@@ -411,54 +419,63 @@ export default async function ClientsPage({
                       </span>
                     </td>
                     <td className="client-table-col-name">
-                      <div className="client-name-cell">
-                        <div className="client-name-row">
+                      <div className={`client-name-cell ${styles.clientNameCell}`}>
+                        <div className={styles.clientNameMain}>
                           <Link className="table-link" href={`/clients/${row.id}`}>
                             <strong>{row.name}</strong>
                           </Link>
-                          <div className="client-inline-actions">
-                            {row.aiCallHref ? (
-                              <a className="button-secondary button-secondary-compact client-row-action-link" href={row.aiCallHref}>
-                                Call AI
-                              </a>
-                            ) : (
-                              <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Call AI</span>
-                            )}
-                            {row.websiteHref ? (
-                              <a
-                                className="button-secondary button-secondary-compact client-row-action-link"
-                                href={row.websiteHref}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                Website
-                              </a>
-                            ) : (
-                              <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Website</span>
-                            )}
-                            {row.ownerCallHref ? (
-                              <a className="button-secondary button-secondary-compact client-row-action-link" href={row.ownerCallHref}>
-                                Call Owner
-                              </a>
-                            ) : (
-                              <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Call Owner</span>
-                            )}
-                          </div>
                         </div>
-                        <span className="tiny-muted">
-                          {row.health.reason} · {row.connectedNumbers} number{row.connectedNumbers === 1 ? '' : 's'} ·{' '}
-                          {formatRelativeDay(row.lastActivityAt)}
-                        </span>
+                        <div className={styles.healthLine}>
+                          <span className={`${styles.healthChip} ${healthChipToneClass(row.health.tone)}`}>{row.health.label}</span>
+                          <span className="tiny-muted">
+                            {row.health.reason} · {row.connectedNumbers} number{row.connectedNumbers === 1 ? '' : 's'} ·{' '}
+                            {formatRelativeDay(row.lastActivityAt)}
+                          </span>
+                        </div>
+                        <div className={`client-inline-actions ${styles.inlineActions}`}>
+                          {row.aiCallHref ? (
+                            <a className="button-secondary button-secondary-compact client-row-action-link" href={row.aiCallHref}>
+                              Call AI
+                            </a>
+                          ) : (
+                            <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Call AI</span>
+                          )}
+                          {row.websiteHref ? (
+                            <a
+                              className="button-secondary button-secondary-compact client-row-action-link"
+                              href={row.websiteHref}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Website
+                            </a>
+                          ) : (
+                            <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Website</span>
+                          )}
+                          {row.ownerCallHref ? (
+                            <a className="button-secondary button-secondary-compact client-row-action-link" href={row.ownerCallHref}>
+                              Call Owner
+                            </a>
+                          ) : (
+                            <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Call Owner</span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="client-table-col-metric client-table-metric-cell">
-                      <span className="client-table-metric-value">{row.callsToday}</span>
+                      <span className={`${styles.metricValue}${row.callsToday === 0 ? ` ${styles.metricValueEmpty}` : ''}`}>
+                        {row.callsToday}
+                      </span>
                     </td>
                     <td className="client-table-col-metric client-table-metric-cell">
-                      <span className="client-table-metric-value">{row.callsThisMonth}</span>
+                      <span className={`${styles.metricValue}${row.callsThisMonth === 0 ? ` ${styles.metricValueEmpty}` : ''}`}>
+                        {row.callsThisMonth}
+                      </span>
                     </td>
                     <td className="client-table-col-metric client-table-metric-cell">
-                      <span className="client-table-metric-value">{row.answeredCalls}</span>
+                      <span className={`${styles.metricValue}${row.answeredCalls === 0 ? ` ${styles.metricValueEmpty}` : ''}`}>
+                        {row.answeredCalls}
+                      </span>
                     </td>
                     <td className="client-row-actions-cell">
                       <div className="client-row-actions">
