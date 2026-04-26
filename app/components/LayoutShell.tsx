@@ -44,15 +44,6 @@ export async function LayoutShell({
         </aside>
 
         <div className="app-main">
-          <header className="app-header">
-            <Link className="app-header-brand" href="/" aria-label="Fix Your Leads">
-              <BrandLogo />
-            </Link>
-            <div className="app-header-section">
-              <span className="app-header-section-label">{title}</span>
-            </div>
-          </header>
-
           <section className="shell-body">
             <div className="page-stack">
               {showPageHeader ? (
