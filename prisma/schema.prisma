@@ -51,6 +51,13 @@ enum AppointmentStatus {
   COMPLETED
 }
 
+enum AppointmentExternalSyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  SKIPPED
+}
+
 enum ProspectStatus {
   NEW
   NO_ANSWER
@@ -185,19 +192,25 @@ model Message {
 }
 
 model Appointment {
-  id          String            @id @default(cuid())
-  companyId   String
-  contactId   String
-  startTime   DateTime
-  status      AppointmentStatus @default(BOOKED)
-  notes       String?
-  confirmedAt DateTime?
-  canceledAt  DateTime?
-  noShowAt    DateTime?
-  completedAt DateTime?
-  createdAt   DateTime          @default(now())
-  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contact     Contact           @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  id                       String                        @id @default(cuid())
+  companyId                String
+  contactId                String
+  startTime                DateTime
+  status                   AppointmentStatus             @default(BOOKED)
+  notes                    String?
+  externalCalendarProvider String?
+  externalCalendarEventId  String?
+  externalSyncStatus       AppointmentExternalSyncStatus @default(PENDING)
+  externalSyncError        String?
+  externalSyncedAt         DateTime?
+  externalSyncAttempts     Int                           @default(0)
+  confirmedAt              DateTime?
+  canceledAt               DateTime?
+  noShowAt                 DateTime?
+  completedAt              DateTime?
+  createdAt                DateTime                      @default(now())
+  company                  Company                       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact                  Contact                       @relation(fields: [contactId], references: [id], onDelete: Cascade)
 }
 
 model EventLog {
@@ -331,4 +344,21 @@ model CallLog {
   prospect        Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
   @@index([prospectId, createdAt])
+}
+
+model UnroutedTelnyxEvent {
+  id           String   @id @default(cuid())
+  eventType    String
+  reason       String
+  eventId      String?
+  messageId    String?
+  inboundNumber String?
+  fromNumber   String?
+  payload      Json
+  createdAt    DateTime @default(now())
+  handledAt    DateTime?
+
+  @@index([createdAt])
+  @@index([reason, createdAt])
+  @@index([eventType, createdAt])
 }

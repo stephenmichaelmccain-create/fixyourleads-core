@@ -53,6 +53,28 @@ function logTelnyxWebhook(level: 'info' | 'warn' | 'error', event: string, detai
   console.info(entry);
 }
 
+async function recordUnroutedTelnyxEvent(input: {
+  eventType: string;
+  reason: string;
+  eventId?: string | null;
+  messageId?: string | null;
+  inboundNumber?: string | null;
+  fromNumber?: string | null;
+  payload: unknown;
+}) {
+  await db.unroutedTelnyxEvent.create({
+    data: {
+      eventType: input.eventType,
+      reason: input.reason,
+      eventId: input.eventId || null,
+      messageId: input.messageId || null,
+      inboundNumber: input.inboundNumber || null,
+      fromNumber: input.fromNumber || null,
+      payload: (input.payload ?? {}) as Prisma.InputJsonValue
+    }
+  });
+}
+
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const signatureResult = verifyTelnyxWebhookSignature(
@@ -112,6 +134,15 @@ export async function POST(request: NextRequest) {
     const inboundNumber = normalizePhone(normalized.to || '');
 
     if (!inboundNumber) {
+      await recordUnroutedTelnyxEvent({
+        eventType: normalized.eventType,
+        reason: 'missing_inbound_number',
+        eventId: normalized.eventId,
+        messageId: normalized.messageId,
+        inboundNumber: normalized.to,
+        fromNumber: normalized.from,
+        payload: body
+      });
       logTelnyxWebhook('warn', 'ignored_event', {
         reason: 'missing_inbound_number',
         eventType: normalized.eventType,
@@ -138,6 +169,15 @@ export async function POST(request: NextRequest) {
     });
 
     if (!company) {
+      await recordUnroutedTelnyxEvent({
+        eventType: normalized.eventType,
+        reason: 'no_company_for_inbound_number',
+        eventId: normalized.eventId,
+        messageId: normalized.messageId,
+        inboundNumber,
+        fromNumber: normalized.from,
+        payload: body
+      });
       logTelnyxWebhook('warn', 'ignored_event', {
         reason: 'no_company_for_inbound_number',
         inboundNumber,
@@ -185,6 +225,15 @@ export async function POST(request: NextRequest) {
   const deliveryContext = await resolveTelnyxDeliveryContext(normalized.messageId, normalized.from);
 
   if (!deliveryContext.companyId) {
+    await recordUnroutedTelnyxEvent({
+      eventType: normalized.eventType,
+      reason: 'no_company_for_message_event',
+      eventId: normalized.eventId,
+      messageId: normalized.messageId,
+      inboundNumber: normalized.to,
+      fromNumber: normalized.from,
+      payload: body
+    });
     logTelnyxWebhook('warn', 'ignored_event', {
       reason: 'no_company_for_message_event',
       eventType: normalized.eventType,

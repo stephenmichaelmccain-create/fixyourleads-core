@@ -19,6 +19,7 @@
     "worker:lead": "tsx workers/process_new_lead.ts",
     "worker:message": "tsx workers/handle_incoming_message.ts",
     "worker:booking": "tsx workers/booking.ts",
+    "worker:calendar-sync": "tsx workers/calendar-sync.ts",
     "worker:workflow": "tsx workers/workflows.ts"
   },
   "dependencies": {

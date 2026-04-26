@@ -46,6 +46,17 @@ type CrmSyncFailureNotificationInput = {
   leadPhone?: string | null;
 };
 
+type CalendarSyncFailureNotificationInput = {
+  to?: string | null;
+  companyName: string;
+  provider: string;
+  error: string;
+  appointmentId: string;
+  appointmentTime: Date;
+  contactName?: string | null;
+  contactPhone?: string | null;
+};
+
 type NotificationResult =
   | {
       status: 'sent';
@@ -418,6 +429,66 @@ export async function sendCrmSyncFailureNotification(
     return {
       status: 'failed',
       detail: error instanceof Error ? error.message : 'crm_sync_failure_email_failed'
+    };
+  }
+}
+
+export async function sendCalendarSyncFailureNotification(
+  input: CalendarSyncFailureNotificationInput
+): Promise<NotificationResult> {
+  if (!input.to) {
+    return {
+      status: 'skipped',
+      detail: 'calendar_sync_failure_email_missing'
+    };
+  }
+
+  const config = smtpConfig();
+
+  if (!config.user || !config.pass || !config.from) {
+    return {
+      status: 'skipped',
+      detail: 'smtp_not_configured'
+    };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass
+    }
+  });
+
+  try {
+    const info = await transporter.sendMail({
+      from: config.from,
+      to: input.to,
+      subject: `Calendar sync failed for ${input.companyName}`,
+      text: [
+        `Google Calendar sync failed after booking for ${input.companyName}.`,
+        '',
+        `Provider: ${input.provider}`,
+        `Appointment ID: ${input.appointmentId}`,
+        `Appointment time: ${input.appointmentTime.toLocaleString()}`,
+        `Contact: ${input.contactName || 'Unknown'}`,
+        `Phone: ${input.contactPhone || 'Unknown'}`,
+        '',
+        `Error: ${input.error}`
+      ].join('\n')
+    });
+
+    return {
+      status: 'sent',
+      detail: `calendar sync failure sent to ${input.to}`,
+      messageId: info.messageId
+    };
+  } catch (error) {
+    return {
+      status: 'failed',
+      detail: error instanceof Error ? error.message : 'calendar_sync_failure_email_failed'
     };
   }
 }

@@ -3,6 +3,11 @@ import { db } from '@/lib/db';
 import { companyPrimaryInboundNumber } from '@/lib/inbound-numbers';
 import { sendBookingNotification } from '@/lib/notifications';
 import { activateWorkflowRun, completeWorkflowRuns, touchWorkflowActivity } from '@/lib/workflows';
+import {
+  enqueueAppointmentCalendarSyncRetry,
+  notifyCalendarSyncFailure,
+  syncAppointmentToExternalCalendar
+} from '@/services/calendar-sync';
 import { sendManagedOutboundMessage } from '@/services/messaging';
 
 type CreateAppointmentInput = {
@@ -415,6 +420,43 @@ export async function createAppointmentFlow({ companyId, contactId, startTime }:
     workflowTypes: [WorkflowType.NEW_LEAD_FOLLOW_UP, WorkflowType.ACTIVE_CONVERSATION],
     reason: 'appointment_booked'
   });
+
+  const calendarSyncResult = await syncAppointmentToExternalCalendar(appointment.id, 'appointment_created');
+
+  if (!calendarSyncResult.success) {
+    const retryQueued = calendarSyncResult.retryable
+      ? await enqueueAppointmentCalendarSyncRetry(appointment.id, 'appointment_created')
+      : { queued: false };
+
+    await db.eventLog.create({
+      data: {
+        companyId,
+        eventType: retryQueued.queued ? 'appointment_calendar_sync_retry_queued' : 'appointment_calendar_sync_retry_skipped',
+        payload: {
+          appointmentId: appointment.id,
+          contactId,
+          provider: calendarSyncResult.provider,
+          error: calendarSyncResult.error || null,
+          retryable: Boolean(calendarSyncResult.retryable),
+          queued: retryQueued.queued
+        }
+      }
+    });
+
+    if (!retryQueued.queued) {
+      await notifyCalendarSyncFailure({
+        appointmentId: appointment.id,
+        companyId,
+        companyName: company.name,
+        notificationEmail: company.notificationEmail,
+        contactName: contact.name,
+        contactPhone: contact.phone,
+        appointmentTime: appointment.startTime,
+        provider: calendarSyncResult.provider,
+        error: calendarSyncResult.error || 'calendar_sync_failed'
+      });
+    }
+  }
 
   return {
     appointment,
