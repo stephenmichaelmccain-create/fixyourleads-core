@@ -1,6 +1,6 @@
 'use client';
 
-import type { MouseEvent } from 'react';
+import type { MouseEvent, PointerEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 type SpeakProspectNameButtonProps = {
@@ -25,6 +25,11 @@ export function SpeakProspectNameButton({ name }: SpeakProspectNameButtonProps) 
   if (!isSupported) {
     return null;
   }
+
+  const blockCardSelection = (event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   const speakName = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -68,6 +73,7 @@ export function SpeakProspectNameButton({ name }: SpeakProspectNameButtonProps) 
       className={`lead-speak-button${isSpeaking ? ' is-speaking' : ''}`}
       aria-label={isSpeaking ? `Stop reading ${name}` : `Read ${name} aloud`}
       title={isSpeaking ? 'Stop reading' : 'Read name aloud'}
+      onPointerDown={blockCardSelection}
       onClick={speakName}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

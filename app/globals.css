@@ -865,6 +865,9 @@ select {
   gap: 8px;
   align-items: flex-start;
   grid-template-columns: minmax(0, 1fr);
+  position: relative;
+  z-index: 3;
+  pointer-events: none;
 }
 
 .lead-master-select {
