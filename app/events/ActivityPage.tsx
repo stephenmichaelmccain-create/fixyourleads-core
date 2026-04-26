@@ -668,8 +668,8 @@ export async function ActivityPage({
       <section className="panel panel-stack">
         <div className="record-header">
           <div className="panel-stack">
-            <div className="metric-label">Event feed</div>
-            <h2 className="section-title">Recent activity across the live app.</h2>
+            <div className="metric-label">{compact ? 'Live activity' : 'Event feed'}</div>
+            <h2 className="section-title">{compact ? 'Recent activity' : 'Recent activity across the live app.'}</h2>
           </div>
           {compact ? (
             <div className="action-cluster action-cluster-compact-feed">
@@ -703,7 +703,7 @@ export async function ActivityPage({
               const related = relatedRecordType(event.payload);
 
               return (
-                <article key={event.id} className={`record-card${compact ? ' record-card-compact' : ''}`}>
+                <article key={event.id} className={`record-card${compact ? ' record-card-compact record-card-activity-minimal' : ''}`}>
                   <div className="record-card-live-head">
                     <span
                       className={`status-chip ${
@@ -721,13 +721,20 @@ export async function ActivityPage({
                     <span className="tiny-muted">{compact ? formatElapsedTime(event.createdAt) : formatDateTime(event.createdAt)}</span>
                   </div>
 
-                  <div className={`panel-stack${compact ? ' record-card-event-summary record-card-compact-event' : ''}`}>
+                  <div className={`panel-stack${compact ? ' activity-feed-body' : ''}`}>
                     {compact ? (
                       <>
-                        <strong className="record-card-event-title">{humanizeEventType(event.eventType)}</strong>
-                        <div className="record-card-event-client">{event.company?.name || event.companyId}</div>
-                        <div className="text-muted">
-                          {summaryLine || 'Open the full feed if you need raw event details.'}
+                        <div className="activity-feed-main">
+                          <div className="activity-feed-title-row">
+                            <strong className="record-card-event-title">{humanizeEventType(event.eventType)}</strong>
+                            <span className="record-card-event-client">{event.company?.name || event.companyId}</span>
+                          </div>
+                          {summaryLine ? <div className="text-muted activity-feed-summary">{summaryLine}</div> : null}
+                        </div>
+                        <div className="activity-feed-actions">
+                          <a className="button-link activity-feed-link" href={`/clients/${event.companyId}`}>
+                            Open client
+                          </a>
                         </div>
                       </>
                     ) : (
@@ -753,18 +760,18 @@ export async function ActivityPage({
                     )}
                   </div>
 
-                  <div className={`action-cluster${compact ? ' action-cluster-compact-feed' : ''}`}>
-                    <a className="button-ghost" href={`/clients/${event.companyId}`}>
-                      Open client
-                    </a>
-                    {!compact
-                      ? links.map((link) => (
-                      <a key={link.href} className="button-ghost" href={link.href}>
-                        {link.label}
+                  {!compact ? (
+                    <div className="action-cluster">
+                      <a className="button-ghost" href={`/clients/${event.companyId}`}>
+                        Open client
                       </a>
-                        ))
-                      : null}
-                  </div>
+                      {links.map((link) => (
+                        <a key={link.href} className="button-ghost" href={link.href}>
+                          {link.label}
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
 
                   {!compact ? (
                     <details className="panel-stack">

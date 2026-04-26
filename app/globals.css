@@ -1067,6 +1067,10 @@ select {
 
 .record-card-compact {
   gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(43, 37, 86, 0.78);
+  box-shadow: none;
 }
 
 .record-card-live-head {
@@ -1096,6 +1100,61 @@ select {
   color: var(--fyl-muted);
   font-size: 0.95rem;
   font-weight: 600;
+}
+
+.record-card-activity-minimal {
+  gap: 8px;
+}
+
+.record-card-activity-minimal .record-card-live-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.record-card-activity-minimal .status-chip {
+  min-height: 28px;
+  padding: 4px 10px;
+}
+
+.activity-feed-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.activity-feed-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.activity-feed-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.activity-feed-summary {
+  line-height: 1.45;
+}
+
+.activity-feed-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.activity-feed-link {
+  color: #c8afff;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .live-indicator-compact {
@@ -2718,6 +2777,15 @@ select {
 
   .record-card-live-head {
     gap: 8px;
+  }
+
+  .activity-feed-body {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .activity-feed-actions {
+    justify-content: flex-start;
   }
 }
 
