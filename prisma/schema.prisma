@@ -101,6 +101,7 @@ model Company {
   crmFieldMapping         Json?
   telnyxInboundNumbers    CompanyTelnyxNumber[]
   createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
   contacts                Contact[]
   contactIdentities       ContactChannelIdentity[]
   leads                   Lead[]

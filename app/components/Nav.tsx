@@ -5,7 +5,7 @@ type NavProps = {
   variant?: 'sidebar' | 'mobile';
 };
 
-type NavKey = 'activity' | 'leads' | 'clients' | 'messages' | 'system';
+type NavKey = 'activity' | 'leads' | 'clients' | 'system';
 
 const desktopPrimaryItems: Array<{ key: NavKey; href: string; label: string }> = [
   { key: 'activity', href: '/', label: 'Activity' },
@@ -14,7 +14,6 @@ const desktopPrimaryItems: Array<{ key: NavKey; href: string; label: string }> =
 ];
 
 const desktopUtilityItems: Array<{ key: NavKey; href: string; label: string }> = [
-  { key: 'messages', href: '/messages', label: 'Messages' },
   { key: 'system', href: '/admin/system', label: 'Settings' }
 ];
 
@@ -35,6 +34,10 @@ function normalizeCurrent(current?: NavProps['current']): NavKey | undefined {
 
   if (current === 'diagnostics') {
     return 'system';
+  }
+
+  if (current === 'messages') {
+    return 'clients';
   }
 
   return current;
@@ -64,14 +67,6 @@ function NavIcon({ name }: { name: NavKey }) {
         <path d="M15.5 19a3.5 3.5 0 0 0-7 0" />
         <circle cx="12" cy="9" r="3.25" />
         <path d="M19.5 18.5a3 3 0 0 0-3-2.75M17.2 6.8a3.1 3.1 0 0 1 0 5.9" />
-      </svg>
-    );
-  }
-
-  if (name === 'messages') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M6 7.5A3.5 3.5 0 0 1 9.5 4h5A3.5 3.5 0 0 1 18 7.5v4A3.5 3.5 0 0 1 14.5 15H11l-4 3v-3.4A3.49 3.49 0 0 1 6 11.5z" />
       </svg>
     );
   }
@@ -112,7 +107,11 @@ export function Nav({ current, variant = 'sidebar' }: NavProps) {
 
   if (variant === 'mobile') {
     return (
-      <nav className="app-bottom-nav" aria-label="Primary">
+      <nav
+        className="app-bottom-nav"
+        aria-label="Primary"
+        style={{ gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))` }}
+      >
         {mobileItems.map((item) => (
           <NavLink
             key={item.key}

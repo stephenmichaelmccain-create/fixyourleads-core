@@ -192,7 +192,6 @@ const workflows = [
       '/clients',
       '/clients/[id]',
       '/leads',
-      '/messages',
       '/admin/system',
       '/'
     ],
@@ -217,7 +216,6 @@ const workflows = [
 const operatorSurfaces = [
   { href: '/clients', title: 'Clients', body: 'Paying client workspaces with health, lead tables, messages, appointments, and profile updates.' },
   { href: '/leads', title: 'Leads', body: 'The outbound prospecting pipeline for clinics we are trying to sell.' },
-  { href: '/messages', title: 'Messages', body: 'Unified inbox across clients for the conversations that need a human.' },
   { href: '/admin/system', title: 'System Status', body: 'Runtime truth, env readiness, queue health, and deployment checks.' },
   { href: '/', title: 'Activity Log', body: 'A durable operator feed for workflow history, worker outcomes, and live system actions.' }
 ];

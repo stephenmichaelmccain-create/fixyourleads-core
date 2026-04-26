@@ -114,7 +114,8 @@ export default async function ClientProfilePage({
           primaryContactPhone: true,
           retainerCents: true,
           downPaymentCents: true,
-          createdAt: true
+          createdAt: true,
+          updatedAt: true
         }
       }),
     null
@@ -287,6 +288,7 @@ export default async function ClientProfilePage({
             <button type="submit" className="button">
               Save profile
             </button>
+            <span className="tiny-muted">Last edited {formatCompactDateTime(company.updatedAt)}</span>
           </div>
         </form>
       </section>
