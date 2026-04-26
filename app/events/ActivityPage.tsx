@@ -437,7 +437,7 @@ export async function ActivityPage({
   description?: string;
   hidePageHeader?: boolean;
   compact?: boolean;
-  section?: 'home' | 'clients' | 'leads' | 'messages' | 'system' | 'activity' | 'diagnostics' | 'our-leads';
+  section?: 'home' | 'clients' | 'leads' | 'system' | 'activity' | 'diagnostics' | 'our-leads';
 }) {
   const params = (await searchParams) || {};
   const selectedCompanyId = String(params.companyId || '').trim();

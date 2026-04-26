@@ -940,14 +940,18 @@ select {
 }
 
 .lead-queue-scroll {
+  --lead-queue-edge-space-start: 0px;
+  --lead-queue-edge-space-end: clamp(16px, 6vw, 72px);
   min-height: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-inline: clamp(0px, 12vw, 160px);
+  padding-inline-start: var(--lead-queue-edge-space-start);
+  padding-inline-end: var(--lead-queue-edge-space-end);
   padding-bottom: 8px;
   overscroll-behavior-x: contain;
   scroll-snap-type: x proximity;
-  scroll-padding-inline: clamp(0px, 12vw, 160px);
+  scroll-padding-inline-start: var(--lead-queue-edge-space-start);
+  scroll-padding-inline-end: var(--lead-queue-edge-space-end);
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
 }
@@ -3525,9 +3529,9 @@ select {
     transform: translateX(-50%);
     z-index: 40;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px;
-    width: min(calc(100% - 24px), 360px);
+    width: min(calc(100% - 24px), 340px);
     padding: 6px;
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.06);
@@ -3563,14 +3567,11 @@ select {
   }
 
   .mobile-nav-link .nav-link-label {
-    max-width: 100%;
     font-size: 9px;
     font-weight: 700;
     text-align: center;
     line-height: 1.1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
     letter-spacing: 0.01em;
   }
 
