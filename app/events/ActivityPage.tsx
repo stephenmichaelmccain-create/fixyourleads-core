@@ -106,58 +106,99 @@ function humanizeEventType(eventType: string) {
     .join(' ');
 }
 
-function eventTone(eventType: string) {
+type EventTone = 'ok' | 'warn' | 'error';
+type EventAccent = 'violet' | 'green' | 'amber' | 'blue' | 'pink';
+
+function resolveEventPresentation(eventType: string, payload: unknown): {
+  tone: EventTone;
+  tile: string;
+  flair: string | null;
+  accent: EventAccent;
+  tag: string;
+} {
   const value = eventType.toLowerCase();
+  const record = payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : null;
+  const deliveryStatus = typeof record?.deliveryStatus === 'string' ? record.deliveryStatus.toLowerCase() : '';
+  const notificationStatus = typeof record?.notificationStatus === 'string' ? record.notificationStatus.toLowerCase() : '';
+  const confirmationStatus = typeof record?.confirmationStatus === 'string' ? record.confirmationStatus.toLowerCase() : '';
 
-  if (value.includes('failed') || value.includes('error')) {
-    return 'error';
-  }
+  let tag = 'default';
 
-  if (
-    value.includes('suppressed') ||
-    value.includes('duplicate') ||
-    value.includes('skipped') ||
-    value.includes('missing')
-  ) {
-    return 'warn';
-  }
-
-  return 'ok';
-}
-
-function eventVisual(eventType: string) {
-  const value = eventType.toLowerCase();
-
-  if (value.includes('signup') && value.includes('received')) {
-    return { tile: '✦', flair: '🎉', accent: 'violet' as const };
-  }
-
-  if (
+  if (value === 'client_signup_received' || value === 'client_onboarding_received' || (value.includes('signup') && value.includes('received'))) {
+    tag = 'signup_received';
+  } else if (
+    value === 'client_signup_approved' ||
+    value === 'appointment_booked' ||
+    value === 'booking_confirmation_sent' ||
+    value === 'review_request_sent' ||
+    value === 'workflow_runs_completed' ||
+    value === 'workflow_activated' ||
     value.includes('approved') ||
     value.includes('completed') ||
     value.includes('confirmed') ||
     value.includes('booked')
   ) {
-    return { tile: '✓', flair: '✅', accent: 'green' as const };
+    tag = 'success';
+  } else if (
+    value === 'telnyx_message_delivery_failed' ||
+    value === 'operator_messaging_test_failed' ||
+    value === 'booking_confirmation_failed' ||
+    value === 'booking_details_request_failed' ||
+    value === 'review_score_unparsed' ||
+    value.includes('failed') ||
+    value.includes('error') ||
+    deliveryStatus === 'sending_failed' ||
+    deliveryStatus === 'delivery_failed' ||
+    notificationStatus === 'failed' ||
+    confirmationStatus === 'failed'
+  ) {
+    tag = 'failure';
+  } else if (
+    value === 'telnyx_message_delivery_unconfirmed' ||
+    value === 'review_request_skipped' ||
+    value.includes('suppressed') ||
+    value.includes('duplicate') ||
+    value.includes('skipped') ||
+    value.includes('missing') ||
+    value.includes('unconfirmed') ||
+    deliveryStatus === 'delivery_unconfirmed'
+  ) {
+    tag = 'warning';
+  } else if (
+    value === 'telnyx_message_sent' ||
+    value === 'manual_message_sent' ||
+    value === 'operator_messaging_test_sent' ||
+    value === 'review_request_queued' ||
+    value === 'review_request_workflow_updated' ||
+    value.includes('message') && value.includes('sent')
+  ) {
+    tag = 'message_outbound';
+  } else if (value === 'message_received') {
+    tag = 'message_inbound';
+  } else if (value === 'voice_demo_requested' || value.includes('call') || value.includes('phone') || value.includes('voice')) {
+    tag = 'call';
+  } else if (value.includes('message') || value.includes('conversation') || value.includes('operator') || value.includes('review')) {
+    tag = 'message_inbound';
   }
 
-  if (value.includes('failed') || value.includes('error')) {
-    return { tile: '!', flair: '😕', accent: 'amber' as const };
+  switch (tag) {
+    case 'signup_received':
+      return { tag, tone: 'ok', tile: '✦', flair: '🎉', accent: 'violet' };
+    case 'success':
+      return { tag, tone: 'ok', tile: '✓', flair: '✅', accent: 'green' };
+    case 'failure':
+      return { tag, tone: 'error', tile: '!', flair: '😕', accent: 'amber' };
+    case 'warning':
+      return { tag, tone: 'warn', tile: '!', flair: '⚠️', accent: 'amber' };
+    case 'message_outbound':
+      return { tag, tone: 'ok', tile: '➜', flair: '🚀', accent: 'blue' };
+    case 'message_inbound':
+      return { tag, tone: 'ok', tile: '✉', flair: '💬', accent: 'pink' };
+    case 'call':
+      return { tag, tone: 'ok', tile: '☎', flair: '📞', accent: 'blue' };
+    default:
+      return { tag, tone: 'ok', tile: '•', flair: null, accent: 'violet' };
   }
-
-  if (value.includes('message') && value.includes('sent')) {
-    return { tile: '➜', flair: '🚀', accent: 'blue' as const };
-  }
-
-  if (value.includes('message') || value.includes('conversation') || value.includes('operator')) {
-    return { tile: '✉', flair: '💬', accent: 'pink' as const };
-  }
-
-  if (value.includes('call') || value.includes('phone')) {
-    return { tile: '☎', flair: '📞', accent: 'blue' as const };
-  }
-
-  return { tile: '•', flair: null, accent: 'violet' as const };
 }
 
 function formatDateTime(value: Date | string) {
@@ -724,23 +765,22 @@ export async function ActivityPage({
         ) : (
           <div className="record-grid">
             {events.map((event) => {
-              const tone = eventTone(event.eventType);
+              const presentation = resolveEventPresentation(event.eventType, event.payload);
               const links = payloadLinks(event.companyId, event.payload);
               const summaryLine = shortPayload(event.payload);
               const related = relatedRecordType(event.payload);
-              const visual = eventVisual(event.eventType);
 
               return (
                 <article
                   key={event.id}
                   className={`record-card${compact ? ' record-card-compact record-card-activity-minimal' : ''}${
-                    compact ? ` activity-feed-card activity-feed-card-${visual.accent}` : ''
+                    compact ? ` activity-feed-card activity-feed-card-${presentation.accent}` : ''
                   }`}
                 >
                   {compact ? (
                     <>
-                      <div className={`activity-feed-icon activity-feed-icon-${visual.accent}`} aria-hidden="true">
-                        <span className="activity-feed-icon-glyph">{visual.tile}</span>
+                      <div className={`activity-feed-icon activity-feed-icon-${presentation.accent}`} aria-hidden="true">
+                        <span className="activity-feed-icon-glyph">{presentation.tile}</span>
                       </div>
 
                       <div className="activity-feed-card-main">
@@ -750,7 +790,7 @@ export async function ActivityPage({
                           </Link>
                           <span className="activity-feed-time tiny-muted">
                             {formatElapsedTime(event.createdAt)}
-                            <span className={`activity-feed-time-dot activity-feed-time-dot-${visual.accent}`} aria-hidden="true" />
+                            <span className={`activity-feed-time-dot activity-feed-time-dot-${presentation.accent}`} aria-hidden="true" />
                           </span>
                         </div>
 
@@ -758,9 +798,9 @@ export async function ActivityPage({
                           <div className="activity-feed-main">
                             <div className="activity-feed-title-row">
                               <strong className="record-card-event-title">{humanizeEventType(event.eventType)}</strong>
-                              {visual.flair ? (
+                              {presentation.flair ? (
                                 <span className="activity-feed-title-flair" aria-hidden="true">
-                                  {visual.flair}
+                                  {presentation.flair}
                                 </span>
                               ) : null}
                             </div>
@@ -774,14 +814,14 @@ export async function ActivityPage({
                       <div className="record-card-live-head">
                         <span
                           className={`status-chip ${
-                            tone === 'error'
+                            presentation.tone === 'error'
                               ? 'status-chip-attention'
-                              : tone === 'warn'
+                              : presentation.tone === 'warn'
                                 ? 'status-chip-muted'
                                 : ''
                           }`}
                         >
-                          <span className={`status-dot ${tone}`} />
+                          <span className={`status-dot ${presentation.tone}`} />
                           {humanizeEventType(event.eventType)}
                         </span>
                         <span className="tiny-muted">{humanizeRelatedRecordType(related)}</span>
