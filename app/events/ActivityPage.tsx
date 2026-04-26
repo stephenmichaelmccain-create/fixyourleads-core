@@ -419,15 +419,10 @@ function relatedRecordType(payload: unknown) {
   return 'unclassified';
 }
 
-function eventTypeLooksLeadRelated(eventType: string) {
+function eventTypeLooksLeadWorkspaceRelated(eventType: string) {
   const value = eventType.toLowerCase();
 
-  return (
-    value.startsWith('lead_') ||
-    value === 'google_maps_import_completed' ||
-    value.includes('maps_import') ||
-    value.includes('prospect')
-  );
+  return value.startsWith('prospect_');
 }
 
 function notificationViewForEvent(event: {
@@ -435,11 +430,7 @@ function notificationViewForEvent(event: {
   companyId: string;
   payload: unknown;
 }) {
-  if (
-    event.companyId === 'fixyourleads' ||
-    relatedRecordType(event.payload) === 'lead' ||
-    eventTypeLooksLeadRelated(event.eventType)
-  ) {
+  if (event.companyId === 'fixyourleads' || relatedRecordType(event.payload) === 'prospect' || eventTypeLooksLeadWorkspaceRelated(event.eventType)) {
     return 'leads' satisfies NotificationView;
   }
 
@@ -682,7 +673,9 @@ export async function ActivityPage({
   const normalizedQuery = searchQuery.toLowerCase();
   const normalizedTerms = normalizedQuery.split(/\s+/).filter(Boolean);
   const scopedEventTypeRows = eventTypeRows.filter((row) =>
-    selectedView === 'leads' ? eventTypeLooksLeadRelated(row.eventType) : !eventTypeLooksLeadRelated(row.eventType)
+    selectedView === 'leads'
+      ? eventTypeLooksLeadWorkspaceRelated(row.eventType)
+      : !eventTypeLooksLeadWorkspaceRelated(row.eventType)
   );
 
   const events = rawEvents.filter((event) => {
