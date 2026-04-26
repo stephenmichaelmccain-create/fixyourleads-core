@@ -301,7 +301,7 @@ export default async function ClientLiveLogPage({
             NOT: [{ eventType: { startsWith: 'lead_' } }, { eventType: { startsWith: 'prospect_' } }]
           },
           orderBy: { createdAt: 'desc' },
-          take: 60
+          take: 20
         }),
       []
     ),
