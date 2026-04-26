@@ -4,6 +4,7 @@ import { saveClientPortalSetupAction } from '@/app/c/[id]/actions';
 import { db } from '@/lib/db';
 import { isValidClientViewToken } from '@/lib/client-view-auth';
 import { safeLoad } from '@/lib/ui-data';
+import styles from './client-public.module.css';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,19 @@ function payloadString(payload: Record<string, unknown>, key: string) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function formatCompactDateTime(value: Date | string | null | undefined) {
+  if (!value) {
+    return '—';
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  }).format(new Date(value));
+}
+
 export default async function ClientStatusPage({
   params,
   searchParams
@@ -63,7 +77,9 @@ export default async function ClientStatusPage({
           primaryContactEmail: true,
           primaryContactPhone: true,
           crmProvider: true,
-          crmCredentialsEncrypted: true
+          crmCredentialsEncrypted: true,
+          createdAt: true,
+          updatedAt: true
         }
       }),
     null
@@ -94,12 +110,26 @@ export default async function ClientStatusPage({
   const bookingPlatformUrl = payloadString(bookingPayload, 'externalPlatformUrl');
   const bookingCredentialsSaved = Boolean(payloadString(bookingPayload, 'externalPlatformCredentialsEncrypted'));
   const crmCredentialsSaved = Boolean(company.crmCredentialsEncrypted);
+  const businessEmailReady = Boolean(company.notificationEmail);
+  const primaryContactReady = Boolean(company.primaryContactName || company.primaryContactEmail || company.primaryContactPhone);
+  const crmReady = company.crmProvider !== CrmProvider.NONE && crmCredentialsSaved;
+  const bookingReady = Boolean(bookingPlatformName || bookingPlatformUrl || bookingCredentialsSaved);
+  const setupReadyCount = [businessEmailReady, primaryContactReady, crmReady, bookingReady].filter(Boolean).length;
+  const setupTotal = 4;
+  const latestSetupUpdate = [company.updatedAt, latestBookingSetupEvent?.createdAt]
+    .filter(Boolean)
+    .sort((left, right) => new Date(right as Date).getTime() - new Date(left as Date).getTime())[0];
+  const primaryContactLine =
+    company.primaryContactName ||
+    company.primaryContactEmail ||
+    company.primaryContactPhone ||
+    'Add an owner or manager so we know who to contact.';
 
   return (
-    <main className="app-shell client-public-shell">
-      <section className="panel panel-stack client-status-page client-public-page">
+    <main className={`app-shell client-public-shell ${styles.shell}`}>
+      <section className={`panel panel-stack client-status-page client-public-page ${styles.page}`}>
         {query.notice === 'saved' && (
-          <section className="panel panel-stack client-public-inline-notice">
+          <section className={`panel panel-stack client-public-inline-notice ${styles.notice}`}>
             <div className="inline-row">
               <span className="status-dot ok" />
               <strong>Setup saved.</strong>
@@ -111,7 +141,7 @@ export default async function ClientStatusPage({
         )}
 
         {query.notice === 'encryption_key_missing' && (
-          <section className="panel panel-stack client-public-inline-notice panel-attention">
+          <section className={`panel panel-stack client-public-inline-notice panel-attention ${styles.notice}`}>
             <div className="inline-row">
               <span className="status-dot warn" />
               <strong>Secure key storage is not ready yet.</strong>
@@ -121,7 +151,7 @@ export default async function ClientStatusPage({
         )}
 
         {query.notice === 'credentials_invalid' && (
-          <section className="panel panel-stack client-public-inline-notice panel-attention">
+          <section className={`panel panel-stack client-public-inline-notice panel-attention ${styles.notice}`}>
             <div className="inline-row">
               <span className="status-dot warn" />
               <strong>We could not save those API keys.</strong>
@@ -131,7 +161,7 @@ export default async function ClientStatusPage({
         )}
 
         {query.notice === 'name_required' && (
-          <section className="panel panel-stack client-public-inline-notice panel-attention">
+          <section className={`panel panel-stack client-public-inline-notice panel-attention ${styles.notice}`}>
             <div className="inline-row">
               <span className="status-dot warn" />
               <strong>Business name is required.</strong>
@@ -139,11 +169,65 @@ export default async function ClientStatusPage({
           </section>
         )}
 
+        <section className="client-status-grid">
+          <section className={`client-status-hero ${setupReadyCount === setupTotal ? 'is-ready' : 'is-warn'}`}>
+            <div className="metric-label">Client workspace</div>
+            <h1 className={`section-title client-public-title ${styles.title}`}>{company.name}</h1>
+            <div className={`record-subtitle ${styles.subtitle}`}>
+              Keep this page current so Fix Your Leads can route messages, connect your CRM, and keep booking setup moving.
+            </div>
+            <div className="inline-row">
+              <span className={`status-dot ${setupReadyCount === setupTotal ? 'ok' : 'warn'}`} />
+              <strong>
+                {setupReadyCount} of {setupTotal} setup blocks ready
+              </strong>
+            </div>
+            <div className="tiny-muted">Last updated {formatCompactDateTime(latestSetupUpdate)}</div>
+          </section>
+
+          <section className="panel panel-stack client-public-support-card">
+            <div className="metric-label">Quick view</div>
+            <div className="client-record-sidebar-grid">
+              <div className={`client-record-sidebar-item ${styles.quickCard}`}>
+                <span className="key-value-label">Business email</span>
+                <strong>{company.notificationEmail || 'Not set'}</strong>
+                <span className="tiny-muted">
+                  {businessEmailReady ? 'Booking and notice emails can be routed here.' : 'Add the main inbox your team watches.'}
+                </span>
+              </div>
+              <div className={`client-record-sidebar-item ${styles.quickCard}`}>
+                <span className="key-value-label">Primary contact</span>
+                <strong>{primaryContactLine}</strong>
+                <span className="tiny-muted">
+                  {primaryContactReady ? 'We have a live person to contact when setup changes.' : 'Add at least one contact method.'}
+                </span>
+              </div>
+              <div className={`client-record-sidebar-item ${styles.quickCard}`}>
+                <span className="key-value-label">CRM status</span>
+                <strong>{crmReady ? providerLabel(company.crmProvider) : 'Setup needed'}</strong>
+                <span className="tiny-muted">
+                  {crmReady ? 'CRM provider and secure keys are on file.' : 'Choose a provider and save the API key when ready.'}
+                </span>
+              </div>
+              <div className={`client-record-sidebar-item ${styles.quickCard}`}>
+                <span className="key-value-label">Booking status</span>
+                <strong>{bookingReady ? bookingPlatformName || 'Connected' : 'Setup needed'}</strong>
+                <span className="tiny-muted">
+                  {bookingReady ? 'Booking platform details are saved.' : 'Add the booking platform name, URL, and credentials.'}
+                </span>
+              </div>
+            </div>
+          </section>
+        </section>
+
         <section className="panel panel-stack">
           <div className="record-header">
             <div className="panel-stack">
               <div className="metric-label">Client setup</div>
               <h2 className="section-title">Update your workspace details</h2>
+              <div className={`record-subtitle ${styles.subtitle}`}>
+                Save your business details here and keep any API key fields blank when you do not want to replace the ones already stored.
+              </div>
             </div>
           </div>
 

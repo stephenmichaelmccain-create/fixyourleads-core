@@ -1,0 +1,44 @@
+.shell :global(.panel),
+.shell :global(.client-record-stat),
+.shell :global(.client-record-sidebar-item),
+.shell :global(.workspace-list-item) {
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(36, 31, 76, 0.96) 0%, rgba(28, 24, 60, 0.94) 100%);
+  box-shadow: var(--fyl-shadow-soft);
+}
+
+.shell :global(.text-input),
+.shell :global(.text-area),
+.shell :global(.select-input) {
+  background: rgba(20, 17, 43, 0.98);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.shell :global(.workspace-list-item:hover) {
+  border-color: rgba(167, 139, 250, 0.2);
+  background: rgba(44, 38, 92, 0.96);
+}
+
+.page {
+  background:
+    linear-gradient(180deg, rgba(53, 45, 106, 0.32) 0%, rgba(34, 29, 70, 0.22) 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.notice {
+  background: rgba(52, 45, 105, 0.62);
+}
+
+.title {
+  margin: 0;
+}
+
+.subtitle {
+  max-width: 62ch;
+}
+
+.quickCard {
+  min-height: 112px;
+  align-content: start;
+}
