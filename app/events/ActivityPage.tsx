@@ -125,6 +125,41 @@ function eventTone(eventType: string) {
   return 'ok';
 }
 
+function eventVisual(eventType: string) {
+  const value = eventType.toLowerCase();
+
+  if (value.includes('signup') && value.includes('received')) {
+    return { tile: '✦', flair: '🎉', accent: 'violet' as const };
+  }
+
+  if (
+    value.includes('approved') ||
+    value.includes('completed') ||
+    value.includes('confirmed') ||
+    value.includes('booked')
+  ) {
+    return { tile: '✓', flair: '✅', accent: 'green' as const };
+  }
+
+  if (value.includes('failed') || value.includes('error')) {
+    return { tile: '!', flair: '😕', accent: 'amber' as const };
+  }
+
+  if (value.includes('message') && value.includes('sent')) {
+    return { tile: '➜', flair: '🚀', accent: 'blue' as const };
+  }
+
+  if (value.includes('message') || value.includes('conversation') || value.includes('operator')) {
+    return { tile: '✉', flair: '💬', accent: 'pink' as const };
+  }
+
+  if (value.includes('call') || value.includes('phone')) {
+    return { tile: '☎', flair: '📞', accent: 'blue' as const };
+  }
+
+  return { tile: '•', flair: null, accent: 'violet' as const };
+}
+
 function formatDateTime(value: Date | string) {
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -693,19 +728,50 @@ export async function ActivityPage({
               const links = payloadLinks(event.companyId, event.payload);
               const summaryLine = shortPayload(event.payload);
               const related = relatedRecordType(event.payload);
+              const visual = eventVisual(event.eventType);
 
               return (
-                <article key={event.id} className={`record-card${compact ? ' record-card-compact record-card-activity-minimal' : ''}`}>
-                  <div className="record-card-live-head">
-                    {compact ? (
-                      <>
-                        <Link className="record-card-event-client record-card-event-client-link" href={`/clients/${event.companyId}`}>
-                          {event.company?.name || event.companyId}
-                        </Link>
-                        <span className="tiny-muted">{formatElapsedTime(event.createdAt)}</span>
-                      </>
-                    ) : (
-                      <>
+                <article
+                  key={event.id}
+                  className={`record-card${compact ? ' record-card-compact record-card-activity-minimal' : ''}${
+                    compact ? ` activity-feed-card activity-feed-card-${visual.accent}` : ''
+                  }`}
+                >
+                  {compact ? (
+                    <>
+                      <div className={`activity-feed-icon activity-feed-icon-${visual.accent}`} aria-hidden="true">
+                        <span className="activity-feed-icon-glyph">{visual.tile}</span>
+                      </div>
+
+                      <div className="activity-feed-card-main">
+                        <div className="record-card-live-head">
+                          <Link className="record-card-event-client record-card-event-client-link" href={`/clients/${event.companyId}`}>
+                            {event.company?.name || event.companyId}
+                          </Link>
+                          <span className="activity-feed-time tiny-muted">
+                            {formatElapsedTime(event.createdAt)}
+                            <span className={`activity-feed-time-dot activity-feed-time-dot-${visual.accent}`} aria-hidden="true" />
+                          </span>
+                        </div>
+
+                        <div className="panel-stack activity-feed-body">
+                          <div className="activity-feed-main">
+                            <div className="activity-feed-title-row">
+                              <strong className="record-card-event-title">{humanizeEventType(event.eventType)}</strong>
+                              {visual.flair ? (
+                                <span className="activity-feed-title-flair" aria-hidden="true">
+                                  {visual.flair}
+                                </span>
+                              ) : null}
+                            </div>
+                            {summaryLine ? <div className="text-muted activity-feed-summary">{summaryLine}</div> : null}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="record-card-live-head">
                         <span
                           className={`status-chip ${
                             tone === 'error'
@@ -720,18 +786,9 @@ export async function ActivityPage({
                         </span>
                         <span className="tiny-muted">{humanizeRelatedRecordType(related)}</span>
                         <span className="tiny-muted">{formatDateTime(event.createdAt)}</span>
-                      </>
-                    )}
-                  </div>
-
-                  <div className={`panel-stack${compact ? ' activity-feed-body' : ''}`}>
-                    {compact ? (
-                      <div className="activity-feed-main">
-                        <strong className="record-card-event-title">{humanizeEventType(event.eventType)}</strong>
-                        {summaryLine ? <div className="text-muted activity-feed-summary">{summaryLine}</div> : null}
                       </div>
-                    ) : (
-                      <>
+
+                      <div className="panel-stack">
                         <div className="inline-row">
                           <Link
                             className="table-link"
@@ -749,9 +806,9 @@ export async function ActivityPage({
                         <div className="text-muted">
                           {summaryLine || 'No short summary derived from the payload. Expand details for the raw event body.'}
                         </div>
-                      </>
-                    )}
-                  </div>
+                      </div>
+                    </>
+                  )}
 
                   {!compact ? (
                     <div className="action-cluster">

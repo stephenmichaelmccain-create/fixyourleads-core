@@ -27,27 +27,49 @@ export async function LayoutShell({
 
   return (
     <main className="app-shell">
-      <header className="app-header">
-        {companyId && <PersistCompanyContext companyId={companyId} companyName={companyName} />}
-        <Link className="app-header-brand" href="/" aria-label="Fix Your Leads">
-          <BrandLogo />
-        </Link>
-        <Nav current={section} />
-      </header>
+      {companyId && <PersistCompanyContext companyId={companyId} companyName={companyName} />}
 
-      <section className="shell-body">
-        <div className="page-stack">
-          {showPageHeader ? (
-            <section className={`page-heading${variant === 'workspace' ? ' page-heading-compact' : ''}`}>
-              <div className="page-heading-copy">
-                <h1 className="page-title">{title}</h1>
-                {description ? <p className="page-copy">{description}</p> : null}
-              </div>
-            </section>
-          ) : null}
-          {children}
+      <div className="app-frame">
+        <aside className="app-sidebar" aria-label="Workspace navigation">
+          <Link className="app-sidebar-brand" href="/" aria-label="Fix Your Leads">
+            <span className="app-sidebar-brand-mark">
+              <BrandLogo />
+            </span>
+            <span className="app-sidebar-brand-copy">
+              <strong>Fix Your Leads</strong>
+              <span>Workspace</span>
+            </span>
+          </Link>
+          <Nav current={section} variant="sidebar" />
+        </aside>
+
+        <div className="app-main">
+          <header className="app-header">
+            <Link className="app-header-brand" href="/" aria-label="Fix Your Leads">
+              <BrandLogo />
+            </Link>
+            <div className="app-header-section">
+              <span className="app-header-section-label">{title}</span>
+            </div>
+          </header>
+
+          <section className="shell-body">
+            <div className="page-stack">
+              {showPageHeader ? (
+                <section className={`page-heading${variant === 'workspace' ? ' page-heading-compact' : ''}`}>
+                  <div className="page-heading-copy">
+                    <h1 className="page-title">{title}</h1>
+                    {description ? <p className="page-copy">{description}</p> : null}
+                  </div>
+                </section>
+              ) : null}
+              {children}
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
+
+      <Nav current={section} variant="mobile" />
     </main>
   );
 }

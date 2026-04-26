@@ -942,39 +942,116 @@ export default async function OurLeadsPage({
             ) : (
               <>
                 <div className="lead-action-grid">
-                  <form action={updateProspectOutcomeAction} className="panel panel-stack lead-action-panel">
-                    <input type="hidden" name="prospectId" value={selectedProspectView.id} />
-                    <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
-                    <input type="hidden" name="q" value={searchQuery} />
-                    <input type="hidden" name="view" value={selectedView} />
-                    <input type="hidden" name="status" value={selectedStatus} />
-                    <input type="hidden" name="city" value={selectedCity} />
-                    <input type="hidden" name="nextActionDue" value={selectedDue} />
-                    <div className="inline-row justify-between lead-panel-header">
-                      <div className="metric-label">Outcome</div>
-                      <div className="tiny-muted">Save and move forward</div>
+                  <div className="lead-action-stack">
+                    <form action={updateProspectOutcomeAction} className="panel panel-stack lead-action-panel">
+                      <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                      <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
+                      <input type="hidden" name="q" value={searchQuery} />
+                      <input type="hidden" name="view" value={selectedView} />
+                      <input type="hidden" name="status" value={selectedStatus} />
+                      <input type="hidden" name="city" value={selectedCity} />
+                      <input type="hidden" name="nextActionDue" value={selectedDue} />
+                      <div className="inline-row justify-between lead-panel-header">
+                        <div className="metric-label">Outcome</div>
+                        <div className="tiny-muted">Save and move forward</div>
+                      </div>
+                      <div className="lead-action-pill-grid">
+                        <button type="submit" className="button-secondary" name="outcome" value="no_answer">
+                          No answer
+                        </button>
+                        <button type="submit" className="button-secondary" name="outcome" value="voicemail">
+                          Left voicemail
+                        </button>
+                        <button type="submit" className="button-secondary" name="outcome" value="not_interested">
+                          Not interested
+                        </button>
+                        <button type="submit" className="button-secondary" name="outcome" value="booked">
+                          Booked
+                        </button>
+                        <button type="submit" className="button-secondary" name="outcome" value="sold">
+                          Sold
+                        </button>
+                        <button type="submit" className="button-ghost" name="outcome" value="do_not_contact">
+                          Do not contact
+                        </button>
+                      </div>
+                    </form>
+
+                    <div className="lead-preview-grid">
+                      <section className="panel panel-stack lead-preview-panel">
+                        <div className="inline-row justify-between lead-panel-header">
+                          <span className="metric-label">Contact history</span>
+                          <span className="tiny-muted">{selectedProspectView.callLogs.length}</span>
+                        </div>
+                        {selectedProspectView.callLogs.length === 0 ? (
+                          <div className="empty-state lead-preview-empty">No contact history yet.</div>
+                        ) : (
+                          <div className="lead-history-list">
+                            {selectedProspectView.callLogs.slice(0, 3).map((call) => (
+                              <div key={call.id} className="lead-history-item">
+                                <div className="inline-row justify-between lead-history-row">
+                                  <span className="status-label">
+                                    <span className="status-dot ok" />
+                                    {call.outcome}
+                                  </span>
+                                  <span className="tiny-muted">{formatDateTime(call.createdAt)}</span>
+                                </div>
+                                <span className="text-muted">
+                                  {call.notes || 'No call notes captured.'}
+                                  {typeof call.durationSeconds === 'number' ? ` • ${call.durationSeconds}s` : ''}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+
+                      <section className="panel panel-stack lead-preview-panel">
+                        <div className="inline-row justify-between lead-panel-header">
+                          <span className="metric-label">Lead context</span>
+                          <span className="tiny-muted">At a glance</span>
+                        </div>
+                        <div className="lead-context-preview-grid">
+                          <div className="lead-context-preview-item">
+                            <span className="key-value-label">Created</span>
+                            <strong>{formatDateTime(selectedProspectView.createdAt)}</strong>
+                          </div>
+                          <div className="lead-context-preview-item">
+                            <span className="key-value-label">Updated</span>
+                            <strong>{formatDateTime(selectedProspectView.updatedAt)}</strong>
+                          </div>
+                          <div className="lead-context-preview-item">
+                            <span className="key-value-label">Source</span>
+                            <strong>{detailValue(selectedProspectView.profile.source, 'Manual add')}</strong>
+                          </div>
+                          <div className="lead-context-preview-item">
+                            <span className="key-value-label">Clinic type</span>
+                            <strong>{detailValue(selectedProspectView.profile.clinicType)}</strong>
+                          </div>
+                          <div className="lead-context-preview-item">
+                            <span className="key-value-label">ZIP</span>
+                            <strong>{detailValue(selectedProspectView.profile.zipCode)}</strong>
+                          </div>
+                          <div className="lead-context-preview-item">
+                            <span className="key-value-label">Predicted revenue</span>
+                            <strong>{detailValue(selectedProspectView.profile.predictedRevenue)}</strong>
+                          </div>
+                        </div>
+                        {selectedProspectView.website ? (
+                          <div className="inline-actions">
+                            <a
+                              className="button-ghost lead-preview-link"
+                              href={websiteHref(selectedProspectView.website)}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Open full website
+                            </a>
+                          </div>
+                        ) : null}
+                      </section>
                     </div>
-                    <div className="lead-action-pill-grid">
-                      <button type="submit" className="button-secondary" name="outcome" value="no_answer">
-                        No answer
-                      </button>
-                      <button type="submit" className="button-secondary" name="outcome" value="voicemail">
-                        Left voicemail
-                      </button>
-                      <button type="submit" className="button-secondary" name="outcome" value="not_interested">
-                        Not interested
-                      </button>
-                      <button type="submit" className="button-secondary" name="outcome" value="booked">
-                        Booked
-                      </button>
-                      <button type="submit" className="button-secondary" name="outcome" value="sold">
-                        Sold
-                      </button>
-                      <button type="submit" className="button-ghost" name="outcome" value="do_not_contact">
-                        Do not contact
-                      </button>
-                    </div>
-                  </form>
+                  </div>
 
                   <section className="panel panel-stack lead-follow-up-panel">
                     <div className="lead-follow-up-header">
@@ -1058,87 +1135,6 @@ export default async function OurLeadsPage({
                     </form>
                   </section>
                 </div>
-
-                <details className="routing-details" open={selectedProspectView.callLogs.length > 0}>
-                  <summary className="routing-summary">
-                    <span className="metric-label">Contact history</span>
-                    <span className="tiny-muted">{selectedProspectView.callLogs.length}</span>
-                  </summary>
-                  {selectedProspectView.callLogs.length === 0 ? (
-                    <div className="empty-state">No contact history yet.</div>
-                  ) : (
-                    <div className="status-list">
-                      {selectedProspectView.callLogs.map((call) => (
-                        <div key={call.id} className="status-item" style={{ alignItems: 'flex-start' }}>
-                          <div className="panel-stack" style={{ gap: 6 }}>
-                            <span className="status-label">
-                              <span className="status-dot ok" />
-                              {call.outcome}
-                            </span>
-                            <span className="tiny-muted">
-                              {formatDateTime(call.createdAt)}
-                              {typeof call.durationSeconds === 'number' ? ` • ${call.durationSeconds}s` : ''}
-                            </span>
-                            <span className="text-muted">{call.notes || 'No call notes captured.'}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </details>
-
-                <details className="routing-details">
-                  <summary className="routing-summary">
-                    <span className="metric-label">Lead context</span>
-                    <span className="tiny-muted">Extra details</span>
-                  </summary>
-                  <div className="key-value-grid">
-                    <div className="key-value-card">
-                      <span className="key-value-label">Created</span>
-                      <span>{formatDateTime(selectedProspectView.createdAt)}</span>
-                    </div>
-                    <div className="key-value-card">
-                      <span className="key-value-label">Updated</span>
-                      <span>{formatDateTime(selectedProspectView.updatedAt)}</span>
-                    </div>
-                    <div className="key-value-card">
-                      <span className="key-value-label">Source</span>
-                      <span>{detailValue(selectedProspectView.profile.source, 'Manual add')}</span>
-                    </div>
-                    <div className="key-value-card">
-                      <span className="key-value-label">Clinic type</span>
-                      <span>{detailValue(selectedProspectView.profile.clinicType)}</span>
-                    </div>
-                    <div className="key-value-card">
-                      <span className="key-value-label">ZIP</span>
-                      <span>{detailValue(selectedProspectView.profile.zipCode)}</span>
-                    </div>
-                    <div className="key-value-card">
-                      <span className="key-value-label">Predicted revenue</span>
-                      <span>{detailValue(selectedProspectView.profile.predictedRevenue)}</span>
-                    </div>
-                    <div className="key-value-card">
-                      <span className="key-value-label">Import batch</span>
-                      <span>{detailValue(selectedProspectView.profile.importBatch)}</span>
-                    </div>
-                    <div className="key-value-card">
-                      <span className="key-value-label">Source record</span>
-                      <span>{detailValue(selectedProspectView.profile.sourceRecord)}</span>
-                    </div>
-                  </div>
-                  {selectedProspectView.website ? (
-                    <div className="inline-actions">
-                      <a
-                        className="button-ghost"
-                        href={websiteHref(selectedProspectView.website)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open full website
-                      </a>
-                    </div>
-                  ) : null}
-                </details>
               </>
             )}
           </section>
