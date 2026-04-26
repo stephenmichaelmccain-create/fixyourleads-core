@@ -3953,7 +3953,7 @@ select {
   }
 
   .lead-action-grid {
-    gap: 10px;
+    gap: 8px;
   }
 
   .lead-command-strip {
@@ -3971,8 +3971,8 @@ select {
   }
 
   .lead-command-button {
-    min-height: 96px;
-    padding: 14px 10px;
+    min-height: 88px;
+    padding: 12px 10px;
   }
 
   .lead-action-stack {
@@ -3990,7 +3990,7 @@ select {
 
   .lead-preview-grid {
     order: 3;
-    gap: 10px;
+    gap: 8px;
   }
 
   .lead-action-pill-grid {
@@ -4064,6 +4064,32 @@ select {
 
   .lead-notes-grid {
     gap: 10px;
+  }
+
+  .lead-notes-body {
+    gap: 12px;
+  }
+
+  .lead-quick-notes-row {
+    gap: 8px;
+  }
+
+  .lead-quick-note-chip {
+    min-height: 34px;
+    padding: 7px 12px;
+    font-size: 0.86rem;
+  }
+
+  .lead-notes-editor {
+    min-height: 112px;
+  }
+
+  .lead-history-empty {
+    min-height: 96px;
+  }
+
+  .lead-notes-actions {
+    padding-top: 0;
   }
 
   .lead-history-disclosure-panel {
@@ -4158,11 +4184,19 @@ select {
   .lead-preview-panel,
   .lead-follow-up-panel,
   .lead-notes-panel {
-    padding: 14px;
+    padding: 12px;
   }
 
   .lead-follow-up-panel {
-    gap: 10px;
+    gap: 8px;
+  }
+
+  .lead-notes-body {
+    gap: 8px;
+  }
+
+  .lead-notes-editor {
+    min-height: 88px;
   }
 
   .lead-command-group-outcomes {
@@ -4192,16 +4226,36 @@ select {
   }
 
   .lead-command-button {
-    min-height: 88px;
-    padding: 12px 10px;
+    min-height: 80px;
+    padding: 10px 8px;
+    gap: 6px;
+  }
+
+  .lead-command-icon {
+    width: 24px;
+    height: 24px;
   }
 
   .lead-command-label {
-    font-size: 0.92rem;
+    font-size: 0.88rem;
   }
 
   .lead-command-meta {
+    font-size: 0.78rem;
+  }
+
+  .lead-quick-notes-row {
+    gap: 6px;
+  }
+
+  .lead-quick-note-chip {
+    min-height: 32px;
+    padding: 6px 10px;
     font-size: 0.82rem;
+  }
+
+  .lead-history-empty {
+    min-height: 84px;
   }
 
   .lead-action-pill-grid .button-secondary,
