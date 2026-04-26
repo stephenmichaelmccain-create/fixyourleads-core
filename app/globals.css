@@ -1600,8 +1600,9 @@ select {
   overflow: hidden;
   isolation: isolate;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  background: transparent;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 14px 28px rgba(6, 4, 18, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .activity-feed-card::before {
@@ -1616,28 +1617,45 @@ select {
 }
 
 .activity-feed-card-violet {
-  background: transparent;
+  background:
+    linear-gradient(180deg, rgba(98, 74, 176, 0.24), rgba(54, 42, 113, 0.1)),
+    linear-gradient(135deg, rgba(43, 37, 86, 0.48), rgba(28, 24, 62, 0.42));
   border-color: rgba(182, 154, 255, 0.26);
 }
 
 .activity-feed-card-green {
-  background: transparent;
+  background:
+    linear-gradient(180deg, rgba(68, 128, 97, 0.2), rgba(39, 72, 59, 0.08)),
+    linear-gradient(135deg, rgba(40, 35, 79, 0.46), rgba(27, 24, 57, 0.4));
   border-color: rgba(124, 227, 149, 0.22);
 }
 
 .activity-feed-card-amber {
-  background: transparent;
+  background:
+    linear-gradient(180deg, rgba(146, 99, 44, 0.2), rgba(84, 53, 25, 0.1)),
+    linear-gradient(135deg, rgba(40, 35, 79, 0.46), rgba(27, 24, 57, 0.4));
   border-color: rgba(255, 196, 104, 0.22);
 }
 
 .activity-feed-card-blue {
-  background: transparent;
+  background:
+    linear-gradient(180deg, rgba(61, 101, 164, 0.2), rgba(36, 61, 104, 0.1)),
+    linear-gradient(135deg, rgba(40, 35, 79, 0.46), rgba(27, 24, 57, 0.4));
   border-color: rgba(124, 184, 255, 0.22);
 }
 
 .activity-feed-card-pink {
-  background: transparent;
+  background:
+    linear-gradient(180deg, rgba(125, 76, 156, 0.2), rgba(69, 44, 93, 0.1)),
+    linear-gradient(135deg, rgba(40, 35, 79, 0.46), rgba(27, 24, 57, 0.4));
   border-color: rgba(219, 158, 255, 0.22);
+}
+
+.activity-feed-card-red {
+  background:
+    linear-gradient(180deg, rgba(170, 62, 82, 0.24), rgba(94, 31, 46, 0.1)),
+    linear-gradient(135deg, rgba(52, 23, 44, 0.48), rgba(30, 17, 29, 0.42));
+  border-color: rgba(255, 128, 152, 0.26);
 }
 
 .activity-feed-card-main {
@@ -1692,6 +1710,11 @@ select {
 .activity-feed-icon-pink {
   background: linear-gradient(180deg, rgba(183, 109, 255, 0.24), rgba(98, 59, 172, 0.18));
   color: #d6a8ff;
+}
+
+.activity-feed-icon-red {
+  background: linear-gradient(180deg, rgba(255, 123, 150, 0.24), rgba(149, 47, 68, 0.2));
+  color: #ff97b0;
 }
 
 .record-card-activity-minimal .record-card-live-head {
@@ -1785,6 +1808,10 @@ select {
   background: #aa73ff;
 }
 
+.activity-feed-time-dot-red {
+  background: #ff6b8a;
+}
+
 .live-indicator-compact {
   min-height: auto;
   padding: 6px;
@@ -1864,17 +1891,33 @@ select {
   .lead-queue-list {
     grid-auto-flow: column;
     grid-auto-columns: calc(100vw - 52px);
+    grid-auto-rows: auto;
     width: max-content;
     align-items: start;
   }
 
   .lead-queue-list .lead-master-card {
+    height: auto;
     min-height: auto;
   }
 
   .lead-master-card,
   .lead-queue-body {
     gap: 8px;
+  }
+
+  .lead-master-header,
+  .lead-master-select {
+    min-height: auto;
+  }
+
+  .lead-master-select {
+    grid-template-rows: auto auto auto;
+  }
+
+  .lead-queue-body {
+    grid-template-rows: auto auto;
+    height: auto;
   }
 
   .lead-queue-timing,
@@ -3675,33 +3718,51 @@ select {
     padding: 16px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
-    background: transparent;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 14px 28px rgba(6, 4, 18, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-violet {
-    background: transparent;
+    background:
+      linear-gradient(180deg, rgba(98, 74, 176, 0.24), rgba(54, 42, 113, 0.1)),
+      linear-gradient(135deg, rgba(43, 37, 86, 0.48), rgba(28, 24, 62, 0.42));
     border-color: rgba(182, 154, 255, 0.24);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-green {
-    background: transparent;
+    background:
+      linear-gradient(180deg, rgba(68, 128, 97, 0.2), rgba(39, 72, 59, 0.08)),
+      linear-gradient(135deg, rgba(40, 35, 79, 0.46), rgba(27, 24, 57, 0.4));
     border-color: rgba(124, 227, 149, 0.2);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-amber {
-    background: transparent;
+    background:
+      linear-gradient(180deg, rgba(146, 99, 44, 0.2), rgba(84, 53, 25, 0.1)),
+      linear-gradient(135deg, rgba(40, 35, 79, 0.46), rgba(27, 24, 57, 0.4));
     border-color: rgba(255, 196, 104, 0.2);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-blue {
-    background: transparent;
+    background:
+      linear-gradient(180deg, rgba(61, 101, 164, 0.2), rgba(36, 61, 104, 0.1)),
+      linear-gradient(135deg, rgba(40, 35, 79, 0.46), rgba(27, 24, 57, 0.4));
     border-color: rgba(124, 184, 255, 0.2);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-pink {
-    background: transparent;
+    background:
+      linear-gradient(180deg, rgba(125, 76, 156, 0.2), rgba(69, 44, 93, 0.1)),
+      linear-gradient(135deg, rgba(40, 35, 79, 0.46), rgba(27, 24, 57, 0.4));
     border-color: rgba(219, 158, 255, 0.2);
+  }
+
+  .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-red {
+    background:
+      linear-gradient(180deg, rgba(170, 62, 82, 0.24), rgba(94, 31, 46, 0.1)),
+      linear-gradient(135deg, rgba(52, 23, 44, 0.48), rgba(30, 17, 29, 0.42));
+    border-color: rgba(255, 128, 152, 0.24);
   }
 
   .activity-feed-icon {
@@ -4011,33 +4072,50 @@ select {
     padding: 14px 16px;
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 12px;
-    background: transparent;
+    background: rgba(43, 37, 86, 0.44);
     box-shadow: none;
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-violet {
-    background: transparent;
+    background:
+      linear-gradient(180deg, rgba(86, 66, 155, 0.22), rgba(53, 42, 109, 0.08)),
+      rgba(43, 37, 86, 0.44);
     border-color: rgba(173, 145, 255, 0.2);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-green {
-    background: transparent;
+    background:
+      linear-gradient(180deg, rgba(68, 128, 97, 0.16), rgba(39, 72, 59, 0.06)),
+      rgba(40, 35, 79, 0.42);
     border-color: rgba(124, 227, 149, 0.16);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-amber {
-    background: transparent;
+    background:
+      linear-gradient(180deg, rgba(146, 99, 44, 0.16), rgba(84, 53, 25, 0.08)),
+      rgba(40, 35, 79, 0.42);
     border-color: rgba(255, 196, 104, 0.16);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-blue {
-    background: transparent;
+    background:
+      linear-gradient(180deg, rgba(61, 101, 164, 0.16), rgba(36, 61, 104, 0.08)),
+      rgba(40, 35, 79, 0.42);
     border-color: rgba(124, 184, 255, 0.16);
   }
 
   .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-pink {
-    background: transparent;
+    background:
+      linear-gradient(180deg, rgba(125, 76, 156, 0.16), rgba(69, 44, 93, 0.08)),
+      rgba(40, 35, 79, 0.42);
     border-color: rgba(219, 158, 255, 0.16);
+  }
+
+  .record-card.record-card-activity-minimal.activity-feed-card.activity-feed-card-red {
+    background:
+      linear-gradient(180deg, rgba(156, 58, 77, 0.18), rgba(88, 29, 43, 0.08)),
+      rgba(42, 28, 44, 0.42);
+    border-color: rgba(255, 128, 152, 0.18);
   }
 
   .record-grid {
@@ -4284,21 +4362,35 @@ select {
   }
 
   .lead-master-card {
-    padding: 14px;
+    gap: 8px;
+    padding: 12px;
     border-radius: 18px;
   }
 
+  .lead-company-name {
+    font-size: 1.04rem;
+    line-height: 1.18;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
   .lead-queue-subline {
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 1.35;
   }
 
   .lead-queue-phone {
-    font-size: 18px;
+    align-self: start;
+    font-size: 17px;
+    line-height: 1.15;
   }
 
   .lead-queue-timing-item {
     padding: 8px 10px;
-    min-height: 78px;
+    min-height: 70px;
+    gap: 2px;
   }
 
   .lead-master-footer {
