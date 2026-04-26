@@ -1,0 +1,127 @@
+.noticeCopy {
+  margin: 0;
+  color: var(--fyl-text);
+  line-height: 1.55;
+}
+
+.meetingList {
+  display: grid;
+  gap: 16px;
+}
+
+.meetingCard {
+  display: grid;
+  gap: 16px;
+}
+
+.meetingHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.timeBlock {
+  display: grid;
+  gap: 4px;
+}
+
+.timeValue {
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.timeMeta {
+  color: var(--fyl-muted);
+  font-size: 0.92rem;
+}
+
+.meetingMeta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.relativeChip,
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--fyl-border-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.relativeChip {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fyl-white);
+}
+
+.statusBooked {
+  background: rgba(90, 136, 255, 0.16);
+  border-color: rgba(90, 136, 255, 0.26);
+  color: #d7e2ff;
+}
+
+.statusConfirmed {
+  background: rgba(52, 199, 89, 0.16);
+  border-color: rgba(52, 199, 89, 0.26);
+  color: #d9ffe4;
+}
+
+.statusRescheduled {
+  background: rgba(255, 184, 77, 0.16);
+  border-color: rgba(255, 184, 77, 0.28);
+  color: #ffe6bb;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.fieldLabel {
+  color: var(--fyl-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fieldValue {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.notesValue {
+  white-space: pre-wrap;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+@media (max-width: 760px) {
+  .meetingHeader {
+    flex-direction: column;
+  }
+
+  .meetingMeta {
+    justify-content: flex-start;
+  }
+}

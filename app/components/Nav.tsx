@@ -1,15 +1,25 @@
 import Link from 'next/link';
 
 type NavProps = {
-  current?: 'home' | 'clients' | 'leads' | 'messages' | 'system' | 'activity' | 'diagnostics' | 'our-leads';
+  current?:
+    | 'home'
+    | 'clients'
+    | 'leads'
+    | 'messages'
+    | 'meetings'
+    | 'system'
+    | 'activity'
+    | 'diagnostics'
+    | 'our-leads';
   variant?: 'sidebar' | 'mobile';
 };
 
-type NavKey = 'activity' | 'leads' | 'clients' | 'system';
+type NavKey = 'activity' | 'leads' | 'clients' | 'meetings' | 'system';
 
 const desktopPrimaryItems: Array<{ key: NavKey; href: string; label: string }> = [
   { key: 'activity', href: '/', label: 'Activity' },
   { key: 'leads', href: '/leads', label: 'Leads' },
+  { key: 'meetings', href: '/meetings', label: 'Meetings' },
   { key: 'clients', href: '/clients', label: 'Clients' }
 ];
 
@@ -65,6 +75,16 @@ function NavIcon({ name }: { name: NavKey }) {
         <path d="M15.5 19a3.5 3.5 0 0 0-7 0" />
         <circle cx="12" cy="9" r="3.25" />
         <path d="M19.5 18.5a3 3 0 0 0-3-2.75M17.2 6.8a3.1 3.1 0 0 1 0 5.9" />
+      </svg>
+    );
+  }
+
+  if (name === 'meetings') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="6" width="16" height="14" rx="3" />
+        <path d="M8 4.5v3M16 4.5v3M4 10.5h16" />
+        <path d="M8.5 14.5h3M8.5 17h7" />
       </svg>
     );
   }

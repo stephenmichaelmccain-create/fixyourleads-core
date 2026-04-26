@@ -19,7 +19,7 @@ export async function LayoutShell({
   children: ReactNode;
   companyId?: string;
   companyName?: string;
-  section?: 'home' | 'clients' | 'leads' | 'system' | 'activity' | 'diagnostics' | 'our-leads';
+  section?: 'home' | 'clients' | 'leads' | 'meetings' | 'system' | 'activity' | 'diagnostics' | 'our-leads';
   variant?: 'default' | 'workspace';
   hidePageHeader?: boolean;
 }) {
