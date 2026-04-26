@@ -947,81 +947,49 @@ export default async function OurLeadsPage({
             ) : (
               <>
                 <div className="lead-action-grid">
-                  <div className="lead-action-stack">
-                    <form action={updateProspectOutcomeAction} className="panel panel-stack lead-action-panel">
-                      <input type="hidden" name="prospectId" value={selectedProspectView.id} />
-                      <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
-                      <input type="hidden" name="q" value={searchQuery} />
-                      <input type="hidden" name="view" value={selectedView} />
-                      <input type="hidden" name="status" value={selectedStatus} />
-                      <input type="hidden" name="city" value={selectedCity} />
-                      <input type="hidden" name="nextActionDue" value={selectedDue} />
-                      <div className="inline-row justify-between lead-panel-header lead-action-header">
-                        <div className="tiny-muted lead-action-copy">Save and move forward</div>
-                        <LeadContextDialog
-                          createdAt={formatDateTime(selectedProspectView.createdAt)}
-                          updatedAt={formatDateTime(selectedProspectView.updatedAt)}
-                          source={detailValue(selectedProspectView.profile.source, 'Manual add')}
-                          clinicType={detailValue(selectedProspectView.profile.clinicType)}
-                          zipCode={detailValue(selectedProspectView.profile.zipCode)}
-                          predictedRevenue={detailValue(selectedProspectView.profile.predictedRevenue)}
-                          websiteHref={
-                            selectedProspectView.website ? websiteHref(selectedProspectView.website) : undefined
-                          }
-                        />
-                      </div>
-                      <div className="lead-action-pill-grid">
-                        <button type="submit" className="button-secondary" name="outcome" value="no_answer">
-                          No answer
-                        </button>
-                        <button type="submit" className="button-secondary" name="outcome" value="voicemail">
-                          Left voicemail
-                        </button>
-                        <button type="submit" className="button-secondary" name="outcome" value="not_interested">
-                          Not interested
-                        </button>
-                        <button type="submit" className="button-secondary" name="outcome" value="booked">
-                          Booked
-                        </button>
-                        <button type="submit" className="button-secondary" name="outcome" value="sold">
-                          Sold
-                        </button>
-                        <button type="submit" className="button-ghost" name="outcome" value="do_not_contact">
-                          Do not contact
-                        </button>
-                      </div>
-                    </form>
-
-                    <div className="lead-preview-grid">
-                      <section className="panel panel-stack lead-preview-panel">
-                        <div className="inline-row justify-between lead-panel-header">
-                          <span className="metric-label">Contact history</span>
-                          <span className="tiny-muted">{selectedProspectView.callLogs.length}</span>
-                        </div>
-                        {selectedProspectView.callLogs.length === 0 ? (
-                          <div className="empty-state lead-preview-empty">No contact history yet.</div>
-                        ) : (
-                          <div className="lead-history-list">
-                            {selectedProspectView.callLogs.slice(0, 3).map((call) => (
-                              <div key={call.id} className="lead-history-item">
-                                <div className="inline-row justify-between lead-history-row">
-                                  <span className="status-label">
-                                    <span className="status-dot ok" />
-                                    {call.outcome}
-                                  </span>
-                                  <span className="tiny-muted">{formatDateTime(call.createdAt)}</span>
-                                </div>
-                                <span className="text-muted">
-                                  {call.notes || 'No call notes captured.'}
-                                  {typeof call.durationSeconds === 'number' ? ` • ${call.durationSeconds}s` : ''}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </section>
+                  <form action={updateProspectOutcomeAction} className="panel panel-stack lead-action-panel">
+                    <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                    <input type="hidden" name="nextProspectId" value={nextQueueProspectId} />
+                    <input type="hidden" name="q" value={searchQuery} />
+                    <input type="hidden" name="view" value={selectedView} />
+                    <input type="hidden" name="status" value={selectedStatus} />
+                    <input type="hidden" name="city" value={selectedCity} />
+                    <input type="hidden" name="nextActionDue" value={selectedDue} />
+                    <div className="inline-row justify-between lead-panel-header lead-action-header">
+                      <div className="tiny-muted lead-action-copy">Save and move forward</div>
+                      <LeadContextDialog
+                        createdAt={formatDateTime(selectedProspectView.createdAt)}
+                        updatedAt={formatDateTime(selectedProspectView.updatedAt)}
+                        source={detailValue(selectedProspectView.profile.source, 'Manual add')}
+                        clinicType={detailValue(selectedProspectView.profile.clinicType)}
+                        zipCode={detailValue(selectedProspectView.profile.zipCode)}
+                        predictedRevenue={detailValue(selectedProspectView.profile.predictedRevenue)}
+                        websiteHref={
+                          selectedProspectView.website ? websiteHref(selectedProspectView.website) : undefined
+                        }
+                      />
                     </div>
-                  </div>
+                    <div className="lead-action-pill-grid">
+                      <button type="submit" className="button-secondary" name="outcome" value="no_answer">
+                        No answer
+                      </button>
+                      <button type="submit" className="button-secondary" name="outcome" value="voicemail">
+                        Left voicemail
+                      </button>
+                      <button type="submit" className="button-secondary" name="outcome" value="not_interested">
+                        Not interested
+                      </button>
+                      <button type="submit" className="button-secondary" name="outcome" value="booked">
+                        Booked
+                      </button>
+                      <button type="submit" className="button-secondary" name="outcome" value="sold">
+                        Sold
+                      </button>
+                      <button type="submit" className="button-ghost" name="outcome" value="do_not_contact">
+                        Do not contact
+                      </button>
+                    </div>
+                  </form>
 
                   <section className="panel panel-stack lead-follow-up-panel">
                     <div className="lead-follow-up-header">
@@ -1061,49 +1029,79 @@ export default async function OurLeadsPage({
                         </button>
                       </div>
                     </form>
-
-                    <form action={updateProspectDetailsAction} className="panel-stack lead-notes-panel">
-                      <input type="hidden" name="prospectId" value={selectedProspectView.id} />
-                      <input type="hidden" name="q" value={searchQuery} />
-                      <input type="hidden" name="view" value={selectedView} />
-                      <input type="hidden" name="status" value={selectedStatus} />
-                      <input type="hidden" name="city" value={selectedCity} />
-                      <input type="hidden" name="nextActionDue" value={selectedDue} />
-                      <div className="lead-notes-grid lead-notes-grid-streamlined">
-                        <div className="field-stack lead-date-field">
-                          <label className="key-value-label" htmlFor="lead-next-action-at">
-                            Custom follow-up date
-                          </label>
-                          <input
-                            id="lead-next-action-at"
-                            name="nextActionAt"
-                            type="datetime-local"
-                            className="text-input"
-                            defaultValue={formatDateTimeInput(selectedProspectView.nextActionAt)}
-                          />
-                          <div className="tiny-muted">Use this when the quick callback buttons are too broad.</div>
-                        </div>
-                        <div className="field-stack lead-notes-field">
-                          <label className="key-value-label" htmlFor="lead-notes-editor">
-                            Caller notes
-                          </label>
-                          <textarea
-                            id="lead-notes-editor"
-                            name="notes"
-                            className="text-area"
-                            defaultValue={selectedProspectView.plainNotes}
-                            placeholder="Anything the next caller should know."
-                          />
-                        </div>
-                      </div>
-                      <div className="inline-actions lead-notes-actions">
-                        <span className="tiny-muted">One save updates the handoff note and the custom follow-up date.</span>
-                        <button type="submit" className="button-secondary button-secondary-strong">
-                          Save next step
-                        </button>
-                      </div>
-                    </form>
                   </section>
+                </div>
+
+                <div className="lead-preview-grid">
+                  <section className="panel panel-stack lead-preview-panel">
+                    <div className="inline-row justify-between lead-panel-header">
+                      <span className="metric-label">Contact history</span>
+                      <span className="tiny-muted">{selectedProspectView.callLogs.length}</span>
+                    </div>
+                    {selectedProspectView.callLogs.length === 0 ? (
+                      <div className="empty-state lead-preview-empty">No contact history yet.</div>
+                    ) : (
+                      <div className="lead-history-list">
+                        {selectedProspectView.callLogs.slice(0, 3).map((call) => (
+                          <div key={call.id} className="lead-history-item">
+                            <div className="inline-row justify-between lead-history-row">
+                              <span className="status-label">
+                                <span className="status-dot ok" />
+                                {call.outcome}
+                              </span>
+                              <span className="tiny-muted">{formatDateTime(call.createdAt)}</span>
+                            </div>
+                            <span className="text-muted">
+                              {call.notes || 'No call notes captured.'}
+                              {typeof call.durationSeconds === 'number' ? ` • ${call.durationSeconds}s` : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  <form action={updateProspectDetailsAction} className="panel panel-stack lead-notes-panel">
+                    <input type="hidden" name="prospectId" value={selectedProspectView.id} />
+                    <input type="hidden" name="q" value={searchQuery} />
+                    <input type="hidden" name="view" value={selectedView} />
+                    <input type="hidden" name="status" value={selectedStatus} />
+                    <input type="hidden" name="city" value={selectedCity} />
+                    <input type="hidden" name="nextActionDue" value={selectedDue} />
+                    <div className="lead-notes-grid lead-notes-grid-streamlined">
+                      <div className="field-stack lead-date-field">
+                        <label className="key-value-label" htmlFor="lead-next-action-at">
+                          Custom follow-up date
+                        </label>
+                        <input
+                          id="lead-next-action-at"
+                          name="nextActionAt"
+                          type="datetime-local"
+                          className="text-input"
+                          defaultValue={formatDateTimeInput(selectedProspectView.nextActionAt)}
+                        />
+                        <div className="tiny-muted">Use this when the quick callback buttons are too broad.</div>
+                      </div>
+                      <div className="field-stack lead-notes-field">
+                        <label className="key-value-label" htmlFor="lead-notes-editor">
+                          Caller notes
+                        </label>
+                        <textarea
+                          id="lead-notes-editor"
+                          name="notes"
+                          className="text-area"
+                          defaultValue={selectedProspectView.plainNotes}
+                          placeholder="Anything the next caller should know."
+                        />
+                      </div>
+                    </div>
+                    <div className="inline-actions lead-notes-actions">
+                      <span className="tiny-muted">One save updates the handoff note and the custom follow-up date.</span>
+                      <button type="submit" className="button-secondary button-secondary-strong">
+                        Save next step
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </>
             )}
