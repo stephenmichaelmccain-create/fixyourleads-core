@@ -107,7 +107,7 @@ function humanizeEventType(eventType: string) {
 }
 
 type EventTone = 'ok' | 'warn' | 'error';
-type EventAccent = 'violet' | 'green' | 'amber' | 'blue' | 'pink';
+type EventAccent = 'violet' | 'green' | 'amber' | 'blue' | 'pink' | 'red';
 
 function resolveEventPresentation(eventType: string, payload: unknown): {
   tone: EventTone;
@@ -187,7 +187,7 @@ function resolveEventPresentation(eventType: string, payload: unknown): {
     case 'success':
       return { tag, tone: 'ok', tile: '✓', flair: '✅', accent: 'green' };
     case 'failure':
-      return { tag, tone: 'error', tile: '!', flair: '😕', accent: 'amber' };
+      return { tag, tone: 'error', tile: '!', flair: '😕', accent: 'red' };
     case 'warning':
       return { tag, tone: 'warn', tile: '!', flair: '⚠️', accent: 'amber' };
     case 'message_outbound':
