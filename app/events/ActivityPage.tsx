@@ -441,6 +441,26 @@ function labelForNotificationView(view: NotificationView) {
   return view === 'leads' ? 'Lead notifications' : 'Client notifications';
 }
 
+function emptyStateCopy(view: NotificationView, hasActiveFilters: boolean) {
+  if (view === 'leads') {
+    return {
+      title: 'No lead notifications yet.',
+      body: hasActiveFilters
+        ? 'We have not received any lead-tagged events for the current filters.'
+        : 'Lead notifications will appear here when a client signup, approval, rejection, or booking event is tagged as lead activity.',
+      helper: 'If you expected events here, check your webhook mapping or clear the current filters.'
+    };
+  }
+
+  return {
+    title: hasActiveFilters ? 'No client notifications match the current filters.' : 'No client notifications yet.',
+    body: hasActiveFilters
+      ? 'Try clearing the filters or broadening the time window to see more activity.'
+      : 'Client notifications will appear here when client, booking, or workflow events are recorded.',
+    helper: null
+  };
+}
+
 function humanizeRelatedRecordType(value: string) {
   if (value === 'unclassified') {
     return 'Unclassified';
@@ -703,6 +723,10 @@ export async function ActivityPage({
   const visibleEventTypes = new Set(events.map((event) => event.eventType));
   const visibleCompanies = new Set(events.map((event) => event.companyId));
   const activeCompanyName = companies.find((company) => company.id === selectedCompanyId)?.name || null;
+  const hasActiveFilters = Boolean(
+    selectedCompanyId || selectedEventType || searchQuery || selectedRelated || selectedWindow !== '7d'
+  );
+  const currentEmptyState = emptyStateCopy(selectedView, hasActiveFilters);
   const liveFeedCategoryLabel = selectedRelated
     ? `${humanizeRelatedRecordType(selectedRelated)} related`
     : selectedEventType
@@ -962,7 +986,11 @@ export async function ActivityPage({
         ) : null}
 
         {events.length === 0 ? (
-          <div className="empty-state">No events match the current filters.</div>
+          <div className="empty-state panel-stack">
+            <strong>{currentEmptyState.title}</strong>
+            <div>{currentEmptyState.body}</div>
+            {currentEmptyState.helper ? <div className="tiny-muted">{currentEmptyState.helper}</div> : null}
+          </div>
         ) : (
           <div className="record-grid">
             {events.map((event) => {
