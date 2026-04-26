@@ -26,7 +26,7 @@ export type ActivitySearchParamShape = Promise<{
   view?: string;
 }>;
 
-type NotificationView = 'clients' | 'leads';
+type NotificationFeedView = 'clients' | 'leads' | 'webhooks';
 
 function startForWindow(windowValue: string) {
   const now = Date.now();
@@ -73,7 +73,7 @@ function buildEventsHref(
     window?: string;
     q?: string;
     related?: string;
-    view?: NotificationView;
+    view?: NotificationFeedView;
   }
 ) {
   const params = new URLSearchParams();
@@ -430,6 +430,34 @@ function eventTypeLooksLeadWorkspaceRelated(eventType: string) {
   );
 }
 
+function eventTypeLooksWebhookRelated(eventType: string, payload: unknown) {
+  const value = eventType.toLowerCase();
+  const record = payloadRecord(payload);
+  const source = stringValue(record?.source)?.toLowerCase() || '';
+
+  return (
+    value.includes('webhook') ||
+    value.startsWith('telnyx_') ||
+    value.startsWith('review_') ||
+    value.startsWith('booking_') ||
+    value === 'message_received' ||
+    value === 'manual_message_sent' ||
+    value === 'operator_messaging_test_sent' ||
+    value === 'operator_messaging_test_failed' ||
+    value === 'client_signup_received' ||
+    value === 'client_onboarding_received' ||
+    value === 'client_signup_approved' ||
+    value === 'client_onboarding_approved' ||
+    value.includes('message') ||
+    value.includes('delivery') ||
+    value.includes('confirmation') ||
+    value.includes('review') ||
+    value.includes('booking') ||
+    source === 'website' ||
+    source === 'onboarding'
+  );
+}
+
 function notificationViewForEvent(event: {
   eventType: string;
   companyId: string;
@@ -441,17 +469,29 @@ function notificationViewForEvent(event: {
     relatedRecordType(event.payload) === 'lead' ||
     eventTypeLooksLeadWorkspaceRelated(event.eventType)
   ) {
-    return 'leads' satisfies NotificationView;
+    return 'leads' satisfies NotificationFeedView;
   }
 
-  return 'clients' satisfies NotificationView;
+  if (eventTypeLooksWebhookRelated(event.eventType, event.payload)) {
+    return 'webhooks' satisfies NotificationFeedView;
+  }
+
+  return 'clients' satisfies NotificationFeedView;
 }
 
-function labelForNotificationView(view: NotificationView) {
-  return view === 'leads' ? 'Lead notifications' : 'Client notifications';
+function labelForNotificationView(view: NotificationFeedView) {
+  if (view === 'leads') {
+    return 'Lead notifications';
+  }
+
+  if (view === 'webhooks') {
+    return 'Webhook notifications';
+  }
+
+  return 'Client notifications';
 }
 
-function emptyStateCopy(view: NotificationView, hasActiveFilters: boolean) {
+function emptyStateCopy(view: NotificationFeedView, hasActiveFilters: boolean) {
   if (view === 'leads') {
     return {
       title: 'No lead notifications yet.',
@@ -459,6 +499,16 @@ function emptyStateCopy(view: NotificationView, hasActiveFilters: boolean) {
         ? 'We have not received any lead-tagged events for the current filters.'
         : 'Lead notifications will appear here when lead workflow events like imports, callbacks, follow-ups, and outreach actions are recorded.',
       helper: 'If you expected events here, check your webhook mapping or clear the current filters.'
+    };
+  }
+
+  if (view === 'webhooks') {
+    return {
+      title: hasActiveFilters ? 'No webhook notifications match the current filters.' : 'No webhook notifications yet.',
+      body: hasActiveFilters
+        ? 'Try clearing the filters or widening the time window to see more webhook and provider activity.'
+        : 'Webhook notifications will appear here when website intake, onboarding, messaging, booking, and provider events are recorded.',
+      helper: 'If you expected traffic here, check the webhook route, provider credentials, and delivery status events.'
     };
   }
 
@@ -649,7 +699,9 @@ export async function ActivityPage({
   const selectedWindow = String(params.window || '7d').trim() || '7d';
   const searchQuery = String(params.q || '').trim();
   const selectedRelated = String(params.related || '').trim();
-  const selectedView: NotificationView = String(params.view || '').trim() === 'leads' ? 'leads' : 'clients';
+  const requestedView = String(params.view || '').trim();
+  const selectedView: NotificationFeedView =
+    requestedView === 'leads' ? 'leads' : requestedView === 'webhooks' ? 'webhooks' : 'clients';
   const windowStart = startForWindow(selectedWindow);
   const snapshotAt = new Date().toISOString();
 
@@ -702,11 +754,15 @@ export async function ActivityPage({
 
   const normalizedQuery = searchQuery.toLowerCase();
   const normalizedTerms = normalizedQuery.split(/\s+/).filter(Boolean);
-  const scopedEventTypeRows = eventTypeRows.filter((row) =>
-    selectedView === 'leads'
-      ? eventTypeLooksLeadWorkspaceRelated(row.eventType)
-      : !eventTypeLooksLeadWorkspaceRelated(row.eventType)
-  );
+  const scopedEventTypeRows = eventTypeRows.filter((row) => {
+    const feedView = notificationViewForEvent({
+      eventType: row.eventType,
+      companyId: selectedCompanyId || '',
+      payload: null
+    });
+
+    return feedView === selectedView;
+  });
 
   const events = rawEvents.filter((event) => {
     const matchesView = notificationViewForEvent(event) === selectedView;
@@ -822,6 +878,17 @@ export async function ActivityPage({
           >
             Leads
           </Link>
+          <Link
+            className={`workspace-tab-link${selectedView === 'webhooks' ? ' is-active' : ''}`}
+            href={buildEventsHref(basePath, {
+              companyId: selectedCompanyId || undefined,
+              window: selectedWindow,
+              q: searchQuery || undefined,
+              view: 'webhooks'
+            })}
+          >
+            Webhooks
+          </Link>
         </div>
       </section>
 
@@ -848,6 +915,17 @@ export async function ActivityPage({
             })}
           >
             Leads
+          </Link>
+          <Link
+            className={`workspace-tab-link activity-mobile-switcher-link${selectedView === 'webhooks' ? ' is-active' : ''}`}
+            href={buildEventsHref(basePath, {
+              companyId: selectedCompanyId || undefined,
+              window: selectedWindow,
+              q: searchQuery || undefined,
+              view: 'webhooks'
+            })}
+          >
+            Webhooks
           </Link>
         </div>
       </nav>
@@ -977,13 +1055,15 @@ export async function ActivityPage({
         {!compact ? (
           <div className="record-header">
             <div className="panel-stack">
-              <div className="metric-label">Event feed</div>
-              <h2 className="section-title">
-                {selectedView === 'clients'
-                  ? 'Recent client and system notifications.'
-                  : 'Recent lead queue and prospect notifications.'}
-              </h2>
-            </div>
+                <div className="metric-label">Event feed</div>
+                <h2 className="section-title">
+                  {selectedView === 'clients'
+                    ? 'Recent client and system notifications.'
+                    : selectedView === 'leads'
+                      ? 'Recent lead queue and prospect notifications.'
+                      : 'Recent webhook, provider, and API notifications.'}
+                </h2>
+              </div>
             <div className="action-cluster">
               <Link className="button-ghost" href="/admin/system">
                 System Status

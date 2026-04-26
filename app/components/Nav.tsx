@@ -13,9 +13,7 @@ const desktopPrimaryItems: Array<{ key: NavKey; href: string; label: string }> =
   { key: 'clients', href: '/clients', label: 'Clients' }
 ];
 
-const desktopUtilityItems: Array<{ key: NavKey; href: string; label: string }> = [
-  { key: 'system', href: '/admin/system', label: 'Webhooks' }
-];
+const desktopUtilityItems: Array<{ key: NavKey; href: string; label: string }> = [];
 
 const mobileItems = [...desktopPrimaryItems, ...desktopUtilityItems];
 
@@ -33,7 +31,7 @@ function normalizeCurrent(current?: NavProps['current']): NavKey | undefined {
   }
 
   if (current === 'diagnostics') {
-    return 'system';
+    return 'activity';
   }
 
   if (current === 'messages') {
