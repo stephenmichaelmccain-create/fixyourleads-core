@@ -22,6 +22,10 @@ export function envPresence() {
     telnyxPublicKeySet: hasConfiguredEnv('TELNYX_PUBLIC_KEY'),
     telnyxVerifySignaturesEnabled: /^(1|true|yes|on)$/i.test(String(process.env.TELNYX_VERIFY_SIGNATURES || '').trim()),
     internalApiKeySet: hasConfiguredEnv('INTERNAL_API_KEY'),
+    googleServiceAccountEmailSet: hasConfiguredEnv('GOOGLE_SERVICE_ACCOUNT_EMAIL'),
+    googleServiceAccountPrivateKeySet: hasConfiguredEnv('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'),
+    defaultCalendarTimezoneSet: hasConfiguredEnv('DEFAULT_CALENDAR_TIMEZONE'),
+    operatorAlertEmailSet: hasConfiguredEnv('OPERATOR_ALERT_EMAIL'),
     smtpUserSet: hasConfiguredEnv('SMTP_USER'),
     smtpPasswordSet: hasConfiguredEnv('SMTP_PASSWORD'),
     notificationFromSet: hasConfiguredEnv('NOTIFICATION_FROM_EMAIL') || hasConfiguredEnv('SMTP_USER')

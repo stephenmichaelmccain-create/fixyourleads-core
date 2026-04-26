@@ -1,6 +1,7 @@
+import { AppointmentExternalSyncStatus } from '@prisma/client';
 import { db } from '@/lib/db';
 import { notificationReadiness } from '@/lib/notifications';
-import { getBookingQueue, getLeadQueue, getMessageQueue, getWorkflowQueue } from '@/lib/queue';
+import { getBookingQueue, getCalendarSyncQueue, getLeadQueue, getMessageQueue, getWorkflowQueue } from '@/lib/queue';
 import { getRedis } from '@/lib/redis';
 import { envPresence, missingRequiredEnvVars } from '@/lib/runtime-safe';
 import { getTelnyxWebhookSecurityConfig } from '@/lib/security';
@@ -87,6 +88,29 @@ function notificationCheck(notifications: ReturnType<typeof notificationReadines
         status: 'missing_config',
         detail: 'SMTP_USER and SMTP_PASSWORD are optional, but required for booking email notifications'
       };
+}
+
+function operatorAlertCheck(env: ReturnType<typeof envPresence>): DependencyCheck {
+  return env.operatorAlertEmailSet || env.notificationFromSet
+    ? { status: 'ok', detail: 'Operator alert destination can be resolved' }
+    : {
+        status: 'missing_config',
+        detail: 'OPERATOR_ALERT_EMAIL is missing and no email fallback is configured'
+      };
+}
+
+function googleCalendarCheck(env: ReturnType<typeof envPresence>): DependencyCheck {
+  if (env.googleServiceAccountEmailSet && env.googleServiceAccountPrivateKeySet) {
+    return {
+      status: 'ok',
+      detail: `Google Calendar service account is configured${env.defaultCalendarTimezoneSet ? '' : '; DEFAULT_CALENDAR_TIMEZONE still missing'}`
+    };
+  }
+
+  return {
+    status: 'missing_config',
+    detail: 'GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY are required for production calendar writeback'
+  };
 }
 
 function appBaseUrlCheck(env: ReturnType<typeof envPresence>): DependencyCheck {
@@ -237,7 +261,7 @@ async function checkQueue(
 
 async function getQueueHealth(redisUrlSet: boolean): Promise<QueueHealth[]> {
   if (!redisUrlSet) {
-    return ['lead_queue', 'message_queue', 'booking_queue', 'workflow_queue'].map((name) => ({
+    return ['lead_queue', 'message_queue', 'booking_queue', 'workflow_queue', 'calendar_sync_queue'].map((name) => ({
       name,
       status: 'missing_config',
       detail: 'REDIS_URL is required to read queue stats'
@@ -248,7 +272,8 @@ async function getQueueHealth(redisUrlSet: boolean): Promise<QueueHealth[]> {
     checkQueue('lead_queue', getLeadQueue),
     checkQueue('message_queue', getMessageQueue),
     checkQueue('booking_queue', getBookingQueue),
-    checkQueue('workflow_queue', getWorkflowQueue)
+    checkQueue('workflow_queue', getWorkflowQueue),
+    checkQueue('calendar_sync_queue', getCalendarSyncQueue)
   ]);
 }
 
@@ -280,6 +305,9 @@ export async function getRuntimeHealth() {
     companyRouting,
     volumeStats,
     activityStats,
+    failedCalendarSyncCount,
+    pendingCalendarSyncCount,
+    unroutedTelnyxCount,
     leadStatusRows,
     messageDirectionRows,
     eventTypeRows,
@@ -319,6 +347,21 @@ export async function getRuntimeHealth() {
       db.conversation.count({ where: { createdAt: { gte: last24Hours } } }),
       db.appointment.count({ where: { createdAt: { gte: last24Hours } } })
     ]),
+    db.appointment.count({
+      where: {
+        externalSyncStatus: AppointmentExternalSyncStatus.FAILED
+      }
+    }),
+    db.appointment.count({
+      where: {
+        externalSyncStatus: AppointmentExternalSyncStatus.PENDING
+      }
+    }),
+    db.unroutedTelnyxEvent.count({
+      where: {
+        handledAt: null
+      }
+    }),
     db.lead.groupBy({
       by: ['status'],
       _count: { _all: true }
@@ -512,7 +555,10 @@ export async function getRuntimeHealth() {
       upcomingAppointments: activityStats[2],
       leadsLast24h: activityStats[3],
       conversationsLast24h: activityStats[4],
-      appointmentsLast24h: activityStats[5]
+      appointmentsLast24h: activityStats[5],
+      failedCalendarSyncs: failedCalendarSyncCount,
+      pendingCalendarSyncs: pendingCalendarSyncCount,
+      unroutedTelnyxEvents: unroutedTelnyxCount
     },
     leadStatusBreakdown,
     messageDirectionBreakdown,
@@ -545,6 +591,8 @@ export async function getRuntimeHealth() {
       telnyxWebhookVerification: telnyxWebhookVerificationStatus,
       telnyxCompanyRouting: telnyxRoutingStatus,
       internalApiKey: internalApiKeyCheck(env),
+      googleCalendar: googleCalendarCheck(env),
+      operatorAlerts: operatorAlertCheck(env),
       observability: observabilityCheck(sentryDsnSet),
       notifications: notificationCheck(notifications),
       workerHeartbeat: workerHeartbeatCheck(workerHeartbeat)
@@ -577,6 +625,8 @@ export async function getRuntimeHealthProbe() {
       detail: 'Skipped in lightweight probe mode'
     } satisfies DependencyCheck,
     internalApiKey: internalApiKeyCheck(env),
+    googleCalendar: googleCalendarCheck(env),
+    operatorAlerts: operatorAlertCheck(env),
     observability: observabilityCheck(observability.sentryDsnSet),
     notifications: notificationCheck(notifications),
     workerHeartbeat: env.redisUrlSet
@@ -631,7 +681,10 @@ export async function getRuntimeHealthProbe() {
       upcomingAppointments: 0,
       leadsLast24h: 0,
       conversationsLast24h: 0,
-      appointmentsLast24h: 0
+      appointmentsLast24h: 0,
+      failedCalendarSyncs: 0,
+      pendingCalendarSyncs: 0,
+      unroutedTelnyxEvents: 0
     },
     leadStatusBreakdown: [],
     messageDirectionBreakdown: [],
