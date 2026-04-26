@@ -1,6 +1,7 @@
 import { ProspectStatus } from '@prisma/client';
 import Link from 'next/link';
 import { LayoutShell } from '@/app/components/LayoutShell';
+import { WebhookConnectionsFeed } from '@/app/admin/system/WebhookConnectionsFeed';
 import { LiveFeedControls } from '@/app/events/LiveFeedControls';
 import { humanizeIntakeSource } from '@/lib/client-intake';
 import { db } from '@/lib/db';
@@ -808,7 +809,7 @@ export async function ActivityPage({
       section={section}
       hidePageHeader={hidePageHeader}
     >
-      {!compact ? (
+      {!compact && selectedView !== 'webhooks' ? (
         <>
           <section className={`home-inline-bar${summary.allClear ? '' : ' panel-attention'}`}>
             <div className="home-inline-status">
@@ -930,7 +931,7 @@ export async function ActivityPage({
         </div>
       </nav>
 
-      {!compact ? (
+      {!compact && selectedView !== 'webhooks' ? (
         <div className="metric-grid">
           <section className="metric-card panel-stack">
             <div className="metric-label">Visible events</div>
@@ -957,7 +958,7 @@ export async function ActivityPage({
         </div>
       ) : null}
 
-      {!compact ? (
+      {!compact && selectedView !== 'webhooks' ? (
         <section className="panel panel-stack">
           <div className="record-header">
             <div className="panel-stack">
@@ -1051,6 +1052,9 @@ export async function ActivityPage({
         </section>
       ) : null}
 
+      {selectedView === 'webhooks' ? (
+        <WebhookConnectionsFeed showHeader={!compact} />
+      ) : (
       <section className="panel panel-stack">
         {!compact ? (
           <div className="record-header">
@@ -1194,6 +1198,7 @@ export async function ActivityPage({
           </div>
         )}
       </section>
+      )}
     </LayoutShell>
   );
 }
