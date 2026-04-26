@@ -137,7 +137,38 @@ export default async function ClientsPage({
       )
     : Promise.resolve([]));
 
+  const [signupQueueRows, approvedSignupQueueRows] = await Promise.all([
+    safeLoadDb(
+      () =>
+        db.eventLog.findMany({
+          where: {
+            eventType: 'client_signup_received'
+          },
+          select: {
+            companyId: true
+          }
+        }),
+      []
+    ),
+    safeLoadDb(
+      () =>
+        db.eventLog.findMany({
+          where: {
+            eventType: 'client_signup_approved'
+          },
+          select: {
+            companyId: true
+          }
+        }),
+      []
+    )
+  ]);
+
   const approvedCompanyIds = new Set(approvedSignupRows.map((event) => event.companyId));
+  const approvedSignupQueueCompanyIds = new Set(approvedSignupQueueRows.map((event) => event.companyId));
+  const pendingSignupCount = signupQueueRows.filter(
+    (event) => !approvedSignupQueueCompanyIds.has(event.companyId)
+  ).length;
   const liveClients = clients.filter((client) => approvedCompanyIds.has(client.id) || !isLikelyTestWorkspaceName(client.name));
   const companyIds = liveClients.map((client) => client.id);
 
@@ -242,7 +273,7 @@ export default async function ClientsPage({
         <div className="record-header client-list-header client-list-header-actions-only">
           <div className="client-list-actions">
             <Link className="button" href="/clients/intake">
-              Intake queue
+              Intake queue {pendingSignupCount}
             </Link>
             <Link className="button-secondary" href="/clients/new">
               + Add Client
