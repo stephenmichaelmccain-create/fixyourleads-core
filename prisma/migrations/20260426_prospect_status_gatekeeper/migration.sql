@@ -1,0 +1,47 @@
+DO $$
+BEGIN
+  ALTER TYPE "ProspectStatus" ADD VALUE IF NOT EXISTS 'NO_ANSWER';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;
+
+DO $$
+BEGIN
+  ALTER TYPE "ProspectStatus" ADD VALUE IF NOT EXISTS 'VM_LEFT';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;
+
+DO $$
+BEGIN
+  ALTER TYPE "ProspectStatus" ADD VALUE IF NOT EXISTS 'GATEKEEPER';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;
+
+DO $$
+BEGIN
+  ALTER TYPE "ProspectStatus" ADD VALUE IF NOT EXISTS 'BOOKED_DEMO';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;
+
+DO $$
+BEGIN
+  ALTER TYPE "ProspectStatus" ADD VALUE IF NOT EXISTS 'CLOSED';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;
+
+DO $$
+BEGIN
+  ALTER TYPE "ProspectStatus" ADD VALUE IF NOT EXISTS 'DEAD';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;

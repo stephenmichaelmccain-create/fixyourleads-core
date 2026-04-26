@@ -851,14 +851,14 @@ export default async function OurLeadsPage({
               ) : (
                 <div className="record-grid lead-queue-list">
                 {visibleProspects.map((prospect) => {
-                  const rowHref = `${buildPageHref({
+                  const rowHref = buildPageHref({
                     prospectId: prospect.id,
                     q: searchQuery,
                     view: selectedView,
                     status: selectedStatus,
                     city: selectedCity,
                     nextActionDue: selectedDue
-                  })}#selected-lead`;
+                  });
                   const lastTouch = prospect.callLogs[0]?.createdAt || prospect.lastCallAt || null;
                   const lastTouchLabel = formatRelativeLeadTime(lastTouch, now);
                   const lastTouchMeta =
