@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoadDb } from '@/lib/ui-data';
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
+import { LeadContextDialog } from './LeadContextDialog';
 import {
   bulkCreateProspectsAction,
   createProspectAction,
@@ -953,56 +954,17 @@ export default async function OurLeadsPage({
                       <input type="hidden" name="nextActionDue" value={selectedDue} />
                       <div className="inline-row justify-between lead-panel-header lead-action-header">
                         <div className="tiny-muted lead-action-copy">Save and move forward</div>
-                        <details className="lead-context-drawer lead-context-drawer-inline">
-                          <summary className="details-summary button-ghost lead-context-trigger">Lead context</summary>
-                          <div className="lead-context-backdrop" aria-hidden="true" />
-                          <div className="lead-context-drawer-panel">
-                            <div className="panel-stack lead-context-popover">
-                              <div className="inline-row justify-between lead-panel-header">
-                                <span className="metric-label">Lead context</span>
-                                <span className="tiny-muted">Tap the button again to close</span>
-                              </div>
-                              <div className="lead-context-preview-grid">
-                                <div className="lead-context-preview-item">
-                                  <span className="key-value-label">Created</span>
-                                  <strong>{formatDateTime(selectedProspectView.createdAt)}</strong>
-                                </div>
-                                <div className="lead-context-preview-item">
-                                  <span className="key-value-label">Updated</span>
-                                  <strong>{formatDateTime(selectedProspectView.updatedAt)}</strong>
-                                </div>
-                                <div className="lead-context-preview-item">
-                                  <span className="key-value-label">Source</span>
-                                  <strong>{detailValue(selectedProspectView.profile.source, 'Manual add')}</strong>
-                                </div>
-                                <div className="lead-context-preview-item">
-                                  <span className="key-value-label">Clinic type</span>
-                                  <strong>{detailValue(selectedProspectView.profile.clinicType)}</strong>
-                                </div>
-                                <div className="lead-context-preview-item">
-                                  <span className="key-value-label">ZIP</span>
-                                  <strong>{detailValue(selectedProspectView.profile.zipCode)}</strong>
-                                </div>
-                                <div className="lead-context-preview-item">
-                                  <span className="key-value-label">Predicted revenue</span>
-                                  <strong>{detailValue(selectedProspectView.profile.predictedRevenue)}</strong>
-                                </div>
-                              </div>
-                              {selectedProspectView.website ? (
-                                <div className="inline-actions">
-                                  <a
-                                    className="button-ghost lead-preview-link"
-                                    href={websiteHref(selectedProspectView.website)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    Open full website
-                                  </a>
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-                        </details>
+                        <LeadContextDialog
+                          createdAt={formatDateTime(selectedProspectView.createdAt)}
+                          updatedAt={formatDateTime(selectedProspectView.updatedAt)}
+                          source={detailValue(selectedProspectView.profile.source, 'Manual add')}
+                          clinicType={detailValue(selectedProspectView.profile.clinicType)}
+                          zipCode={detailValue(selectedProspectView.profile.zipCode)}
+                          predictedRevenue={detailValue(selectedProspectView.profile.predictedRevenue)}
+                          websiteHref={
+                            selectedProspectView.website ? websiteHref(selectedProspectView.website) : undefined
+                          }
+                        />
                       </div>
                       <div className="lead-action-pill-grid">
                         <button type="submit" className="button-secondary" name="outcome" value="no_answer">
