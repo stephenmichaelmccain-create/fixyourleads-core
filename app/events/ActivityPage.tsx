@@ -23,7 +23,10 @@ export type ActivitySearchParamShape = Promise<{
   window?: string;
   q?: string;
   related?: string;
+  view?: string;
 }>;
+
+type NotificationView = 'clients' | 'leads';
 
 function startForWindow(windowValue: string) {
   const now = Date.now();
@@ -62,13 +65,15 @@ function buildEventsHref(
     eventType,
     window,
     q,
-    related
+    related,
+    view
   }: {
     companyId?: string;
     eventType?: string;
     window?: string;
     q?: string;
     related?: string;
+    view?: NotificationView;
   }
 ) {
   const params = new URLSearchParams();
@@ -91,6 +96,10 @@ function buildEventsHref(
 
   if (related) {
     params.set('related', related);
+  }
+
+  if (view) {
+    params.set('view', view);
   }
 
   const query = params.toString();
@@ -314,6 +323,43 @@ function relatedRecordType(payload: unknown) {
   return 'unclassified';
 }
 
+function eventTypeLooksLeadRelated(eventType: string) {
+  const value = eventType.toLowerCase();
+
+  return (
+    value.startsWith('lead_') ||
+    value === 'google_maps_import_completed' ||
+    value.includes('maps_import') ||
+    value.includes('prospect')
+  );
+}
+
+function notificationViewForEvent(event: {
+  eventType: string;
+  companyId: string;
+  payload: unknown;
+}) {
+  if (
+    event.companyId === 'fixyourleads' ||
+    relatedRecordType(event.payload) === 'lead' ||
+    eventTypeLooksLeadRelated(event.eventType)
+  ) {
+    return 'leads' satisfies NotificationView;
+  }
+
+  return 'clients' satisfies NotificationView;
+}
+
+function labelForNotificationView(view: NotificationView) {
+  return view === 'leads' ? 'Lead notifications' : 'Client notifications';
+}
+
+function helperTextForNotificationView(view: NotificationView) {
+  return view === 'leads'
+    ? 'Lead imports, queue activity, and follow-up events for prospects.'
+    : 'System health, client messaging, bookings, onboarding, and everything outside the lead queue.';
+}
+
 function humanizeRelatedRecordType(value: string) {
   if (value === 'unclassified') {
     return 'Unclassified';
@@ -486,6 +532,7 @@ export async function ActivityPage({
   const selectedWindow = String(params.window || '7d').trim() || '7d';
   const searchQuery = String(params.q || '').trim();
   const selectedRelated = String(params.related || '').trim();
+  const selectedView: NotificationView = String(params.view || '').trim() === 'leads' ? 'leads' : 'clients';
   const windowStart = startForWindow(selectedWindow);
   const snapshotAt = new Date().toISOString();
 
@@ -538,7 +585,12 @@ export async function ActivityPage({
 
   const normalizedQuery = searchQuery.toLowerCase();
   const normalizedTerms = normalizedQuery.split(/\s+/).filter(Boolean);
+  const scopedEventTypeRows = eventTypeRows.filter((row) =>
+    selectedView === 'leads' ? eventTypeLooksLeadRelated(row.eventType) : !eventTypeLooksLeadRelated(row.eventType)
+  );
+
   const events = rawEvents.filter((event) => {
+    const matchesView = notificationViewForEvent(event) === selectedView;
     const haystack = [
       event.id,
       event.eventType,
@@ -555,7 +607,7 @@ export async function ActivityPage({
       normalizedTerms.length === 0 ? true : normalizedTerms.every((term) => haystack.includes(term));
     const matchesRelated = selectedRelated ? relatedRecordType(event.payload) === selectedRelated : true;
 
-    return matchesQuery && matchesRelated;
+    return matchesView && matchesQuery && matchesRelated;
   });
 
   const latestEvent = events[0] || null;
@@ -567,7 +619,7 @@ export async function ActivityPage({
     : selectedEventType
       ? humanizeEventType(selectedEventType)
       : selectedWindow === 'all'
-        ? 'All events'
+        ? labelForNotificationView(selectedView)
         : `Window ${selectedWindow}`;
 
   return (
@@ -623,6 +675,42 @@ export async function ActivityPage({
         </>
       ) : null}
 
+      <section className={`panel panel-stack${compact ? ' activity-view-switcher-panel-compact' : ''}`}>
+        <div className="record-header">
+          <div className="panel-stack">
+            <div className="metric-label">Notification view</div>
+            <h2 className="section-title">
+              {selectedView === 'clients' ? 'Client notifications' : 'Lead notifications'}
+            </h2>
+            <div className="tiny-muted">{helperTextForNotificationView(selectedView)}</div>
+          </div>
+          <div className="workspace-tab-row activity-view-switcher">
+            <Link
+              className={`workspace-tab-link${selectedView === 'clients' ? ' is-active' : ''}`}
+              href={buildEventsHref(basePath, {
+                companyId: selectedCompanyId || undefined,
+                window: selectedWindow,
+                q: searchQuery || undefined,
+                view: 'clients'
+              })}
+            >
+              Clients
+            </Link>
+            <Link
+              className={`workspace-tab-link${selectedView === 'leads' ? ' is-active' : ''}`}
+              href={buildEventsHref(basePath, {
+                companyId: selectedCompanyId || undefined,
+                window: selectedWindow,
+                q: searchQuery || undefined,
+                view: 'leads'
+              })}
+            >
+              Leads
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {!compact ? (
         <div className="metric-grid">
           <section className="metric-card panel-stack">
@@ -657,12 +745,13 @@ export async function ActivityPage({
               <div className="metric-label">Filters</div>
               <h2 className="section-title">Filter the activity without leaving the page.</h2>
             </div>
-            <Link className="button-ghost" href={basePath}>
+            <Link className="button-ghost" href={buildEventsHref(basePath, { view: selectedView })}>
               Reset
             </Link>
           </div>
 
           <form action={basePath} className="workspace-filter-form">
+            <input type="hidden" name="view" value={selectedView} />
             <div className="workspace-filter-row">
               <div className="field-stack">
                 <label className="key-value-label" htmlFor="events-company">
@@ -684,7 +773,7 @@ export async function ActivityPage({
                 </label>
                 <select id="events-type" name="eventType" className="select-input" defaultValue={selectedEventType}>
                   <option value="">All event types</option>
-                  {eventTypeRows.map((row) => (
+                  {scopedEventTypeRows.map((row) => (
                     <option key={row.eventType} value={row.eventType}>
                       {humanizeEventType(row.eventType)}
                     </option>
@@ -747,7 +836,11 @@ export async function ActivityPage({
           <div className="record-header">
             <div className="panel-stack">
               <div className="metric-label">Event feed</div>
-              <h2 className="section-title">Recent activity across the live app.</h2>
+              <h2 className="section-title">
+                {selectedView === 'clients'
+                  ? 'Recent client and system notifications.'
+                  : 'Recent lead queue and prospect notifications.'}
+              </h2>
             </div>
             <div className="action-cluster">
               <Link className="button-ghost" href="/admin/system">

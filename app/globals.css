@@ -825,9 +825,12 @@ select {
 }
 
 .lead-master-card {
+  --lead-master-card-height: 430px;
   display: grid;
   grid-template-rows: 1fr auto;
   gap: 10px;
+  block-size: var(--lead-master-card-height);
+  min-block-size: var(--lead-master-card-height);
   padding: 14px;
   position: relative;
   align-content: start;
@@ -998,7 +1001,7 @@ select {
   gap: 12px;
   grid-auto-flow: column;
   grid-auto-columns: minmax(360px, 34vw);
-  grid-auto-rows: 1fr;
+  grid-auto-rows: var(--lead-master-card-height, 430px);
   align-items: stretch;
   width: max-content;
 }
@@ -1009,7 +1012,8 @@ select {
 
 .lead-queue-list .lead-master-card {
   height: 100%;
-  min-height: 100%;
+  min-height: 0;
+  block-size: 100%;
   scroll-snap-align: center;
 }
 
@@ -2787,6 +2791,14 @@ select {
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.activity-view-switcher-panel-compact {
+  padding-block: 14px;
+}
+
+.activity-view-switcher {
+  justify-content: flex-end;
 }
 
 .workspace-tab-link {
