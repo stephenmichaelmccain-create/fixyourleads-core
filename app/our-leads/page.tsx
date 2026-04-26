@@ -187,12 +187,17 @@ function dueBucketMatches(date: Date | null, bucket: string, now: Date) {
     return !date;
   }
 
+  const todayStart = startOfDay(now);
+  const tomorrowStart = endOfDay(now);
+
+  if (bucket === 'ready') {
+    return !date || date < tomorrowStart;
+  }
+
   if (!date) {
     return false;
   }
 
-  const todayStart = startOfDay(now);
-  const tomorrowStart = endOfDay(now);
   const nextWeek = new Date(todayStart);
   nextWeek.setDate(nextWeek.getDate() + 7);
 
@@ -206,6 +211,10 @@ function dueBucketMatches(date: Date | null, bucket: string, now: Date) {
 
   if (bucket === 'next7') {
     return date >= todayStart && date < nextWeek;
+  }
+
+  if (bucket === 'later') {
+    return date >= tomorrowStart;
   }
 
   return true;
@@ -495,7 +504,14 @@ export default async function OurLeadsPage({
     untouched: prospectRows.filter((prospect) => isUntouchedProspect(prospect)).length,
     overdue: prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'overdue', now)).length,
     today: prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'today', now)).length,
-    waiting: prospectRows.filter((prospect) => prospect.status === ProspectStatus.GATEKEEPER).length,
+    callbackReady: prospectRows.filter(
+      (prospect) =>
+        prospect.status === ProspectStatus.GATEKEEPER && dueBucketMatches(prospect.nextActionAt, 'ready', now)
+    ).length,
+    callbackLater: prospectRows.filter(
+      (prospect) =>
+        prospect.status === ProspectStatus.GATEKEEPER && dueBucketMatches(prospect.nextActionAt, 'later', now)
+    ).length,
     voicemail: prospectRows.filter((prospect) => prospect.status === ProspectStatus.VM_LEFT).length,
     notInterested: prospectRows.filter((prospect) => prospect.status === ProspectStatus.NOT_INTERESTED).length,
     booked: prospectRows.filter((prospect) => prospect.status === ProspectStatus.BOOKED_DEMO).length,
@@ -831,13 +847,6 @@ export default async function OurLeadsPage({
                 No answer {queueCounts.noAnswer}
               </Link>
               <Link
-                className={`filter-chip${selectedStatus === ProspectStatus.GATEKEEPER ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.GATEKEEPER })}
-                scroll={false}
-              >
-                Call back later {queueCounts.waiting}
-              </Link>
-              <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.VM_LEFT ? ' is-active' : ''}`}
                 href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.VM_LEFT })}
                 scroll={false}
@@ -864,6 +873,36 @@ export default async function OurLeadsPage({
                 scroll={false}
               >
                 Sold {queueCounts.sold}
+              </Link>
+              <Link
+                className={`filter-chip${
+                  selectedStatus === ProspectStatus.GATEKEEPER && selectedDue === 'ready' ? ' is-active' : ''
+                }`}
+                href={buildPageHref({
+                  q: searchQuery,
+                  city: selectedCity,
+                  status: ProspectStatus.GATEKEEPER,
+                  nextActionDue: 'ready'
+                })}
+                scroll={false}
+              >
+                Callback now {queueCounts.callbackReady}
+              </Link>
+              <Link
+                className={`filter-chip${
+                  selectedStatus === ProspectStatus.GATEKEEPER && (!selectedDue || selectedDue === 'later')
+                    ? ' is-active'
+                    : ''
+                }`}
+                href={buildPageHref({
+                  q: searchQuery,
+                  city: selectedCity,
+                  status: ProspectStatus.GATEKEEPER,
+                  nextActionDue: 'later'
+                })}
+                scroll={false}
+              >
+                Call back later {queueCounts.callbackLater}
               </Link>
               <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.DEAD ? ' is-active' : ''}`}

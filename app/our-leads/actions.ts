@@ -10,6 +10,17 @@ import { buildProspectNotes, parseProspectNotes } from '@/lib/prospect-metadata'
 
 const INTERNAL_COMPANY_ID = 'fixyourleads';
 
+async function ensureInternalCompany() {
+  await db.company.upsert({
+    where: { id: INTERNAL_COMPANY_ID },
+    update: {},
+    create: {
+      id: INTERNAL_COMPANY_ID,
+      name: 'Fix Your Leads'
+    }
+  });
+}
+
 function readText(formData: FormData, key: string) {
   return String(formData.get(key) || '').trim();
 }
@@ -442,6 +453,8 @@ export async function createProspectAction(formData: FormData) {
     redirect(`${buildOurLeadsHref({ ...currentView, error: 'invalid_next_action', draft })}#add-prospect`);
   }
 
+  await ensureInternalCompany();
+
   const prospectDuplicate = await findProspectDuplicateByKeys({
     companyId: INTERNAL_COMPANY_ID,
     clinicKey,
@@ -594,6 +607,8 @@ export async function bulkCreateProspectsAction(formData: FormData) {
   if (!rowsRaw) {
     redirect(buildOurLeadsHref({ ...currentView, bulkError: 'bulk_required' }));
   }
+
+  await ensureInternalCompany();
 
   const contactedCompanies = await loadContactedCompanies();
   const rows = rowsRaw
@@ -789,6 +804,8 @@ export async function updateProspectOutcomeAction(formData: FormData) {
     redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
   }
 
+  await ensureInternalCompany();
+
   await db.$transaction(async (tx) => {
     await tx.prospect.update({
       where: { id: prospectId },
@@ -871,6 +888,8 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
   if (!existing) {
     redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
   }
+
+  await ensureInternalCompany();
 
   await db.$transaction(async (tx) => {
     await tx.prospect.update({
@@ -962,6 +981,8 @@ export async function updateProspectDetailsAction(formData: FormData) {
   if (!existing) {
     redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
   }
+
+  await ensureInternalCompany();
 
   const parsed = parseProspectNotes(existing.notes);
   const previousPlainNotes = parsed.plainNotes.trim();
