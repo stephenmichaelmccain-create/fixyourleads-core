@@ -181,8 +181,10 @@ export default async function ClientsPage({
         hasNotificationEmail: Boolean(client.notificationEmail)
       });
       const lastActivityAt = client.events[0]?.createdAt || client.appointments[0]?.createdAt || client.leads[0]?.createdAt || null;
-      const connectedNumbers = allInboundNumbers(client).length;
-      const normalizedPhone = normalizePhone(client.primaryContactPhone || '');
+      const inboundNumbers = allInboundNumbers(client);
+      const connectedNumbers = inboundNumbers.length;
+      const normalizedOwnerPhone = normalizePhone(client.primaryContactPhone || '');
+      const normalizedAiPhone = normalizePhone(inboundNumbers[0] || client.telnyxInboundNumber || '');
 
       return {
         id: client.id,
@@ -194,7 +196,8 @@ export default async function ClientsPage({
         lastActivityAt,
         connectedNumbers,
         websiteHref: websiteHref(client.website),
-        callHref: normalizedPhone ? `tel:${normalizedPhone}` : ''
+        ownerCallHref: normalizedOwnerPhone ? `tel:${normalizedOwnerPhone}` : '',
+        aiCallHref: normalizedAiPhone ? `tel:${normalizedAiPhone}` : ''
       };
     })
     .sort((left, right) => {
@@ -286,9 +289,39 @@ export default async function ClientsPage({
                     </td>
                     <td className="client-table-col-name">
                       <div className="client-name-cell">
-                        <Link className="table-link" href={`/clients/${row.id}`}>
-                          <strong>{row.name}</strong>
-                        </Link>
+                        <div className="client-name-row">
+                          <Link className="table-link" href={`/clients/${row.id}`}>
+                            <strong>{row.name}</strong>
+                          </Link>
+                          <div className="client-inline-actions">
+                            {row.websiteHref ? (
+                              <a
+                                className="button-secondary button-secondary-compact client-row-action-link"
+                                href={row.websiteHref}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Website
+                              </a>
+                            ) : (
+                              <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Website</span>
+                            )}
+                            {row.ownerCallHref ? (
+                              <a className="button-secondary button-secondary-compact client-row-action-link" href={row.ownerCallHref}>
+                                Call Owner
+                              </a>
+                            ) : (
+                              <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Call Owner</span>
+                            )}
+                            {row.aiCallHref ? (
+                              <a className="button-secondary button-secondary-compact client-row-action-link" href={row.aiCallHref}>
+                                Call AI
+                              </a>
+                            ) : (
+                              <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Call AI</span>
+                            )}
+                          </div>
+                        </div>
                         <span className="tiny-muted">
                           {row.health.reason} · {row.connectedNumbers} number{row.connectedNumbers === 1 ? '' : 's'} ·{' '}
                           {formatRelativeDay(row.lastActivityAt)}
@@ -306,25 +339,6 @@ export default async function ClientsPage({
                     </td>
                     <td className="client-row-actions-cell">
                       <div className="client-row-actions">
-                        {row.websiteHref ? (
-                          <a
-                            className="button-secondary button-secondary-compact client-row-action-link"
-                            href={row.websiteHref}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Website
-                          </a>
-                        ) : (
-                          <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Website</span>
-                        )}
-                        {row.callHref ? (
-                          <a className="button-secondary button-secondary-compact client-row-action-link" href={row.callHref}>
-                            Call
-                          </a>
-                        ) : (
-                          <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Call</span>
-                        )}
                         <DeleteClientButton companyId={row.id} companyName={row.name} />
                       </div>
                     </td>

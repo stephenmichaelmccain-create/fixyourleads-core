@@ -3108,6 +3108,25 @@ select {
   gap: 6px;
 }
 
+.client-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.client-name-row .table-link {
+  min-width: 0;
+}
+
+.client-inline-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
+}
+
 .data-table tbody tr:hover {
   background: rgba(124, 58, 237, 0.08);
 }
@@ -3124,8 +3143,10 @@ select {
 .client-row-actions {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   flex-wrap: nowrap;
+  width: 100%;
 }
 
 .client-row-action-link,
@@ -4205,13 +4226,21 @@ select {
   }
 
   .client-row-actions-cell {
-    min-width: 220px;
+    min-width: 96px;
   }
 
   .client-row-actions {
-    width: auto;
     flex-wrap: nowrap;
     gap: 6px;
+  }
+
+  .client-name-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .client-inline-actions {
+    width: 100%;
   }
 
   .client-row-action-link,
