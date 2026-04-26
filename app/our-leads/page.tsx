@@ -847,6 +847,20 @@ export default async function OurLeadsPage({
                 No answer {queueCounts.noAnswer}
               </Link>
               <Link
+                className={`filter-chip${
+                  selectedStatus === ProspectStatus.GATEKEEPER && selectedDue === 'ready' ? ' is-active' : ''
+                }`}
+                href={buildPageHref({
+                  q: searchQuery,
+                  city: selectedCity,
+                  status: ProspectStatus.GATEKEEPER,
+                  nextActionDue: 'ready'
+                })}
+                scroll={false}
+              >
+                Callback now {queueCounts.callbackReady}
+              </Link>
+              <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.VM_LEFT ? ' is-active' : ''}`}
                 href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.VM_LEFT })}
                 scroll={false}
@@ -873,20 +887,6 @@ export default async function OurLeadsPage({
                 scroll={false}
               >
                 Sold {queueCounts.sold}
-              </Link>
-              <Link
-                className={`filter-chip${
-                  selectedStatus === ProspectStatus.GATEKEEPER && selectedDue === 'ready' ? ' is-active' : ''
-                }`}
-                href={buildPageHref({
-                  q: searchQuery,
-                  city: selectedCity,
-                  status: ProspectStatus.GATEKEEPER,
-                  nextActionDue: 'ready'
-                })}
-                scroll={false}
-              >
-                Callback now {queueCounts.callbackReady}
               </Link>
               <Link
                 className={`filter-chip${
