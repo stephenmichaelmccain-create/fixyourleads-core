@@ -1,15 +1,11 @@
-import { headers } from 'next/headers';
 import { CrmProvider, Prisma } from '@prisma/client';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { emptyClientCalendarSetupState, parseClientCalendarSetupPayload } from '@/lib/client-calendar-setup';
 import { emptyTelnyxSetupState, parseTelnyxSetupPayload } from '@/lib/client-telnyx-setup';
-import { getRuntimeHealth } from '@/lib/health';
 import { safeLoadDb } from '@/lib/ui-data';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
-
-type RuntimeHealth = Awaited<ReturnType<typeof getRuntimeHealth>>;
 
 type SetupEventType = 'client_telnyx_setup_updated' | 'client_calendar_setup_updated';
 
@@ -50,56 +46,6 @@ function formatDateTime(value: Date | string | null | undefined) {
     hour: 'numeric',
     minute: '2-digit'
   }).format(new Date(value));
-}
-
-function queueSummary(health: RuntimeHealth) {
-  if (health.queueHealth.some((queue) => queue.status === 'error')) {
-    return {
-      label: 'Needs attention',
-      detail: 'One or more worker queues have failed jobs.',
-      tone: 'error' as const
-    };
-  }
-
-  if (health.queueHealth.some((queue) => queue.status === 'missing_config')) {
-    return {
-      label: 'Missing config',
-      detail: 'Some queue wiring is not configured yet.',
-      tone: 'warn' as const
-    };
-  }
-
-  return {
-    label: 'Healthy',
-    detail: 'Worker queues are live and processing normally.',
-    tone: 'ok' as const
-  };
-}
-
-function summaryTone(health: RuntimeHealth) {
-  return health.ok ? 'ok' : 'warn';
-}
-
-function summaryTitle(health: RuntimeHealth) {
-  return health.ok ? 'System is up and the core runtime is healthy.' : 'System is live, but something needs attention.';
-}
-
-function browserLabel(userAgent: string) {
-  if (/Edg\//i.test(userAgent)) return 'Microsoft Edge';
-  if (/OPR\//i.test(userAgent)) return 'Opera';
-  if (/Chrome\//i.test(userAgent)) return 'Chrome';
-  if (/Safari\//i.test(userAgent) && !/Chrome\//i.test(userAgent)) return 'Safari';
-  if (/Firefox\//i.test(userAgent)) return 'Firefox';
-  return 'Unknown browser';
-}
-
-function platformLabel(userAgent: string) {
-  if (/Mac OS X/i.test(userAgent)) return 'macOS';
-  if (/Windows/i.test(userAgent)) return 'Windows';
-  if (/iPhone|iPad|iOS/i.test(userAgent)) return 'iOS';
-  if (/Android/i.test(userAgent)) return 'Android';
-  if (/Linux/i.test(userAgent)) return 'Linux';
-  return 'Unknown platform';
 }
 
 function statusDotClass(isLive: boolean) {
@@ -227,102 +173,16 @@ async function loadConnectionRows() {
 }
 
 export default async function AdminSystemPage() {
-  const [health, connectionRows, headerStore] = await Promise.all([getRuntimeHealth(), loadConnectionRows(), headers()]);
-  const queue = queueSummary(health);
-  const currentTimestamp = new Date();
-  const userAgent = headerStore.get('user-agent') || '';
-  const forwardedHost = headerStore.get('x-forwarded-host') || headerStore.get('host') || 'Unknown host';
-  const forwardedProto = headerStore.get('x-forwarded-proto') || 'https';
+  const connectionRows = await loadConnectionRows();
   const liveAccounts = connectionRows.filter((row) => row.fullyLive).length;
 
   return (
     <LayoutShell
       title="Settings"
-      description="System health, current admin session, and live account hookups."
+      description="Live account hookup status by account."
       section="system"
       hidePageHeader
     >
-      <section className={`panel panel-stack ${summaryTone(health) === 'ok' ? 'panel-success' : 'panel-attention'}`}>
-        <div className="record-header">
-          <div className="panel-stack" style={{ gap: 8 }}>
-            <div className="metric-label">Settings</div>
-            <h2 className="section-title section-title-large">{summaryTitle(health)}</h2>
-            <p className="page-copy">Keep an eye on the live runtime, this admin session, and whether each client account is wired into FYL.</p>
-          </div>
-          <div className="tiny-muted">Last checked: {formatDateTime(health.timestamp)}</div>
-        </div>
-
-        <div className="key-value-grid">
-          <div className="key-value-card">
-            <span className="key-value-label">System</span>
-            <div className="inline-row" style={{ gap: 8 }}>
-              <span className={`status-dot ${health.ok ? 'ok' : 'warn'}`} />
-              <strong>{health.ok ? 'Online' : 'Needs attention'}</strong>
-            </div>
-            <div className="tiny-muted">{health.service}</div>
-          </div>
-          <div className="key-value-card">
-            <span className="key-value-label">Queue</span>
-            <div className="inline-row" style={{ gap: 8 }}>
-              <span className={`status-dot ${queue.tone}`} />
-              <strong>{queue.label}</strong>
-            </div>
-            <div className="tiny-muted">{queue.detail}</div>
-          </div>
-          <div className="key-value-card">
-            <span className="key-value-label">Worker heartbeat</span>
-            <div className="inline-row" style={{ gap: 8 }}>
-              <span className={`status-dot ${health.checks.workerHeartbeat.status === 'ok' ? 'ok' : 'error'}`} />
-              <strong>{health.checks.workerHeartbeat.status === 'ok' ? 'Live' : 'Offline'}</strong>
-            </div>
-            <div className="tiny-muted">{health.checks.workerHeartbeat.detail || 'No heartbeat detail yet.'}</div>
-          </div>
-          <div className="key-value-card">
-            <span className="key-value-label">Account hookups</span>
-            <div className="inline-row" style={{ gap: 8 }}>
-              <span className={`status-dot ${liveAccounts === connectionRows.length && connectionRows.length > 0 ? 'ok' : 'warn'}`} />
-              <strong>
-                {liveAccounts}/{connectionRows.length}
-              </strong>
-            </div>
-            <div className="tiny-muted">Client accounts fully connected across webhook, calendar, and CRM.</div>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack" style={{ gap: 8 }}>
-            <div className="metric-label">Current session</div>
-            <h2 className="section-title">This admin console is live in the browser you are using right now.</h2>
-            <div className="text-muted">The app does not have named employee auth wired into this page yet, so this block stays focused on the current console session.</div>
-          </div>
-        </div>
-
-        <div className="key-value-grid">
-          <div className="key-value-card">
-            <span className="key-value-label">Access</span>
-            <strong>Admin system</strong>
-            <div className="tiny-muted">Shared console session</div>
-          </div>
-          <div className="key-value-card">
-            <span className="key-value-label">Browser</span>
-            <strong>{browserLabel(userAgent)}</strong>
-            <div className="tiny-muted">{platformLabel(userAgent)}</div>
-          </div>
-          <div className="key-value-card">
-            <span className="key-value-label">Current host</span>
-            <strong>{forwardedHost}</strong>
-            <div className="tiny-muted">{forwardedProto.toUpperCase()} connection</div>
-          </div>
-          <div className="key-value-card">
-            <span className="key-value-label">Last refreshed</span>
-            <strong>{formatDateTime(currentTimestamp)}</strong>
-            <div className="tiny-muted">Pulled fresh from the live app state</div>
-          </div>
-        </div>
-      </section>
-
       <section className="panel panel-stack">
         <div className="record-header">
           <div className="panel-stack" style={{ gap: 8 }}>
