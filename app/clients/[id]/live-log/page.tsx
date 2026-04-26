@@ -363,18 +363,6 @@ export default async function ClientLiveLogPage({
       <ClientWorkspaceTabs companyId={company.id} active="live-log" />
 
       <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">Live log</div>
-            <h3 className="section-title">Basic health</h3>
-          </div>
-          <div className="inline-actions">
-            <Link className="button-secondary" href={`/clients/${company.id}/live-log`}>
-              Refresh log
-            </Link>
-          </div>
-        </div>
-
         <div className="live-log-health-bar">
           <section className="live-log-health-card">
             <div className="metric-label">Failures (24h)</div>
@@ -387,7 +375,12 @@ export default async function ClientLiveLogPage({
             <div className="live-log-health-copy">{setupHealthParts.join(' · ')}</div>
           </section>
           <section className="live-log-health-card">
-            <div className="metric-label">Setup changes (30d)</div>
+            <div className="live-log-health-head">
+              <div className="metric-label">Setup changes (30d)</div>
+              <Link className="button-secondary live-log-health-action" href={`/clients/${company.id}/live-log`}>
+                Refresh log
+              </Link>
+            </div>
             <div className="live-log-health-value">{setupChanges30d}</div>
             <div className="live-log-health-copy">Recent CRM, phone, calendar, or onboarding updates.</div>
           </section>
@@ -395,14 +388,6 @@ export default async function ClientLiveLogPage({
       </section>
 
       <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">Live log</div>
-            <h3 className="section-title">Recent events</h3>
-            <div className="record-subtitle">Newest webhook, API, and setup events for this client.</div>
-          </div>
-        </div>
-
         {recentEvents.length === 0 ? (
           <div className="empty-state">No webhook or API activity has been recorded for this client yet.</div>
         ) : (

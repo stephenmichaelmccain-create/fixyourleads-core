@@ -590,6 +590,21 @@ select {
   background: rgba(31, 27, 66, 0.92);
 }
 
+.live-log-health-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.live-log-health-action {
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .live-log-health-value {
   font-size: 1.45rem;
   font-weight: 700;
@@ -4198,6 +4213,11 @@ select {
   .live-log-health-bar {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  .live-log-health-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
   }
 
   .panel-success,
