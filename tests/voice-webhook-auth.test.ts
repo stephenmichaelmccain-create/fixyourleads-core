@@ -7,6 +7,7 @@ const originalPublicKey = process.env.TELNYX_PUBLIC_KEY;
 const originalMaxAge = process.env.TELNYX_SIGNATURE_MAX_AGE_SECONDS;
 const originalBookingSecret = process.env.VOICE_BOOKING_WEBHOOK_SECRET;
 const originalDemoSecret = process.env.VOICE_DEMO_WEBHOOK_SECRET;
+const originalInternalApiKey = process.env.INTERNAL_API_KEY;
 
 afterEach(() => {
   process.env.TELNYX_VERIFY_SIGNATURES = originalVerify;
@@ -14,6 +15,7 @@ afterEach(() => {
   process.env.TELNYX_SIGNATURE_MAX_AGE_SECONDS = originalMaxAge;
   process.env.VOICE_BOOKING_WEBHOOK_SECRET = originalBookingSecret;
   process.env.VOICE_DEMO_WEBHOOK_SECRET = originalDemoSecret;
+  process.env.INTERNAL_API_KEY = originalInternalApiKey;
 });
 
 describe('voice webhook auth', () => {
@@ -31,11 +33,28 @@ describe('voice webhook auth', () => {
     });
   });
 
+  it('falls back to INTERNAL_API_KEY when no dedicated voice secret is configured', () => {
+    process.env.TELNYX_VERIFY_SIGNATURES = 'true';
+    delete process.env.TELNYX_PUBLIC_KEY;
+    delete process.env.VOICE_BOOKING_WEBHOOK_SECRET;
+    delete process.env.VOICE_DEMO_WEBHOOK_SECRET;
+    process.env.INTERNAL_API_KEY = 'internal-secret';
+
+    const headers = new Headers({
+      'x-voice-webhook-secret': 'internal-secret'
+    });
+
+    expect(authenticateVoiceWebhookRequest('{"phone":"+15555550199"}', headers)).toEqual({
+      ok: true
+    });
+  });
+
   it('rejects unsigned requests when no shared secret is configured', () => {
     process.env.TELNYX_VERIFY_SIGNATURES = 'true';
     delete process.env.TELNYX_PUBLIC_KEY;
     delete process.env.VOICE_BOOKING_WEBHOOK_SECRET;
     delete process.env.VOICE_DEMO_WEBHOOK_SECRET;
+    delete process.env.INTERNAL_API_KEY;
 
     expect(authenticateVoiceWebhookRequest('{}', new Headers())).toEqual({
       ok: false,

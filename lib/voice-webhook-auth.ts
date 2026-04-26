@@ -13,7 +13,8 @@ export type VoiceWebhookAuthResult =
 function configuredWebhookSecret() {
   const secret =
     process.env.VOICE_BOOKING_WEBHOOK_SECRET?.trim() ||
-    process.env.VOICE_DEMO_WEBHOOK_SECRET?.trim();
+    process.env.VOICE_DEMO_WEBHOOK_SECRET?.trim() ||
+    process.env.INTERNAL_API_KEY?.trim();
 
   return secret || null;
 }

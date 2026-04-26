@@ -116,7 +116,10 @@ export default async function ClientWorkflowPage({
 
   const appBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || null;
   const voiceWebhookSecret =
-    process.env.VOICE_BOOKING_WEBHOOK_SECRET?.trim() || process.env.VOICE_DEMO_WEBHOOK_SECRET?.trim() || '';
+    process.env.VOICE_BOOKING_WEBHOOK_SECRET?.trim() ||
+    process.env.VOICE_DEMO_WEBHOOK_SECRET?.trim() ||
+    process.env.INTERNAL_API_KEY?.trim() ||
+    '';
   const defaultVoiceWebhookUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/appointments` : '';
   const workflowPageUrl = appBaseUrl ? `${appBaseUrl}/clients/${company.id}/workflow` : '';
   const voiceWebhookTarget = voiceState.webhookUrl || defaultVoiceWebhookUrl;
@@ -268,22 +271,8 @@ export default async function ClientWorkflowPage({
                   placeholder="+13035550199"
                 />
               </div>
-              <CopyableUrlField
-                id="workflow-webhook-url"
-                name="webhookUrl"
-                defaultValue={voiceWebhookTarget}
-                placeholder={defaultVoiceWebhookUrl || 'https://your-provider.com/webhook'}
-                fallbackCopyValue={voiceWebhookTarget || defaultVoiceWebhookUrl}
-                label="Webhook URL"
-              />
-              <CopyableUrlField
-                id="workflow-automation-url"
-                name="automationUrl"
-                defaultValue={workflowTarget}
-                placeholder={workflowPageUrl || 'https://make.com/... or internal workflow link'}
-                fallbackCopyValue={workflowTarget}
-                label="Workflow URL"
-              />
+              <input type="hidden" name="webhookUrl" value={voiceWebhookTarget} />
+              <input type="hidden" name="automationUrl" value={workflowTarget} />
             </div>
             <div className="panel panel-dark panel-stack" style={{ marginTop: 16 }}>
               <div className="metric-label">Telnyx setup</div>
@@ -291,7 +280,7 @@ export default async function ClientWorkflowPage({
                 <div className="panel-stack">
                   <h3 className="section-title">Copy this into the Telnyx webhook tool</h3>
                   <div className="record-subtitle">
-                    This mirrors the Telnyx tool editor so setup is just copy and paste for this client.
+                    This is the only Telnyx setup block you should need for this client.
                   </div>
                 </div>
               </div>
@@ -360,7 +349,7 @@ export default async function ClientWorkflowPage({
                           id="telnyx-header-value"
                           label="Header value"
                           defaultValue={voiceWebhookSecret}
-                          placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET in Railway"
+                          placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET or INTERNAL_API_KEY in Railway"
                           fallbackCopyValue={voiceWebhookSecret}
                           copyButtonLabel="Copy secret"
                           readOnly
@@ -399,10 +388,6 @@ export default async function ClientWorkflowPage({
                 </div>
                 <div className="telnyx-setup-meta">
                   <div className="key-value-card">
-                    <span className="key-value-label">Paste path</span>
-                    Tool name, description, method, URL, header name, header value
-                  </div>
-                  <div className="key-value-card">
                     <span className="key-value-label">Route this client by</span>
                     companyId, calledNumber, or telnyxAssistantId
                   </div>
@@ -410,18 +395,12 @@ export default async function ClientWorkflowPage({
                     <span className="key-value-label">Must send</span>
                     phone, startTime
                   </div>
+                  <div className="key-value-card">
+                    <span className="key-value-label">Internal workflow link</span>
+                    {workflowTarget || 'Not set'}
+                  </div>
                 </div>
               </div>
-              <div className="metric-label">Voice webhook contract</div>
-              <CopyableUrlField
-                id="workflow-webhook-secret"
-                defaultValue={voiceWebhookSecret}
-                placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET in Railway to make this copyable"
-                fallbackCopyValue={voiceWebhookSecret}
-                label="Webhook secret"
-                copyButtonLabel="Copy secret"
-                readOnly
-              />
               <div className="text-muted">
                 Point the client&apos;s AI voice agent at this webhook when a real appointment is booked. Authorize with either
                 `Authorization: Bearer $VOICE_BOOKING_WEBHOOK_SECRET` or `X-Voice-Webhook-Secret: $VOICE_BOOKING_WEBHOOK_SECRET`.
@@ -429,24 +408,10 @@ export default async function ClientWorkflowPage({
               </div>
               {!voiceWebhookSecret && (
                 <div className="text-muted">
-                  No shared webhook secret is configured in this app yet. Add `VOICE_BOOKING_WEBHOOK_SECRET` in Railway, then
-                  reload this page.
+                  No shared webhook secret is configured in this app yet. Add `VOICE_BOOKING_WEBHOOK_SECRET` in Railway, or the
+                  app will fall back to `INTERNAL_API_KEY` once that is present.
                 </div>
               )}
-              <div className="key-value-grid">
-                <div className="key-value-card">
-                  <span className="key-value-label">Must send</span>
-                  phone, startTime
-                </div>
-                <div className="key-value-card">
-                  <span className="key-value-label">Routing options</span>
-                  companyId or telnyxAssistantId or calledNumber
-                </div>
-                <div className="key-value-card">
-                  <span className="key-value-label">Evidence fields</span>
-                  callId, recordingUrl, transcriptUrl, transcriptText
-                </div>
-              </div>
               <details className="panel panel-stack">
                 <summary className="metric-label" style={{ cursor: 'pointer' }}>
                   Sample booking payload
