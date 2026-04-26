@@ -88,6 +88,7 @@ export async function sendClientMessagingTestAction(formData: FormData) {
     const result = await sendOperatorMessagingTest(companyId, targetPhone, text);
 
     revalidatePath(`/clients/${companyId}`);
+    revalidatePath(`/clients/${companyId}/live-log`);
     revalidatePath(`/clients/${companyId}/operator`);
     revalidatePath(`/events?companyId=${companyId}`);
 
@@ -118,6 +119,7 @@ export async function sendClientMessagingTestAction(formData: FormData) {
     });
 
     revalidatePath(`/clients/${companyId}`);
+    revalidatePath(`/clients/${companyId}/live-log`);
     revalidatePath(`/clients/${companyId}/operator`);
     revalidatePath(`/events?companyId=${companyId}`);
 

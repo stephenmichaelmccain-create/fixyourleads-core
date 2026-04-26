@@ -26,6 +26,11 @@ function readPayloadRecord(payload: unknown) {
   return payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : {};
 }
 
+function readEncryptedCrmPayload(payload: unknown) {
+  const record = readPayloadRecord(payload);
+  return typeof record.crmCredentialsEncrypted === 'string' ? record.crmCredentialsEncrypted.trim() : '';
+}
+
 function workflowPath(companyId: string, notice?: string) {
   const params = new URLSearchParams();
 
@@ -92,7 +97,7 @@ export async function saveClientWorkflowAction(formData: FormData) {
   const bookingApiKey = optionalText(formData.get('bookingApiKey'));
   const bookingSecondaryKey = optionalText(formData.get('bookingSecondaryKey'));
 
-  const [company, latestVoiceSetupEvent, latestBookingSetupEvent] = await Promise.all([
+  const [company, latestVoiceSetupEvent, latestBookingSetupEvent, latestCrmSetupEvent] = await Promise.all([
     db.company.findUnique({
       where: { id: companyId },
       select: {
@@ -107,6 +112,11 @@ export async function saveClientWorkflowAction(formData: FormData) {
     }),
     db.eventLog.findFirst({
       where: { companyId, eventType: 'client_calendar_setup_updated' },
+      orderBy: { createdAt: 'desc' },
+      select: { payload: true }
+    }),
+    db.eventLog.findFirst({
+      where: { companyId, eventType: 'client_crm_setup_updated' },
       orderBy: { createdAt: 'desc' },
       select: { payload: true }
     })
@@ -139,6 +149,29 @@ export async function saveClientWorkflowAction(formData: FormData) {
       crmCredentialsEncrypted
     }
   });
+
+  const existingCrmPayload = readPayloadRecord(latestCrmSetupEvent?.payload);
+  const existingEncryptedCrmCredentials = readEncryptedCrmPayload(latestCrmSetupEvent?.payload) || company.crmCredentialsEncrypted;
+  const shouldWriteCrmSetup = Boolean(
+    latestCrmSetupEvent || crmProvider !== CrmProvider.NONE || crmApiKey || crmSecondaryKey || company.crmCredentialsEncrypted
+  );
+
+  if (shouldWriteCrmSetup) {
+    await db.eventLog.create({
+      data: {
+        companyId,
+        eventType: 'client_crm_setup_updated',
+        payload: {
+          ...existingCrmPayload,
+          crmProvider,
+          crmCredentialsEncrypted: crmCredentialsEncrypted || existingEncryptedCrmCredentials || null,
+          hasApiKey: Boolean(crmCredentialsEncrypted),
+          hasSecondaryKey: Boolean(crmSecondaryKey),
+          updatedAt: new Date().toISOString()
+        }
+      }
+    });
+  }
 
   const existingVoiceState = latestVoiceSetupEvent
     ? parseTelnyxSetupPayload(latestVoiceSetupEvent.payload)
@@ -213,6 +246,7 @@ export async function saveClientWorkflowAction(formData: FormData) {
 
   revalidatePath(`/clients/${companyId}`);
   revalidatePath(`/clients/${companyId}/workflow`);
+  revalidatePath(`/clients/${companyId}/live-log`);
   revalidatePath(`/clients/${companyId}/crm`);
   revalidatePath(`/clients/${companyId}/telnyx`);
   revalidatePath(`/clients/${companyId}/booking`);
