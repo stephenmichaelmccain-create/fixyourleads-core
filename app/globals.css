@@ -918,7 +918,7 @@ select {
   scroll-snap-type: x proximity;
   scroll-padding-inline: clamp(0px, 12vw, 160px);
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x;
+  touch-action: pan-x pan-y;
 }
 
 .lead-queue-scroll::-webkit-scrollbar {
@@ -991,7 +991,7 @@ select {
   display: grid;
   gap: 14px;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.95fr);
-  align-items: stretch;
+  align-items: start;
   width: 100%;
   min-width: 0;
 }
@@ -1003,6 +1003,7 @@ select {
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  align-content: start;
 }
 
 .lead-panel-header {
@@ -1075,6 +1076,7 @@ select {
   gap: 16px;
   width: 100%;
   min-width: 0;
+  align-self: start;
 }
 
 .lead-follow-up-header {
@@ -2241,6 +2243,14 @@ select {
   flex-wrap: wrap;
 }
 
+.client-view-actions.is-simple .button-secondary {
+  min-height: 34px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .button-secondary-compact {
   min-height: 42px;
   padding: 8px 14px;
@@ -2304,6 +2314,20 @@ select {
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.client-record-meta-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.client-record-meta-item {
+  display: grid;
+  gap: 4px;
 }
 
 .client-record-stats {

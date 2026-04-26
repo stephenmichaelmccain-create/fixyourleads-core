@@ -4,9 +4,10 @@ import { useState } from 'react';
 
 type ClientViewLinkActionsProps = {
   clientViewUrl: string | null;
+  variant?: 'default' | 'simple';
 };
 
-export function ClientViewLinkActions({ clientViewUrl }: ClientViewLinkActionsProps) {
+export function ClientViewLinkActions({ clientViewUrl, variant = 'default' }: ClientViewLinkActionsProps) {
   const [copied, setCopied] = useState(false);
 
   async function copyLink() {
@@ -20,7 +21,7 @@ export function ClientViewLinkActions({ clientViewUrl }: ClientViewLinkActionsPr
   }
 
   return (
-    <div className="client-view-actions">
+    <div className={`client-view-actions${variant === 'simple' ? ' is-simple' : ''}`}>
       <a
         className={`button-secondary button-secondary-compact${clientViewUrl ? '' : ' is-disabled'}`}
         href={clientViewUrl || '#'}

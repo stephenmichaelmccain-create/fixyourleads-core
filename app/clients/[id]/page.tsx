@@ -6,9 +6,8 @@ import { updateCompanyAction } from '@/app/companies/actions';
 import { parseClientCalendarSetupPayload } from '@/lib/client-calendar-setup';
 import { buildClientViewPath } from '@/lib/client-view-auth';
 import { db } from '@/lib/db';
-import { humanizeIntakeSource } from '@/lib/client-intake';
 import { parseTelnyxSetupPayload } from '@/lib/client-telnyx-setup';
-import { safeLoad } from '@/lib/ui-data';
+import { safeLoadDb } from '@/lib/ui-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,31 +44,6 @@ function formatCompactDateTime(value: Date | string | null | undefined) {
     hour: 'numeric',
     minute: '2-digit'
   }).format(new Date(value));
-}
-
-function formatUsd(cents?: number | null) {
-  if (typeof cents !== 'number') {
-    return '—';
-  }
-
-  const dollars = cents / 100;
-  const whole = Number.isFinite(dollars) && Math.round(dollars) === dollars;
-
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: whole ? 0 : 2,
-    maximumFractionDigits: whole ? 0 : 2
-  }).format(dollars);
-}
-
-function readPayloadRecord(payload: unknown) {
-  return payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : {};
-}
-
-function payloadString(payload: Record<string, unknown>, key: string) {
-  const value = payload[key];
-  return typeof value === 'string' ? value.trim() : '';
 }
 
 function isLikelyOperatorDeepLink(query: Record<string, string | undefined>) {
@@ -146,7 +120,7 @@ export default async function ClientProfilePage({
 
   const notice = query.notice || '';
 
-  const companyBase = await safeLoad(
+  const companyBase = await safeLoadDb(
     () =>
       db.company.findUnique({
         where: { id },
@@ -172,7 +146,7 @@ export default async function ClientProfilePage({
   }
 
   const companySetup =
-    (await safeLoad<CompanySetupSnapshot | null>(
+    (await safeLoadDb<CompanySetupSnapshot | null>(
       () =>
         db.company.findUnique({
           where: { id },
@@ -193,45 +167,8 @@ export default async function ClientProfilePage({
     ...companySetup
   };
 
-  const now = new Date();
-
-  const [
-    intakeEvents,
-    latestWorkflowRun,
-    latestVoiceSetupEvent,
-    latestBookingSetupEvent,
-    leadCount,
-    upcomingAppointmentCount
-  ] = await Promise.all([
-    safeLoad(
-      () =>
-        db.eventLog.findMany({
-          where: {
-            companyId: id,
-            eventType: {
-              in: ['client_signup_received', 'client_onboarding_received']
-            }
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 4,
-          select: {
-            eventType: true,
-            createdAt: true,
-            payload: true
-          }
-        }),
-      []
-    ),
-    safeLoad(
-      () =>
-        db.workflowRun.findFirst({
-          where: { companyId: id },
-          orderBy: { updatedAt: 'desc' },
-          select: { updatedAt: true, status: true, workflowType: true }
-        }),
-      null
-    ),
-    safeLoad(
+  const [latestVoiceSetupEvent, latestBookingSetupEvent] = await Promise.all([
+    safeLoadDb(
       () =>
         db.eventLog.findFirst({
           where: { companyId: id, eventType: 'client_telnyx_setup_updated' },
@@ -240,7 +177,7 @@ export default async function ClientProfilePage({
         }),
       null
     ),
-    safeLoad(
+    safeLoadDb(
       () =>
         db.eventLog.findFirst({
           where: { companyId: id, eventType: 'client_calendar_setup_updated' },
@@ -248,43 +185,20 @@ export default async function ClientProfilePage({
           select: { payload: true, createdAt: true }
         }),
       null
-    ),
-    safeLoad(() => db.lead.count({ where: { companyId: id } }), 0),
-    safeLoad(
-      () =>
-        db.appointment.count({
-          where: {
-            companyId: id,
-            startTime: { gte: now },
-            status: { in: ['BOOKED', 'CONFIRMED', 'RESCHEDULED'] }
-          }
-        }),
-      0
     )
   ]);
 
-  const latestSignupEvent = intakeEvents.find((event) => event.eventType === 'client_signup_received') || null;
-  const latestSignupPayload = readPayloadRecord(latestSignupEvent?.payload);
   const voiceSetupState = latestVoiceSetupEvent ? parseTelnyxSetupPayload(latestVoiceSetupEvent.payload) : null;
   const bookingSetupState = latestBookingSetupEvent ? parseClientCalendarSetupPayload(latestBookingSetupEvent.payload) : null;
 
-  const importedSourceLabel = humanizeIntakeSource(payloadString(latestSignupPayload, 'source'));
   const appBaseUrl = process.env.APP_BASE_URL?.trim() || null;
   const clientViewPath = buildClientViewPath(company.id);
   const clientViewUrl =
     clientViewPath && appBaseUrl ? `${appBaseUrl.replace(/\/$/, '')}${clientViewPath}` : clientViewPath;
   const aiVoiceConfigured = Boolean(voiceSetupState?.webhookConfigured || voiceSetupState?.webhookUrl);
-  const aiVoiceWebhookTarget = voiceSetupState?.webhookUrl || 'Not connected yet';
   const bookingConfigured = Boolean(bookingSetupState?.externalPlatformName || bookingSetupState?.externalCalendarId);
   const crmConfigured = Boolean(company.crmCredentialsEncrypted);
   const workflowReady = aiVoiceConfigured || bookingConfigured || crmConfigured;
-  const workflowSummary = [
-    crmConfigured ? 'CRM saved' : null,
-    aiVoiceConfigured ? 'Voice webhook ready' : null,
-    bookingConfigured ? bookingSetupState?.externalPlatformName || 'Calendar saved' : null
-  ]
-    .filter(Boolean)
-    .join(' • ');
 
   return (
     <LayoutShell
@@ -328,7 +242,6 @@ export default async function ClientProfilePage({
             </div>
           </div>
           <div className="workspace-action-rail">
-            <ClientViewLinkActions clientViewUrl={clientViewUrl} />
             <a className="button" href={`/clients/${company.id}/workflow`}>
               Workflow
             </a>
@@ -341,103 +254,22 @@ export default async function ClientProfilePage({
           </div>
         </div>
 
-        <div className="client-record-inline-stats">
-          <span className="status-chip status-chip-muted">
-            <strong>Leads</strong> {leadCount}
-          </span>
-          <span className="status-chip status-chip-muted">
-            <strong>Bookings</strong> {upcomingAppointmentCount}
-          </span>
-          <span className={`status-chip ${workflowReady ? 'status-chip-muted' : 'status-chip-attention'}`}>
-            <strong>Workflow</strong> {workflowReady ? 'In place' : 'Needs setup'}
-          </span>
+        <div className="client-record-meta-strip">
+          <div className="client-record-meta-item">
+            <span className="key-value-label">Created</span>
+            <strong>{formatCompactDateTime(company.createdAt)}</strong>
+          </div>
+          <ClientViewLinkActions clientViewUrl={clientViewUrl} variant="simple" />
         </div>
       </section>
 
-      <div className="client-record-layout">
-        <div className="panel-stack">
-          <section className="panel panel-stack">
-            <div className="record-header">
-              <div className="panel-stack">
-              <div className="metric-label">Overview</div>
-              <h3 className="section-title">Identity, contact, and handoff</h3>
-              <div className="record-subtitle">
-                  Keep this page focused on the information the rest of the workspace depends on: contact details, business
-                  info, notification inboxes, and the workflow handoff.
-              </div>
-            </div>
-            </div>
-
-            <div className="client-record-overview-grid">
-              <div className="key-value-card client-record-overview-card">
-                <span className="key-value-label">Primary contact</span>
-                <strong>{company.primaryContactName || 'Missing primary contact'}</strong>
-                <span className="tiny-muted">
-                  {[company.primaryContactEmail, company.primaryContactPhone].filter(Boolean).join(' • ') || 'Add the owner or manager who receives updates.'}
-                </span>
-              </div>
-              <div className="key-value-card client-record-overview-card">
-                <span className="key-value-label">Workflow setup</span>
-                <strong>{workflowReady ? 'Connected' : 'Not connected'}</strong>
-                <span className="tiny-muted">
-                  {workflowSummary || 'Open the Workflow tab to save the webhook target and API keys for this client.'}
-                </span>
-              </div>
-              <div className="key-value-card client-record-overview-card">
-                <span className="key-value-label">Notifications</span>
-                <strong>{company.notificationEmail || 'Missing notification inbox'}</strong>
-                <span className="tiny-muted">
-                  {company.website ? `Website: ${company.website}` : 'Add the website so intake and client context stay connected.'}
-                </span>
-              </div>
-              <div className="key-value-card client-record-overview-card">
-                <span className="key-value-label">Revenue context</span>
-                <strong>
-                  {formatUsd(company.retainerCents)} retainer
-                  {company.downPaymentCents ? ` • ${formatUsd(company.downPaymentCents)} down` : ''}
-                </strong>
-                <span className="tiny-muted">Stored for operator context and launch planning.</span>
-              </div>
-            </div>
-
-            <div className="surface-link-grid">
-              <a className="surface-link-card" href={`/clients/${company.id}/workflow`}>
-                <span className="metric-label">Workflow</span>
-                <strong>Save CRM, AI voice, and calendar setup in one place</strong>
-                <span className="tiny-muted">Store the webhook target and API keys on one simple screen.</span>
-              </a>
-              <a className="surface-link-card" href={`/events?companyId=${encodeURIComponent(company.id)}`}>
-                <span className="metric-label">Activity log</span>
-                <strong>Review signup, booking, and webhook events</strong>
-                <span className="tiny-muted">Useful when QAing intake, workflow saves, or launch handoff.</span>
-              </a>
-              <a
-                className={`surface-link-card${clientViewPath ? '' : ' is-disabled'}`}
-                href={clientViewPath || '#'}
-                target="_blank"
-                rel="noreferrer"
-                aria-disabled={!clientViewPath}
-              >
-                <span className="metric-label">Client view</span>
-                <strong>Share the simple status page with this client</strong>
-                <span className="tiny-muted">Use the button in the header to copy the exact link.</span>
-              </a>
-              <a className="surface-link-card" href="#setup">
-                <span className="metric-label">Profile editor</span>
-                <strong>Update contacts, website, and pricing</strong>
-                <span className="tiny-muted">All downstream operator tools read from this setup form.</span>
-              </a>
-            </div>
-          </section>
-
-          <section className="panel panel-stack" id="setup">
+      <section className="panel panel-stack" id="setup">
             <div className="record-header">
               <div className="panel-stack">
                 <div className="metric-label">Profile editor</div>
                 <h3 className="section-title">Keep the record accurate</h3>
                 <div className="record-subtitle">
-                  Inspired by modern CRM record pages, this section keeps one obvious edit surface instead of scattering settings
-                  across the page.
+                  This page is just the editable client record now. Use Workflow for keys and webhook setup.
                 </div>
               </div>
             </div>
@@ -559,48 +391,12 @@ export default async function ClientProfilePage({
                 <button type="submit" className="button">
                   Save profile
                 </button>
+                <span className={`status-chip ${workflowReady ? 'status-chip-muted' : 'status-chip-attention'}`}>
+                  <strong>Workflow</strong> {workflowReady ? 'In place' : 'Needs setup'}
+                </span>
               </div>
             </form>
-          </section>
-
-        </div>
-
-        <aside className="client-record-sidebar">
-          <section className="panel panel-stack">
-            <div className="metric-label">Snapshot</div>
-            <div className="client-record-sidebar-grid">
-              <div className="client-record-sidebar-item">
-                <span className="key-value-label">Created</span>
-                <strong>{formatCompactDateTime(company.createdAt)}</strong>
-              </div>
-              <div className="client-record-sidebar-item">
-                <span className="key-value-label">AI voice</span>
-                <strong>{aiVoiceConfigured ? 'Webhook connected' : 'Setup pending'}</strong>
-              </div>
-              <div className="client-record-sidebar-item">
-                <span className="key-value-label">Webhook target</span>
-                <strong>{aiVoiceWebhookTarget}</strong>
-              </div>
-              <div className="client-record-sidebar-item">
-                <span className="key-value-label">Primary contact</span>
-                <strong>{company.primaryContactName || 'Missing'}</strong>
-              </div>
-              <div className="client-record-sidebar-item">
-                <span className="key-value-label">Revenue context</span>
-                <strong>{formatUsd(company.retainerCents)}</strong>
-              </div>
-              <div className="client-record-sidebar-item">
-                <span className="key-value-label">Last workflow</span>
-                <strong>{latestWorkflowRun ? latestWorkflowRun.workflowType : 'None yet'}</strong>
-              </div>
-              <div className="client-record-sidebar-item">
-                <span className="key-value-label">Intake source</span>
-                <strong>{importedSourceLabel || 'Manual or unknown'}</strong>
-              </div>
-            </div>
-          </section>
-        </aside>
-      </div>
+      </section>
     </LayoutShell>
   );
 }
