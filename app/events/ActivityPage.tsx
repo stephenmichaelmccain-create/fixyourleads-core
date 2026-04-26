@@ -573,95 +573,97 @@ export async function ActivityPage({
         </div>
       ) : null}
 
-      <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">Filters</div>
-            <h2 className="section-title">Filter the activity without leaving the page.</h2>
-          </div>
-          <a className="button-ghost" href={basePath}>
-            Reset
-          </a>
-        </div>
-
-        <form action={basePath} className="workspace-filter-form">
-          <div className="workspace-filter-row">
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="events-company">
-                Client
-              </label>
-              <select id="events-company" name="companyId" className="select-input" defaultValue={selectedCompanyId}>
-                <option value="">All clients</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
+      {!compact ? (
+        <section className="panel panel-stack">
+          <div className="record-header">
+            <div className="panel-stack">
+              <div className="metric-label">Filters</div>
+              <h2 className="section-title">Filter the activity without leaving the page.</h2>
             </div>
-
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="events-type">
-                Event type
-              </label>
-              <select id="events-type" name="eventType" className="select-input" defaultValue={selectedEventType}>
-                <option value="">All event types</option>
-                {eventTypeRows.map((row) => (
-                  <option key={row.eventType} value={row.eventType}>
-                    {humanizeEventType(row.eventType)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="events-window">
-                Date range
-              </label>
-              <select id="events-window" name="window" className="select-input" defaultValue={selectedWindow}>
-                {windowOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="events-query">
-                Search payload
-              </label>
-              <input
-                id="events-query"
-                name="q"
-                className="text-input"
-                defaultValue={searchQuery}
-                placeholder="booking stop, query leadId, delivery_failed"
-              />
-            </div>
-
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="events-related">
-                Related record
-              </label>
-              <select id="events-related" name="related" className="select-input" defaultValue={selectedRelated}>
-                <option value="">Any related record</option>
-                <option value="lead">Lead</option>
-                <option value="conversation">Conversation</option>
-                <option value="appointment">Appointment</option>
-                <option value="contact">Contact</option>
-                <option value="unclassified">Unclassified</option>
-              </select>
-            </div>
+            <a className="button-ghost" href={basePath}>
+              Reset
+            </a>
           </div>
 
-          <div className="workspace-filter-actions">
-            <button type="submit" className="button-secondary">
-              Apply filters
-            </button>
-          </div>
-        </form>
-      </section>
+          <form action={basePath} className="workspace-filter-form">
+            <div className="workspace-filter-row">
+              <div className="field-stack">
+                <label className="key-value-label" htmlFor="events-company">
+                  Client
+                </label>
+                <select id="events-company" name="companyId" className="select-input" defaultValue={selectedCompanyId}>
+                  <option value="">All clients</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field-stack">
+                <label className="key-value-label" htmlFor="events-type">
+                  Event type
+                </label>
+                <select id="events-type" name="eventType" className="select-input" defaultValue={selectedEventType}>
+                  <option value="">All event types</option>
+                  {eventTypeRows.map((row) => (
+                    <option key={row.eventType} value={row.eventType}>
+                      {humanizeEventType(row.eventType)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field-stack">
+                <label className="key-value-label" htmlFor="events-window">
+                  Date range
+                </label>
+                <select id="events-window" name="window" className="select-input" defaultValue={selectedWindow}>
+                  {windowOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field-stack">
+                <label className="key-value-label" htmlFor="events-query">
+                  Search payload
+                </label>
+                <input
+                  id="events-query"
+                  name="q"
+                  className="text-input"
+                  defaultValue={searchQuery}
+                  placeholder="booking stop, query leadId, delivery_failed"
+                />
+              </div>
+
+              <div className="field-stack">
+                <label className="key-value-label" htmlFor="events-related">
+                  Related record
+                </label>
+                <select id="events-related" name="related" className="select-input" defaultValue={selectedRelated}>
+                  <option value="">Any related record</option>
+                  <option value="lead">Lead</option>
+                  <option value="conversation">Conversation</option>
+                  <option value="appointment">Appointment</option>
+                  <option value="contact">Contact</option>
+                  <option value="unclassified">Unclassified</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="workspace-filter-actions">
+              <button type="submit" className="button-secondary">
+                Apply filters
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : null}
 
       <section className="panel panel-stack">
         <div className="record-header">
@@ -670,9 +672,14 @@ export async function ActivityPage({
             <h2 className="section-title">Recent activity across the live app.</h2>
           </div>
           {compact ? (
-            <span className="live-indicator live-indicator-compact" aria-label="Auto-refreshing event feed" title="Auto-refreshing event feed">
-              <span className="live-indicator-dot" />
-            </span>
+            <div className="action-cluster action-cluster-compact-feed">
+              <span className="live-indicator live-indicator-compact" aria-label="Auto-refreshing event feed" title="Auto-refreshing event feed">
+                <span className="live-indicator-dot" />
+              </span>
+              <a className="button-ghost button-ghost-compact" href="/events">
+                Full feed
+              </a>
+            </div>
           ) : (
             <div className="action-cluster">
               <a className="button-ghost" href="/admin/system">
@@ -696,7 +703,7 @@ export async function ActivityPage({
               const related = relatedRecordType(event.payload);
 
               return (
-                <article key={event.id} className="record-card">
+                <article key={event.id} className={`record-card${compact ? ' record-card-compact' : ''}`}>
                   <div className="record-card-live-head">
                     <span
                       className={`status-chip ${
@@ -714,44 +721,57 @@ export async function ActivityPage({
                     <span className="tiny-muted">{compact ? formatElapsedTime(event.createdAt) : formatDateTime(event.createdAt)}</span>
                   </div>
 
-                  <div className={`panel-stack${compact ? ' record-card-event-summary' : ''}`}>
-                    <div className={compact ? 'panel-stack record-card-event-summary' : 'inline-row'}>
-                      {compact ? (
+                  <div className={`panel-stack${compact ? ' record-card-event-summary record-card-compact-event' : ''}`}>
+                    {compact ? (
+                      <>
                         <strong className="record-card-event-title">{humanizeEventType(event.eventType)}</strong>
-                      ) : null}
-                      <a
-                        className="table-link"
-                        href={buildEventsHref(basePath, {
-                          companyId: event.companyId,
-                          eventType: selectedEventType || undefined,
-                          window: selectedWindow,
-                          q: searchQuery || undefined,
-                          related: selectedRelated || undefined
-                        })}
-                      >
-                        {event.company?.name || event.companyId}
-                      </a>
-                    </div>
-                    <div className="text-muted">
-                      {summaryLine || 'No short summary derived from the payload. Expand details for the raw event body.'}
-                    </div>
+                        <div className="record-card-event-client">{event.company?.name || event.companyId}</div>
+                        <div className="text-muted">
+                          {summaryLine || 'Open the full feed if you need raw event details.'}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="inline-row">
+                          <a
+                            className="table-link"
+                            href={buildEventsHref(basePath, {
+                              companyId: event.companyId,
+                              eventType: selectedEventType || undefined,
+                              window: selectedWindow,
+                              q: searchQuery || undefined,
+                              related: selectedRelated || undefined
+                            })}
+                          >
+                            {event.company?.name || event.companyId}
+                          </a>
+                        </div>
+                        <div className="text-muted">
+                          {summaryLine || 'No short summary derived from the payload. Expand details for the raw event body.'}
+                        </div>
+                      </>
+                    )}
                   </div>
 
-                  <div className="action-cluster">
+                  <div className={`action-cluster${compact ? ' action-cluster-compact-feed' : ''}`}>
                     <a className="button-ghost" href={`/clients/${event.companyId}`}>
                       Open client
                     </a>
-                    {links.map((link) => (
+                    {!compact
+                      ? links.map((link) => (
                       <a key={link.href} className="button-ghost" href={link.href}>
                         {link.label}
                       </a>
-                    ))}
+                        ))
+                      : null}
                   </div>
 
-                  <details className="panel-stack">
-                    <summary className="details-summary">Raw payload</summary>
-                    <pre className="tiny-muted pre-wrap">{JSON.stringify(event.payload, null, 2)}</pre>
-                  </details>
+                  {!compact ? (
+                    <details className="panel-stack">
+                      <summary className="details-summary">Raw payload</summary>
+                      <pre className="tiny-muted pre-wrap">{JSON.stringify(event.payload, null, 2)}</pre>
+                    </details>
+                  ) : null}
                 </article>
               );
             })}
