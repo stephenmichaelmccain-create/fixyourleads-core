@@ -115,6 +115,14 @@ function humanizeEventType(eventType: string) {
     .join(' ');
 }
 
+function payloadRecord(payload: unknown) {
+  return payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : null;
+}
+
+function stringValue(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 type EventTone = 'ok' | 'warn' | 'error';
 type EventAccent = 'violet' | 'green' | 'amber' | 'blue' | 'pink' | 'red';
 
@@ -126,14 +134,43 @@ function resolveEventPresentation(eventType: string, payload: unknown): {
   tag: string;
 } {
   const value = eventType.toLowerCase();
-  const record = payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : null;
+  const record = payloadRecord(payload);
   const deliveryStatus = typeof record?.deliveryStatus === 'string' ? record.deliveryStatus.toLowerCase() : '';
   const notificationStatus = typeof record?.notificationStatus === 'string' ? record.notificationStatus.toLowerCase() : '';
   const confirmationStatus = typeof record?.confirmationStatus === 'string' ? record.confirmationStatus.toLowerCase() : '';
+  const prospectStatus = typeof record?.status === 'string' ? record.status.toLowerCase() : '';
+  const outcomeKey = typeof record?.outcomeKey === 'string' ? record.outcomeKey.toLowerCase() : '';
 
   let tag = 'default';
 
-  if (value === 'client_signup_received' || value === 'client_onboarding_received' || (value.includes('signup') && value.includes('received'))) {
+  if (value === 'prospect_callback_scheduled' || (value === 'prospect_follow_up_updated' && Boolean(record?.nextActionAt))) {
+    tag = 'callback';
+  } else if (value === 'prospect_bulk_import_completed' || value === 'google_maps_import_completed') {
+    tag = 'import';
+  } else if (
+    value === 'prospect_created' ||
+    value === 'lead_created' ||
+    value === 'lead_reingested' ||
+    value === 'lead_unsuppressed'
+  ) {
+    tag = 'lead_new';
+  } else if (
+    value === 'prospect_outcome_updated' &&
+    (prospectStatus === 'booked_demo' || prospectStatus === 'closed' || outcomeKey === 'booked' || outcomeKey === 'sold')
+  ) {
+    tag = 'success';
+  } else if (
+    value === 'prospect_outcome_updated' &&
+    (prospectStatus === 'dead' || outcomeKey === 'do_not_contact')
+  ) {
+    tag = 'failure';
+  } else if (
+    value === 'prospect_outcome_updated' ||
+    value === 'lead_queue_skipped' ||
+    value === 'lead_suppressed'
+  ) {
+    tag = 'warning';
+  } else if (value === 'client_signup_received' || value === 'client_onboarding_received' || (value.includes('signup') && value.includes('received'))) {
     tag = 'signup_received';
   } else if (
     value === 'client_signup_approved' ||
@@ -191,6 +228,12 @@ function resolveEventPresentation(eventType: string, payload: unknown): {
   }
 
   switch (tag) {
+    case 'lead_new':
+      return { tag, tone: 'ok', tile: '◎', flair: '🧲', accent: 'violet' };
+    case 'import':
+      return { tag, tone: 'ok', tile: '↓', flair: '📥', accent: 'blue' };
+    case 'callback':
+      return { tag, tone: 'warn', tile: '↺', flair: '⏰', accent: 'amber' };
     case 'signup_received':
       return { tag, tone: 'ok', tile: '✦', flair: '🎉', accent: 'violet' };
     case 'success':
@@ -251,13 +294,62 @@ function formatElapsedTime(value: Date | string) {
   return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
 }
 
-function shortPayload(payload: unknown) {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+function shortPayload(eventType: string, payload: unknown) {
+  const record = payloadRecord(payload);
+
+  if (!record) {
     return null;
   }
 
-  const record = payload as Record<string, unknown>;
+  const value = eventType.toLowerCase();
   const source = humanizeIntakeSource(typeof record.source === 'string' ? record.source : '');
+  const nextActionAt = stringValue(record.nextActionAt);
+  const prospectName = stringValue(record.prospectName);
+  const phone = stringValue(record.phone);
+  const city = stringValue(record.city);
+  const callbackLabel = stringValue(record.callbackLabel);
+  const status = stringValue(record.status);
+
+  if (value === 'prospect_bulk_import_completed') {
+    const parts = [
+      record.source ? humanizeEventType(String(record.source)) : 'Bulk import',
+      typeof record.added === 'number' ? `${record.added} added` : null,
+      typeof record.skippedDuplicates === 'number' ? `${record.skippedDuplicates} duplicates` : null,
+      typeof record.skippedInvalid === 'number' ? `${record.skippedInvalid} invalid` : null
+    ].filter(Boolean) as string[];
+
+    return parts.join(' · ');
+  }
+
+  if (value === 'google_maps_import_completed') {
+    const parts = [
+      record.query ? `query ${String(record.query)}` : 'Google Maps import',
+      typeof record.imported === 'number' ? `${record.imported} imported` : null,
+      typeof record.duplicates === 'number' ? `${record.duplicates} duplicates` : null,
+      typeof record.skippedNoPhone === 'number' ? `${record.skippedNoPhone} skipped (no phone)` : null
+    ].filter(Boolean) as string[];
+
+    return parts.join(' · ');
+  }
+
+  if (
+    value === 'prospect_created' ||
+    value === 'prospect_outcome_updated' ||
+    value === 'prospect_callback_scheduled' ||
+    value === 'prospect_follow_up_updated'
+  ) {
+    const parts = [
+      prospectName || (record.prospectId ? `prospect ${String(record.prospectId).slice(-6)}` : null),
+      phone,
+      city,
+      status ? humanizeEventType(status) : null,
+      callbackLabel ? `callback ${callbackLabel}` : null,
+      nextActionAt ? `next ${formatDateTime(nextActionAt)}` : null,
+      record.lastCallOutcome ? String(record.lastCallOutcome) : null
+    ].filter(Boolean) as string[];
+
+    return parts.join(' · ');
+  }
 
   if (record.onboardingReceivedAt) {
     const parts = [
@@ -298,14 +390,18 @@ function shortPayload(payload: unknown) {
 }
 
 function relatedRecordType(payload: unknown) {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+  const record = payloadRecord(payload);
+
+  if (!record) {
     return 'unclassified';
   }
 
-  const record = payload as Record<string, unknown>;
-
   if (record.leadId) {
     return 'lead';
+  }
+
+  if (record.prospectId) {
+    return 'prospect';
   }
 
   if (record.conversationId) {
@@ -379,8 +475,14 @@ function payloadLinks(companyId: string, payload: unknown) {
   const links = [
     record.leadId
       ? {
-          href: `/leads/${String(record.leadId)}`,
+          href: `/leads?leadId=${String(record.leadId)}`,
           label: 'Open lead'
+        }
+      : null,
+    record.prospectId
+      ? {
+          href: `/leads?prospectId=${String(record.prospectId)}#selected-lead`,
+          label: 'Open prospect'
         }
       : null,
     record.conversationId
@@ -591,7 +693,7 @@ export async function ActivityPage({
       event.companyId,
       event.company?.name || '',
       relatedRecordType(event.payload),
-      shortPayload(event.payload) || '',
+      shortPayload(event.eventType, event.payload) || '',
       payloadString(event.payload)
     ]
       .join(' ')
@@ -799,6 +901,7 @@ export async function ActivityPage({
                 <select id="events-related" name="related" className="select-input" defaultValue={selectedRelated}>
                   <option value="">Any related record</option>
                   <option value="lead">Lead</option>
+                  <option value="prospect">Prospect</option>
                   <option value="conversation">Conversation</option>
                   <option value="appointment">Appointment</option>
                   <option value="contact">Contact</option>
@@ -845,7 +948,7 @@ export async function ActivityPage({
             {events.map((event) => {
               const presentation = resolveEventPresentation(event.eventType, event.payload);
               const links = payloadLinks(event.companyId, event.payload);
-              const summaryLine = shortPayload(event.payload);
+              const summaryLine = shortPayload(event.eventType, event.payload);
               const related = relatedRecordType(event.payload);
 
               return (

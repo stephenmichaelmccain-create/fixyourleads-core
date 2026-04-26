@@ -14,6 +14,17 @@ function readText(formData: FormData, key: string) {
   return String(formData.get(key) || '').trim();
 }
 
+function isoOrNull(value: Date | null | undefined) {
+  return value ? value.toISOString() : null;
+}
+
+function revalidateLeadSurfaces() {
+  revalidatePath('/our-leads');
+  revalidatePath('/leads');
+  revalidatePath('/');
+  revalidatePath('/events');
+}
+
 function addDaysFromNow(days: number, hour: number) {
   const value = new Date();
   value.setDate(value.getDate() + days);
@@ -508,6 +519,25 @@ export async function createProspectAction(formData: FormData) {
         websiteKey
       });
 
+      await tx.eventLog.create({
+        data: {
+          companyId: INTERNAL_COMPANY_ID,
+          eventType: 'prospect_created',
+          payload: {
+            prospectId: prospect.id,
+            prospectName: name,
+            phone: normalizedPhone,
+            city,
+            website,
+            ownerName,
+            status,
+            nextActionAt: isoOrNull(nextActionAt),
+            sourceLabel,
+            importBatch
+          }
+        }
+      });
+
       return prospect;
     });
 
@@ -539,8 +569,7 @@ export async function createProspectAction(formData: FormData) {
     redirect(`${buildOurLeadsHref({ ...currentView, error: 'duplicate', draft })}#add-prospect`);
   }
 
-  revalidatePath('/our-leads');
-  revalidatePath('/leads');
+  revalidateLeadSurfaces();
   redirect(
     buildOurLeadsHref({
       ...currentView,
@@ -650,8 +679,21 @@ export async function bulkCreateProspectsAction(formData: FormData) {
     }
   }
 
-  revalidatePath('/our-leads');
-  revalidatePath('/leads');
+  await db.eventLog.create({
+    data: {
+      companyId: INTERNAL_COMPANY_ID,
+      eventType: 'prospect_bulk_import_completed',
+      payload: {
+        source: 'manual_bulk',
+        rowsReceived: rows.length,
+        added: addedCount,
+        skippedDuplicates: duplicateSkippedCount,
+        skippedInvalid: invalidSkippedCount
+      }
+    }
+  });
+
+  revalidateLeadSurfaces();
   redirect(
     buildOurLeadsHref({
       ...currentView,
@@ -759,10 +801,24 @@ export async function updateProspectOutcomeAction(formData: FormData) {
         notes: selection.notesSuffix || undefined
       }
     });
+
+    await tx.eventLog.create({
+      data: {
+        companyId: INTERNAL_COMPANY_ID,
+        eventType: 'prospect_outcome_updated',
+        payload: {
+          prospectId,
+          outcomeKey: outcome,
+          status: selection.status,
+          lastCallOutcome: selection.lastCallOutcome,
+          nextActionAt: isoOrNull(selection.nextActionAt),
+          notes: selection.notesSuffix || null
+        }
+      }
+    });
   });
 
-  revalidatePath('/our-leads');
-  revalidatePath('/leads');
+  revalidateLeadSurfaces();
   redirect(
     buildOurLeadsHref({
       prospectId: nextProspectId || prospectId,
@@ -824,10 +880,23 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
         notes: `Callback preset chosen: ${callbackPlan.label}.`
       }
     });
+
+    await tx.eventLog.create({
+      data: {
+        companyId: INTERNAL_COMPANY_ID,
+        eventType: 'prospect_callback_scheduled',
+        payload: {
+          prospectId,
+          callbackLabel: callbackPlan.label,
+          status: ProspectStatus.GATEKEEPER,
+          nextActionAt: callbackPlan.nextActionAt.toISOString(),
+          lastCallOutcome: `Call back later - ${callbackPlan.label}`
+        }
+      }
+    });
   });
 
-  revalidatePath('/our-leads');
-  revalidatePath('/leads');
+  revalidateLeadSurfaces();
   redirect(
     buildOurLeadsHref({
       prospectId: nextProspectId || prospectId,
@@ -937,11 +1006,25 @@ export async function updateProspectDetailsAction(formData: FormData) {
           notes: historyParts.join(' ')
         }
       });
+
+      await tx.eventLog.create({
+        data: {
+          companyId: INTERNAL_COMPANY_ID,
+          eventType: 'prospect_follow_up_updated',
+          payload: {
+            prospectId,
+            noteChanged,
+            nextActionChanged,
+            nextActionAt: isoOrNull(nextActionAt),
+            outcome,
+            notes: historyParts.join(' ')
+          }
+        }
+      });
     }
   });
 
-  revalidatePath('/our-leads');
-  revalidatePath('/leads');
+  revalidateLeadSurfaces();
   redirect(
     buildOurLeadsHref({
       prospectId,
