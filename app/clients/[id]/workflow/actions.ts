@@ -42,6 +42,20 @@ function workflowPath(companyId: string, notice?: string) {
   return search ? `/clients/${companyId}/workflow?${search}` : `/clients/${companyId}/workflow`;
 }
 
+function appBaseUrl() {
+  return process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || null;
+}
+
+function defaultVoiceWebhookUrl() {
+  const baseUrl = appBaseUrl();
+  return baseUrl ? `${baseUrl}/api/webhooks/voice/appointments` : null;
+}
+
+function defaultWorkflowUrl(companyId: string) {
+  const baseUrl = appBaseUrl();
+  return baseUrl ? `${baseUrl}/clients/${companyId}/workflow` : null;
+}
+
 function buildCrmCredentials(provider: CrmProvider, apiKey: string | null, secondaryKey: string | null) {
   switch (provider) {
     case CrmProvider.HUBSPOT:
@@ -89,8 +103,8 @@ export async function saveClientWorkflowAction(formData: FormData) {
   const crmSecondaryKey = optionalText(formData.get('crmSecondaryKey'));
 
   const voiceLine = optionalText(formData.get('voiceLine'));
-  const webhookUrl = optionalText(formData.get('webhookUrl'));
-  const automationUrl = optionalText(formData.get('automationUrl'));
+  const webhookUrl = optionalText(formData.get('webhookUrl')) || defaultVoiceWebhookUrl();
+  const automationUrl = optionalText(formData.get('automationUrl')) || defaultWorkflowUrl(companyId);
 
   const bookingPlatformName = optionalText(formData.get('bookingPlatformName'));
   const bookingPlatformId = optionalText(formData.get('bookingPlatformId'));

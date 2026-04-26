@@ -116,7 +116,8 @@ export default async function ClientWorkflowPage({
   const appBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || null;
   const defaultVoiceWebhookUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/appointments` : '';
   const workflowPageUrl = appBaseUrl ? `${appBaseUrl}/clients/${company.id}/workflow` : '';
-  const voiceWebhookTarget = voiceState.webhookUrl || '';
+  const voiceWebhookTarget = voiceState.webhookUrl || defaultVoiceWebhookUrl;
+  const workflowTarget = voiceState.automationUrl || workflowPageUrl;
   const voiceWebhookExamplePayload = buildVoiceWebhookExamplePayload({
     companyId: company.id,
     businessName: company.name,
@@ -272,9 +273,9 @@ export default async function ClientWorkflowPage({
               <CopyableUrlField
                 id="workflow-automation-url"
                 name="automationUrl"
-                defaultValue={voiceState.automationUrl || ''}
+                defaultValue={workflowTarget}
                 placeholder={workflowPageUrl || 'https://make.com/... or internal workflow link'}
-                fallbackCopyValue={voiceState.automationUrl || workflowPageUrl}
+                fallbackCopyValue={workflowTarget}
                 label="Workflow URL"
               />
             </div>
