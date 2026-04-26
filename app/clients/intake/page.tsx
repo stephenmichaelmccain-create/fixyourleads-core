@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { humanizeIntakeSource } from '@/lib/client-intake';
 import { safeLoadDb } from '@/lib/ui-data';
 import Link from 'next/link';
+import styles from './page.module.css';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,7 +120,16 @@ export default async function ClientIntakePage() {
         </div>
 
         <div className="table-wrap">
-          <table className="data-table">
+          <table className={`data-table ${styles.table}`}>
+            <colgroup>
+              <col className={styles.clinicColumn} />
+              <col className={styles.contactColumn} />
+              <col className={styles.emailColumn} />
+              <col className={styles.phoneColumn} />
+              <col className={styles.websiteColumn} />
+              <col className={styles.receivedColumn} />
+              <col className={styles.actionsColumn} />
+            </colgroup>
             <thead>
               <tr>
                 <th>Clinic</th>
@@ -142,8 +152,8 @@ export default async function ClientIntakePage() {
                 pendingSignupRows.map((row) => (
                   <tr key={row.id}>
                     <td>
-                      <div className="record-stack" style={{ gap: 6 }}>
-                        <div className="inline-row inline-actions-wrap">
+                      <div className={`record-stack ${styles.clinicCell}`} style={{ gap: 6 }}>
+                        <div className={`inline-row inline-actions-wrap ${styles.clinicHeader}`}>
                           <strong>{row.clinicName}</strong>
                           <form action={approveSignupSubmissionAction}>
                             <input type="hidden" name="companyId" value={row.companyId} />
@@ -156,13 +166,13 @@ export default async function ClientIntakePage() {
                         <span className="tiny-muted">{humanizeIntakeSource(row.source)}</span>
                       </div>
                     </td>
-                    <td>{row.contactName || '—'}</td>
-                    <td>{row.notificationEmail || '—'}</td>
-                    <td>{row.phone || '—'}</td>
-                    <td>{row.website || '—'}</td>
-                    <td className="tiny-muted">{formatDateTime(row.receivedAt)}</td>
-                    <td>
-                      <Link className="button-ghost" href={`/clients/${row.companyId}#setup`}>
+                    <td className={styles.wrapCell}>{row.contactName || '—'}</td>
+                    <td className={styles.wrapCell}>{row.notificationEmail || '—'}</td>
+                    <td className={styles.wrapCell}>{row.phone || '—'}</td>
+                    <td className={styles.wrapCell}>{row.website || '—'}</td>
+                    <td className={`tiny-muted ${styles.receivedCell}`}>{formatDateTime(row.receivedAt)}</td>
+                    <td className={styles.actionCell}>
+                      <Link className={`button-ghost ${styles.openWorkspaceLink}`} href={`/clients/${row.companyId}#setup`}>
                         Open workspace
                       </Link>
                     </td>

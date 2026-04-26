@@ -1,0 +1,74 @@
+.table {
+  min-width: 1120px;
+  table-layout: fixed;
+}
+
+.clinicColumn {
+  width: 220px;
+}
+
+.contactColumn {
+  width: 220px;
+}
+
+.emailColumn {
+  width: 220px;
+}
+
+.phoneColumn {
+  width: 150px;
+}
+
+.websiteColumn {
+  width: 220px;
+}
+
+.receivedColumn {
+  width: 140px;
+}
+
+.actionsColumn {
+  width: 170px;
+}
+
+.clinicCell {
+  min-width: 0;
+}
+
+.clinicHeader {
+  align-items: flex-start;
+}
+
+.wrapCell {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.receivedCell {
+  white-space: nowrap;
+}
+
+.actionCell {
+  white-space: nowrap;
+}
+
+.openWorkspaceLink {
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .table {
+    min-width: 980px;
+  }
+
+  .clinicColumn {
+    width: 200px;
+  }
+
+  .contactColumn,
+  .emailColumn,
+  .websiteColumn {
+    width: 200px;
+  }
+}
