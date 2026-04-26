@@ -2490,6 +2490,50 @@ select {
   gap: 12px;
 }
 
+.client-delete-cancel,
+.client-delete-confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.client-delete-cancel:hover,
+.client-delete-confirm:hover {
+  transform: translateY(-1px);
+}
+
+.client-delete-cancel {
+  border: 1px solid rgba(167, 139, 250, 0.34);
+  background: rgba(39, 29, 79, 0.96);
+  color: var(--fyl-white);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.client-delete-cancel:hover {
+  border-color: rgba(196, 181, 253, 0.5);
+  background: rgba(50, 37, 96, 0.98);
+}
+
+.client-delete-confirm {
+  border: 1px solid rgba(255, 107, 138, 0.32);
+  background: linear-gradient(135deg, rgba(186, 46, 89, 0.96), rgba(222, 77, 119, 0.98));
+  color: #fff5f7;
+  box-shadow: 0 12px 28px rgba(120, 22, 54, 0.28);
+}
+
+.client-delete-confirm:hover {
+  border-color: rgba(255, 165, 187, 0.42);
+  background: linear-gradient(135deg, rgba(200, 55, 99, 0.98), rgba(234, 91, 133, 1));
+}
+
 .table-link {
   color: inherit;
   text-decoration: none;
@@ -3102,13 +3146,13 @@ select {
 
   .client-row-delete-trigger,
   .client-delete-actions,
-  .client-delete-actions .button-danger,
-  .client-delete-actions .button-ghost {
+  .client-delete-cancel,
+  .client-delete-confirm {
     width: 100%;
   }
 
   .client-delete-actions {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .context-summary-links {

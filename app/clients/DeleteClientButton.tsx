@@ -43,13 +43,13 @@ export function DeleteClientButton({
           <form action={deleteCompanyAction} className="client-delete-actions">
             <input type="hidden" name="companyId" value={companyId} />
             <button
-              className="button-ghost"
+              className="client-delete-cancel"
               type="button"
               onClick={() => dialogRef.current?.close()}
             >
               No
             </button>
-            <button className="button-danger" type="submit">
+            <button className="client-delete-confirm" type="submit">
               Yes, delete
             </button>
           </form>
