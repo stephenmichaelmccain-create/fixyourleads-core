@@ -75,6 +75,7 @@ export default async function ClientWorkflowPage({
           name: true,
           crmProvider: true,
           crmCredentialsEncrypted: true,
+          telnyxAssistantId: true,
           createdAt: true
         }
       }),
@@ -125,6 +126,9 @@ export default async function ClientWorkflowPage({
     businessName: company.name,
     calledNumber: voiceState.phoneNumber
   });
+  const telnyxToolName = 'fyl_book_call';
+  const telnyxToolDescription = `Book a ${company.name} discovery call after availability is confirmed. Only use this after confirming the slot with the caller.`;
+  const telnyxHeaderName = 'X-Voice-Webhook-Secret';
 
   const crmConnected = Boolean(company.crmCredentialsEncrypted);
   const bookingConnected = Boolean(
@@ -282,10 +286,135 @@ export default async function ClientWorkflowPage({
               />
             </div>
             <div className="panel panel-dark panel-stack" style={{ marginTop: 16 }}>
+              <div className="metric-label">Telnyx setup</div>
+              <div className="record-header">
+                <div className="panel-stack">
+                  <h3 className="section-title">Copy this into the Telnyx webhook tool</h3>
+                  <div className="record-subtitle">
+                    This mirrors the Telnyx tool editor so setup is just copy and paste for this client.
+                  </div>
+                </div>
+              </div>
+              <div className="telnyx-setup-shell">
+                <div className="telnyx-setup-grid">
+                  <div className="telnyx-setup-card">
+                    <div className="metric-label">Tool details</div>
+                    <div className="telnyx-setup-fields">
+                      <CopyableUrlField
+                        id="telnyx-tool-name"
+                        label="Tool name"
+                        defaultValue={telnyxToolName}
+                        fallbackCopyValue={telnyxToolName}
+                        copyButtonLabel="Copy"
+                        readOnly
+                      />
+                      <CopyableUrlField
+                        id="telnyx-tool-description"
+                        label="Description"
+                        defaultValue={telnyxToolDescription}
+                        fallbackCopyValue={telnyxToolDescription}
+                        copyButtonLabel="Copy"
+                        readOnly
+                      />
+                      <div className="workspace-filter-row telnyx-inline-grid">
+                        <CopyableUrlField
+                          id="telnyx-request-mode"
+                          label="Request mode"
+                          defaultValue="Sync"
+                          fallbackCopyValue="Sync"
+                          copyButtonLabel="Copy"
+                          readOnly
+                        />
+                        <CopyableUrlField
+                          id="telnyx-method"
+                          label="Method"
+                          defaultValue="POST"
+                          fallbackCopyValue="POST"
+                          copyButtonLabel="Copy"
+                          readOnly
+                        />
+                      </div>
+                      <CopyableUrlField
+                        id="telnyx-webhook-url"
+                        label="Webhook URL"
+                        defaultValue={voiceWebhookTarget}
+                        fallbackCopyValue={voiceWebhookTarget || defaultVoiceWebhookUrl}
+                        copyButtonLabel="Copy URL"
+                        readOnly
+                      />
+                    </div>
+                  </div>
+                  <div className="telnyx-setup-card">
+                    <div className="metric-label">Header + routing</div>
+                    <div className="telnyx-setup-fields">
+                      <div className="workspace-filter-row telnyx-inline-grid">
+                        <CopyableUrlField
+                          id="telnyx-header-name"
+                          label="Header name"
+                          defaultValue={telnyxHeaderName}
+                          fallbackCopyValue={telnyxHeaderName}
+                          copyButtonLabel="Copy"
+                          readOnly
+                        />
+                        <CopyableUrlField
+                          id="telnyx-header-value"
+                          label="Header value"
+                          defaultValue={voiceWebhookSecret}
+                          placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET in Railway"
+                          fallbackCopyValue={voiceWebhookSecret}
+                          copyButtonLabel="Copy secret"
+                          readOnly
+                        />
+                      </div>
+                      <div className="workspace-filter-row telnyx-inline-grid">
+                        <CopyableUrlField
+                          id="telnyx-company-id"
+                          label="companyId"
+                          defaultValue={company.id}
+                          fallbackCopyValue={company.id}
+                          copyButtonLabel="Copy"
+                          readOnly
+                        />
+                        <CopyableUrlField
+                          id="telnyx-called-number"
+                          label="calledNumber"
+                          defaultValue={voiceState.phoneNumber || ''}
+                          placeholder="Save the client voice line above"
+                          fallbackCopyValue={voiceState.phoneNumber || ''}
+                          copyButtonLabel="Copy"
+                          readOnly
+                        />
+                      </div>
+                      <CopyableUrlField
+                        id="telnyx-assistant-id"
+                        label="telnyxAssistantId"
+                        defaultValue={company.telnyxAssistantId || ''}
+                        placeholder="Optional if you prefer routing by assistant ID"
+                        fallbackCopyValue={company.telnyxAssistantId || ''}
+                        copyButtonLabel="Copy"
+                        readOnly
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="telnyx-setup-meta">
+                  <div className="key-value-card">
+                    <span className="key-value-label">Paste path</span>
+                    Tool name, description, method, URL, header name, header value
+                  </div>
+                  <div className="key-value-card">
+                    <span className="key-value-label">Route this client by</span>
+                    companyId, calledNumber, or telnyxAssistantId
+                  </div>
+                  <div className="key-value-card">
+                    <span className="key-value-label">Must send</span>
+                    phone, startTime
+                  </div>
+                </div>
+              </div>
               <div className="metric-label">Voice webhook contract</div>
               <CopyableUrlField
                 id="workflow-webhook-secret"
-                name="webhookSecretPreview"
                 defaultValue={voiceWebhookSecret}
                 placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET in Railway to make this copyable"
                 fallbackCopyValue={voiceWebhookSecret}

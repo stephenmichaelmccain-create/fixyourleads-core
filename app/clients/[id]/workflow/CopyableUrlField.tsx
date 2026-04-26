@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 
 type CopyableUrlFieldProps = {
   id: string;
-  name: string;
+  name?: string;
   label: string;
   defaultValue?: string;
   placeholder?: string;
