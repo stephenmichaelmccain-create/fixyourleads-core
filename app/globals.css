@@ -2800,6 +2800,10 @@ select {
   justify-content: flex-start;
 }
 
+.activity-mobile-switcher {
+  display: none;
+}
+
 .workspace-tab-link {
   display: inline-flex;
   align-items: center;
@@ -4270,6 +4274,41 @@ select {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
+  }
+
+  .activity-view-switcher-panel-desktop {
+    display: none;
+  }
+
+  .activity-mobile-switcher {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(74px + env(safe-area-inset-bottom));
+    z-index: 39;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .activity-mobile-switcher-inner {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: min(280px, 100%);
+    padding: 8px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(18, 15, 39, 0.92);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(16px);
+    pointer-events: auto;
+  }
+
+  .activity-mobile-switcher-link {
+    min-height: 34px;
+    padding: 7px 12px;
+    font-size: 12px;
   }
 
   .workspace-tab-link {

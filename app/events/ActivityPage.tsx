@@ -764,7 +764,7 @@ export async function ActivityPage({
         </>
       ) : null}
 
-      <section className={`panel${compact ? ' activity-view-switcher-panel-compact' : ''}`}>
+      <section className={`panel activity-view-switcher-panel-desktop${compact ? ' activity-view-switcher-panel-compact' : ''}`}>
         <div className="workspace-tab-row activity-view-switcher">
           <Link
             className={`workspace-tab-link${selectedView === 'clients' ? ' is-active' : ''}`}
@@ -790,6 +790,33 @@ export async function ActivityPage({
           </Link>
         </div>
       </section>
+
+      <nav className="activity-mobile-switcher" aria-label="Activity view switcher">
+        <div className="activity-mobile-switcher-inner">
+          <Link
+            className={`workspace-tab-link activity-mobile-switcher-link${selectedView === 'clients' ? ' is-active' : ''}`}
+            href={buildEventsHref(basePath, {
+              companyId: selectedCompanyId || undefined,
+              window: selectedWindow,
+              q: searchQuery || undefined,
+              view: 'clients'
+            })}
+          >
+            Clients
+          </Link>
+          <Link
+            className={`workspace-tab-link activity-mobile-switcher-link${selectedView === 'leads' ? ' is-active' : ''}`}
+            href={buildEventsHref(basePath, {
+              companyId: selectedCompanyId || undefined,
+              window: selectedWindow,
+              q: searchQuery || undefined,
+              view: 'leads'
+            })}
+          >
+            Leads
+          </Link>
+        </div>
+      </nav>
 
       {!compact ? (
         <div className="metric-grid">
