@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import Link from 'next/link';
 import { BrandLogo } from './BrandLogo';
 import { PersistCompanyContext } from './PersistCompanyContext';
 import { Nav } from './Nav';
@@ -28,9 +29,9 @@ export async function LayoutShell({
     <main className="app-shell">
       <header className="app-header">
         {companyId && <PersistCompanyContext companyId={companyId} companyName={companyName} />}
-        <a className="app-header-brand" href="/" aria-label="Fix Your Leads">
+        <Link className="app-header-brand" href="/" aria-label="Fix Your Leads">
           <BrandLogo />
-        </a>
+        </Link>
         <Nav current={section} />
       </header>
 

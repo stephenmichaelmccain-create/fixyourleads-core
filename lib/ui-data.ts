@@ -11,6 +11,14 @@ export async function safeLoad<T>(loader: () => Promise<T>, fallback: T) {
   }
 }
 
+export async function safeLoadDb<T>(loader: () => Promise<T>, fallback: T) {
+  if (!envPresence().databaseUrlSet) {
+    return fallback;
+  }
+
+  return safeLoad(loader, fallback);
+}
+
 export async function safeCountSummary() {
   if (!envPresence().databaseUrlSet) {
     return {

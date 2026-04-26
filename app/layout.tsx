@@ -19,7 +19,11 @@ export const metadata: Metadata = {
     default: 'Fix Your Leads',
     template: '%s | Fix Your Leads'
   },
-  description: 'Lead response, conversations, booking, and clinic routing for Fix Your Leads'
+  description: 'Lead response, conversations, booking, and clinic routing for Fix Your Leads',
+  icons: {
+    icon: '/icon',
+    apple: '/icon'
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,11 +1,12 @@
 import { ProspectStatus } from '@prisma/client';
+import Link from 'next/link';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { LiveFeedControls } from '@/app/events/LiveFeedControls';
 import { humanizeIntakeSource } from '@/lib/client-intake';
 import { db } from '@/lib/db';
 import { hasInboundRouting } from '@/lib/inbound-numbers';
 import { isLikelyTestWorkspaceName } from '@/lib/test-workspaces';
-import { safeLoad } from '@/lib/ui-data';
+import { safeLoadDb } from '@/lib/ui-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -288,7 +289,7 @@ async function loadAttentionSummary() {
   const tomorrowStart = addDays(todayStart, 1);
 
   const [allCompanies, conversations, appointmentsToday, overdueProspects] = await Promise.all([
-    safeLoad(
+    safeLoadDb(
       () =>
         db.company.findMany({
           orderBy: { name: 'asc' },
@@ -304,7 +305,7 @@ async function loadAttentionSummary() {
         }),
       []
     ),
-    safeLoad(
+    safeLoadDb(
       () =>
         db.conversation.findMany({
           include: {
@@ -330,7 +331,7 @@ async function loadAttentionSummary() {
         }),
       []
     ),
-    safeLoad(
+    safeLoadDb(
       () =>
         db.appointment.count({
           where: {
@@ -342,7 +343,7 @@ async function loadAttentionSummary() {
         }),
       0
     ),
-    safeLoad(
+    safeLoadDb(
       () =>
         db.prospect.count({
           where: {
@@ -414,7 +415,7 @@ export async function ActivityPage({
 
   const [summary, companies, eventTypeRows, rawEvents] = await Promise.all([
     loadAttentionSummary(),
-    safeLoad(
+    safeLoadDb(
       () =>
         db.company.findMany({
           select: { id: true, name: true },
@@ -422,7 +423,7 @@ export async function ActivityPage({
         }),
       []
     ),
-    safeLoad(
+    safeLoadDb(
       () =>
         db.eventLog.groupBy({
           by: ['eventType'],
@@ -439,7 +440,7 @@ export async function ActivityPage({
         }),
       []
     ),
-    safeLoad(
+    safeLoadDb(
       () =>
         db.eventLog.findMany({
           where: {
@@ -580,9 +581,9 @@ export async function ActivityPage({
               <div className="metric-label">Filters</div>
               <h2 className="section-title">Filter the activity without leaving the page.</h2>
             </div>
-            <a className="button-ghost" href={basePath}>
+            <Link className="button-ghost" href={basePath}>
               Reset
-            </a>
+            </Link>
           </div>
 
           <form action={basePath} className="workspace-filter-form">
@@ -666,31 +667,22 @@ export async function ActivityPage({
       ) : null}
 
       <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">{compact ? 'Live activity' : 'Event feed'}</div>
-            <h2 className="section-title">{compact ? 'Recent activity' : 'Recent activity across the live app.'}</h2>
-          </div>
-          {compact ? (
-            <div className="action-cluster action-cluster-compact-feed">
-              <span className="live-indicator live-indicator-compact" aria-label="Auto-refreshing event feed" title="Auto-refreshing event feed">
-                <span className="live-indicator-dot" />
-              </span>
-              <a className="button-ghost button-ghost-compact" href="/events">
-                Full feed
-              </a>
+        {!compact ? (
+          <div className="record-header">
+            <div className="panel-stack">
+              <div className="metric-label">Event feed</div>
+              <h2 className="section-title">Recent activity across the live app.</h2>
             </div>
-          ) : (
             <div className="action-cluster">
-              <a className="button-ghost" href="/admin/system">
+              <Link className="button-ghost" href="/admin/system">
                 System Status
-              </a>
-              <a className="button-ghost" href="/diagnostics/workflows">
+              </Link>
+              <Link className="button-ghost" href="/diagnostics/workflows">
                 Workflow map
-              </a>
+              </Link>
             </div>
-          )}
-        </div>
+          </div>
+        ) : null}
 
         {events.length === 0 ? (
           <div className="empty-state">No events match the current filters.</div>
@@ -705,42 +697,43 @@ export async function ActivityPage({
               return (
                 <article key={event.id} className={`record-card${compact ? ' record-card-compact record-card-activity-minimal' : ''}`}>
                   <div className="record-card-live-head">
-                    <span
-                      className={`status-chip ${
-                        tone === 'error'
-                          ? 'status-chip-attention'
-                          : tone === 'warn'
-                            ? 'status-chip-muted'
-                            : ''
-                      }`}
-                    >
-                      <span className={`status-dot ${tone}`} />
-                      {humanizeEventType(event.eventType)}
-                    </span>
-                    {!compact ? <span className="tiny-muted">{humanizeRelatedRecordType(related)}</span> : null}
-                    <span className="tiny-muted">{compact ? formatElapsedTime(event.createdAt) : formatDateTime(event.createdAt)}</span>
+                    {compact ? (
+                      <>
+                        <Link className="record-card-event-client record-card-event-client-link" href={`/clients/${event.companyId}`}>
+                          {event.company?.name || event.companyId}
+                        </Link>
+                        <span className="tiny-muted">{formatElapsedTime(event.createdAt)}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span
+                          className={`status-chip ${
+                            tone === 'error'
+                              ? 'status-chip-attention'
+                              : tone === 'warn'
+                                ? 'status-chip-muted'
+                                : ''
+                          }`}
+                        >
+                          <span className={`status-dot ${tone}`} />
+                          {humanizeEventType(event.eventType)}
+                        </span>
+                        <span className="tiny-muted">{humanizeRelatedRecordType(related)}</span>
+                        <span className="tiny-muted">{formatDateTime(event.createdAt)}</span>
+                      </>
+                    )}
                   </div>
 
                   <div className={`panel-stack${compact ? ' activity-feed-body' : ''}`}>
                     {compact ? (
-                      <>
-                        <div className="activity-feed-main">
-                          <div className="activity-feed-title-row">
-                            <strong className="record-card-event-title">{humanizeEventType(event.eventType)}</strong>
-                            <span className="record-card-event-client">{event.company?.name || event.companyId}</span>
-                          </div>
-                          {summaryLine ? <div className="text-muted activity-feed-summary">{summaryLine}</div> : null}
-                        </div>
-                        <div className="activity-feed-actions">
-                          <a className="button-link activity-feed-link" href={`/clients/${event.companyId}`}>
-                            Open client
-                          </a>
-                        </div>
-                      </>
+                      <div className="activity-feed-main">
+                        <strong className="record-card-event-title">{humanizeEventType(event.eventType)}</strong>
+                        {summaryLine ? <div className="text-muted activity-feed-summary">{summaryLine}</div> : null}
+                      </div>
                     ) : (
                       <>
                         <div className="inline-row">
-                          <a
+                          <Link
                             className="table-link"
                             href={buildEventsHref(basePath, {
                               companyId: event.companyId,
@@ -751,7 +744,7 @@ export async function ActivityPage({
                             })}
                           >
                             {event.company?.name || event.companyId}
-                          </a>
+                          </Link>
                         </div>
                         <div className="text-muted">
                           {summaryLine || 'No short summary derived from the payload. Expand details for the raw event body.'}
@@ -762,13 +755,13 @@ export async function ActivityPage({
 
                   {!compact ? (
                     <div className="action-cluster">
-                      <a className="button-ghost" href={`/clients/${event.companyId}`}>
+                      <Link className="button-ghost" href={`/clients/${event.companyId}`}>
                         Open client
-                      </a>
+                      </Link>
                       {links.map((link) => (
-                        <a key={link.href} className="button-ghost" href={link.href}>
+                        <Link key={link.href} className="button-ghost" href={link.href}>
                           {link.label}
-                        </a>
+                        </Link>
                       ))}
                     </div>
                   ) : null}

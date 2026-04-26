@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 type NavProps = {
   current?: 'home' | 'clients' | 'leads' | 'messages' | 'system' | 'activity' | 'diagnostics' | 'our-leads';
 };
@@ -9,26 +11,26 @@ export function Nav({ current }: NavProps) {
   return (
     <div className="app-nav-wrap">
       <nav className="app-nav" aria-label="Primary">
-        <a className={linkClass('activity')} href="/">
+        <Link className={linkClass('activity')} href="/">
           Activity
-        </a>
-        <a className={linkClass(current === 'our-leads' ? 'our-leads' : 'leads')} href="/leads">
+        </Link>
+        <Link className={linkClass(current === 'our-leads' ? 'our-leads' : 'leads')} href="/leads">
           Leads
-        </a>
-        <a className={linkClass('clients')} href="/clients">
+        </Link>
+        <Link className={linkClass('clients')} href="/clients">
           Clients
-        </a>
+        </Link>
       </nav>
       <div className="app-nav-utility">
-        <a className={`nav-utility-link${current === 'messages' ? ' is-active' : ''}`} href="/messages">
+        <Link className={`nav-utility-link${current === 'messages' ? ' is-active' : ''}`} href="/messages">
           Messages
-        </a>
-        <a
+        </Link>
+        <Link
           className={`nav-utility-link${current === 'system' || current === 'diagnostics' ? ' is-active' : ''}`}
           href="/admin/system"
         >
           Settings
-        </a>
+        </Link>
       </div>
     </div>
   );

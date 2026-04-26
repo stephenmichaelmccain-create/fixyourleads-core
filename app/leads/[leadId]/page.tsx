@@ -3,6 +3,7 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 import { LeadStatusButton } from '../LeadStatusButton';
 import { safeLoad } from '@/lib/ui-data';
 import { normalizePhone } from '@/lib/phone';
+import Link from 'next/link';
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ leadId: string }> }) {
   const { leadId } = await params;
@@ -82,9 +83,9 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
           </div>
           <div className="inline-actions">
             {conversation && (
-              <a className="button" href={`/conversations/${conversation.id}`}>
+              <Link className="button" href={`/conversations/${conversation.id}`}>
                 Open thread
-              </a>
+              </Link>
             )}
             {normalizedPhone && (
               <>

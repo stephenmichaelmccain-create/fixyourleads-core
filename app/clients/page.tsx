@@ -3,7 +3,8 @@ import { DeleteClientButton } from '@/app/clients/DeleteClientButton';
 import { db } from '@/lib/db';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
 import { isLikelyTestWorkspaceName } from '@/lib/test-workspaces';
-import { safeLoad } from '@/lib/ui-data';
+import { safeLoadDb } from '@/lib/ui-data';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -72,7 +73,7 @@ export default async function ClientsPage({
 
   const weekStart = startOfTrailingDays(7);
 
-  const clients = await safeLoad(
+  const clients = await safeLoadDb(
     () =>
       db.company.findMany({
         orderBy: { name: 'asc' },
@@ -110,7 +111,7 @@ export default async function ClientsPage({
   );
 
   const approvedSignupRows = await (clients.length > 0
-    ? safeLoad(
+    ? safeLoadDb(
         () =>
           db.eventLog.findMany({
             where: {
@@ -130,7 +131,7 @@ export default async function ClientsPage({
   const companyIds = liveClients.map((client) => client.id);
 
   const conversationRows = await (companyIds.length > 0
-    ? safeLoad(
+    ? safeLoadDb(
         () =>
           db.conversation.findMany({
             where: {
@@ -223,12 +224,12 @@ export default async function ClientsPage({
       <section className="panel panel-stack">
         <div className="record-header client-list-header client-list-header-actions-only">
           <div className="client-list-actions">
-            <a className="button" href="/clients/intake">
+            <Link className="button" href="/clients/intake">
               Intake queue
-            </a>
-            <a className="button-secondary" href="/clients/new">
+            </Link>
+            <Link className="button-secondary" href="/clients/new">
               + Add Client
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -261,9 +262,9 @@ export default async function ClientsPage({
                     </td>
                     <td>
                       <div className="panel-stack" style={{ gap: 6 }}>
-                        <a className="table-link" href={`/clients/${row.id}`}>
+                        <Link className="table-link" href={`/clients/${row.id}`}>
                           <strong>{row.name}</strong>
-                        </a>
+                        </Link>
                         <span className="tiny-muted">
                           {row.health.reason} · {row.connectedNumbers} number{row.connectedNumbers === 1 ? '' : 's'} ·{' '}
                           {formatRelativeDay(row.lastActivityAt)}

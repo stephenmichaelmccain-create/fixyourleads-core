@@ -1,5 +1,6 @@
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { createCompanyAction } from '@/app/companies/actions';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,9 +82,9 @@ export default function NewClientPage() {
             <button type="submit" className="button" name="nextSurface" value="conversations">
               Finish setup
             </button>
-            <a className="button-ghost" href="/clients">
+            <Link className="button-ghost" href="/clients">
               Back to clients
-            </a>
+            </Link>
           </div>
         </form>
       </section>

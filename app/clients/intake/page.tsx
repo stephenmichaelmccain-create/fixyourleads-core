@@ -2,7 +2,8 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 import { approveSignupSubmissionAction } from '@/app/clients/intake/actions';
 import { db } from '@/lib/db';
 import { humanizeIntakeSource } from '@/lib/client-intake';
-import { safeLoad } from '@/lib/ui-data';
+import { safeLoadDb } from '@/lib/ui-data';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,7 @@ function payloadString(payload: Record<string, unknown>, key: string) {
 
 export default async function ClientIntakePage() {
   const [companies, signupEvents, approvedEvents] = await Promise.all([
-    safeLoad(
+    safeLoadDb(
       () =>
         db.company.findMany({
           orderBy: { name: 'asc' },
@@ -43,7 +44,7 @@ export default async function ClientIntakePage() {
         }),
       []
     ),
-    safeLoad(
+    safeLoadDb(
       () =>
         db.eventLog.findMany({
           where: { eventType: 'client_signup_received' },
@@ -58,7 +59,7 @@ export default async function ClientIntakePage() {
         }),
       []
     ),
-    safeLoad(
+    safeLoadDb(
       () =>
         db.eventLog.findMany({
           where: { eventType: 'client_signup_approved' },
@@ -161,9 +162,9 @@ export default async function ClientIntakePage() {
                     <td>{row.website || '—'}</td>
                     <td className="tiny-muted">{formatDateTime(row.receivedAt)}</td>
                     <td>
-                      <a className="button-ghost" href={`/clients/${row.companyId}#setup`}>
+                      <Link className="button-ghost" href={`/clients/${row.companyId}#setup`}>
                         Open workspace
-                      </a>
+                      </Link>
                     </td>
                   </tr>
                 ))

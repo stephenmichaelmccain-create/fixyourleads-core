@@ -1,4 +1,3 @@
-import { CrmProvider } from '@prisma/client';
 import { notFound } from 'next/navigation';
 import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
 import { saveClientWorkflowAction } from '@/app/clients/[id]/workflow/actions';
@@ -27,20 +26,6 @@ function formatCompactDateTime(value: Date | string | null | undefined) {
     hour: 'numeric',
     minute: '2-digit'
   }).format(new Date(value));
-}
-
-function providerLabel(provider: CrmProvider) {
-  const labels: Record<CrmProvider, string> = {
-    NONE: 'Not connected',
-    HUBSPOT: 'HubSpot',
-    PIPEDRIVE: 'Pipedrive',
-    GOHIGHLEVEL: 'GoHighLevel',
-    SALESFORCE: 'Salesforce',
-    BOULEVARD: 'Boulevard',
-    VAGARO: 'Vagaro'
-  };
-
-  return labels[provider];
 }
 
 export default async function ClientWorkflowPage({
@@ -103,14 +88,12 @@ export default async function ClientWorkflowPage({
   const appBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || null;
   const defaultWebhookUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/telnyx` : '';
   const voiceWebhookTarget = voiceState.webhookUrl || '';
-  const voiceWebhookDisplay = voiceState.webhookUrl || defaultWebhookUrl || 'Not saved yet';
 
   const crmConnected = Boolean(company.crmCredentialsEncrypted);
-  const voiceConnected = Boolean(voiceState.webhookUrl);
   const bookingConnected = Boolean(
     bookingState.externalPlatformName || bookingState.externalCalendarId || latestBookingSetupEvent
   );
-  const latestSave = [latestVoiceSetupEvent?.createdAt, latestBookingSetupEvent?.createdAt, company.createdAt]
+  const latestWorkflowEdit = [latestVoiceSetupEvent?.createdAt, latestBookingSetupEvent?.createdAt, company.createdAt]
     .filter(Boolean)
     .sort((a, b) => new Date(b as Date).getTime() - new Date(a as Date).getTime())[0];
 
@@ -167,52 +150,6 @@ export default async function ClientWorkflowPage({
           <div className="text-muted">{query.detail || 'No detail returned'}</div>
         </section>
       )}
-
-      <section className="panel panel-stack client-record-hero">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">Workflow setup</div>
-            <h2 className="section-title">{company.name}</h2>
-            <div className="record-subtitle">
-              One simple place for CRM keys, AI voice webhook details, and calendar access. Save it here and the workflow
-              uses the newest values.
-            </div>
-          </div>
-          <div className="workspace-action-rail">
-            <a className="button-secondary" href={`/clients/${company.id}`}>
-              Back to profile
-            </a>
-            <a className="button-secondary" href={`/events?companyId=${encodeURIComponent(company.id)}`}>
-              Activity
-            </a>
-          </div>
-        </div>
-
-        <div className="client-record-stats">
-          <div className="client-record-stat">
-            <span className="metric-label">CRM</span>
-            <strong className="workspace-stats-value">{providerLabel(company.crmProvider)}</strong>
-            <span className="tiny-muted">{crmConnected ? 'API keys saved securely' : 'No CRM keys saved yet'}</span>
-          </div>
-          <div className="client-record-stat">
-            <span className="metric-label">AI voice</span>
-            <strong className="workspace-stats-value">{voiceConnected ? 'Webhook ready' : 'Needs webhook'}</strong>
-            <span className="tiny-muted">{voiceWebhookDisplay}</span>
-          </div>
-          <div className="client-record-stat">
-            <span className="metric-label">Calendar</span>
-            <strong className="workspace-stats-value">{bookingState.externalPlatformName || 'Not connected'}</strong>
-            <span className="tiny-muted">
-              {bookingConnected ? 'Platform details are attached to this workspace.' : 'No calendar platform saved yet'}
-            </span>
-          </div>
-          <div className="client-record-stat">
-            <span className="metric-label">Last save</span>
-            <strong className="workspace-stats-value">{formatCompactDateTime(latestSave)}</strong>
-            <span className="tiny-muted">Use one save and keep the workflow current.</span>
-          </div>
-        </div>
-      </section>
 
       <section className="panel panel-stack">
         <div className="record-header">
@@ -379,7 +316,7 @@ export default async function ClientWorkflowPage({
             <button className="button button-primary" type="submit">
               Save workflow setup
             </button>
-            <span className="tiny-muted">You only need this one screen now.</span>
+            <span className="tiny-muted">Last edited {formatCompactDateTime(latestWorkflowEdit)}</span>
           </div>
         </form>
       </section>
