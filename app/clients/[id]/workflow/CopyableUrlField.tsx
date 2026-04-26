@@ -9,6 +9,8 @@ type CopyableUrlFieldProps = {
   defaultValue?: string;
   placeholder?: string;
   fallbackCopyValue?: string;
+  copyButtonLabel?: string;
+  readOnly?: boolean;
 };
 
 export function CopyableUrlField({
@@ -17,7 +19,9 @@ export function CopyableUrlField({
   label,
   defaultValue = '',
   placeholder = '',
-  fallbackCopyValue = ''
+  fallbackCopyValue = '',
+  copyButtonLabel = 'Copy URL',
+  readOnly = false
 }: CopyableUrlFieldProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [copied, setCopied] = useState(false);
@@ -49,7 +53,7 @@ export function CopyableUrlField({
           onClick={copyUrl}
           disabled={!hasCopyValue}
         >
-          {copied ? 'Copied' : 'Copy URL'}
+          {copied ? 'Copied' : copyButtonLabel}
         </button>
       </div>
       <input
@@ -63,6 +67,7 @@ export function CopyableUrlField({
         spellCheck={false}
         autoCapitalize="off"
         autoCorrect="off"
+        readOnly={readOnly}
       />
     </div>
   );

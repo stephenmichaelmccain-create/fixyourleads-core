@@ -114,6 +114,8 @@ export default async function ClientWorkflowPage({
     : emptyClientCalendarSetupState;
 
   const appBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || null;
+  const voiceWebhookSecret =
+    process.env.VOICE_BOOKING_WEBHOOK_SECRET?.trim() || process.env.VOICE_DEMO_WEBHOOK_SECRET?.trim() || '';
   const defaultVoiceWebhookUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/appointments` : '';
   const workflowPageUrl = appBaseUrl ? `${appBaseUrl}/clients/${company.id}/workflow` : '';
   const voiceWebhookTarget = voiceState.webhookUrl || defaultVoiceWebhookUrl;
@@ -281,11 +283,27 @@ export default async function ClientWorkflowPage({
             </div>
             <div className="panel panel-dark panel-stack" style={{ marginTop: 16 }}>
               <div className="metric-label">Voice webhook contract</div>
+              <CopyableUrlField
+                id="workflow-webhook-secret"
+                name="webhookSecretPreview"
+                defaultValue={voiceWebhookSecret}
+                placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET in Railway to make this copyable"
+                fallbackCopyValue={voiceWebhookSecret}
+                label="Webhook secret"
+                copyButtonLabel="Copy secret"
+                readOnly
+              />
               <div className="text-muted">
                 Point the client&apos;s AI voice agent at this webhook when a real appointment is booked. Authorize with either
                 `Authorization: Bearer $VOICE_BOOKING_WEBHOOK_SECRET` or `X-Voice-Webhook-Secret: $VOICE_BOOKING_WEBHOOK_SECRET`.
                 If signature verification is enabled, keep sending the normal Telnyx signature headers too.
               </div>
+              {!voiceWebhookSecret && (
+                <div className="text-muted">
+                  No shared webhook secret is configured in this app yet. Add `VOICE_BOOKING_WEBHOOK_SECRET` in Railway, then
+                  reload this page.
+                </div>
+              )}
               <div className="key-value-grid">
                 <div className="key-value-card">
                   <span className="key-value-label">Must send</span>
