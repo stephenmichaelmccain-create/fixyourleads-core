@@ -2,6 +2,7 @@ import { LayoutShell } from '@/app/components/LayoutShell';
 import { DeleteClientButton } from '@/app/clients/DeleteClientButton';
 import { db } from '@/lib/db';
 import { allInboundNumbers, hasInboundRouting } from '@/lib/inbound-numbers';
+import { normalizePhone } from '@/lib/phone';
 import { isLikelyTestWorkspaceName } from '@/lib/test-workspaces';
 import { safeLoadDb } from '@/lib/ui-data';
 import Link from 'next/link';
@@ -55,6 +56,14 @@ function formatRelativeDay(value: Date | null) {
   );
 }
 
+function websiteHref(website?: string | null) {
+  if (!website) {
+    return '';
+  }
+
+  return /^https?:\/\//i.test(website) ? website : `https://${website}`;
+}
+
 export default async function ClientsPage({
   searchParams
 }: {
@@ -80,6 +89,8 @@ export default async function ClientsPage({
         select: {
           id: true,
           name: true,
+          website: true,
+          primaryContactPhone: true,
           notificationEmail: true,
           telnyxInboundNumber: true,
           createdAt: true,
@@ -171,6 +182,7 @@ export default async function ClientsPage({
       });
       const lastActivityAt = client.events[0]?.createdAt || client.appointments[0]?.createdAt || client.leads[0]?.createdAt || null;
       const connectedNumbers = allInboundNumbers(client).length;
+      const normalizedPhone = normalizePhone(client.primaryContactPhone || '');
 
       return {
         id: client.id,
@@ -180,7 +192,9 @@ export default async function ClientsPage({
         leadsThisWeek: client.leads.length,
         appointmentsThisWeek: client.appointments.length,
         lastActivityAt,
-        connectedNumbers
+        connectedNumbers,
+        websiteHref: websiteHref(client.website),
+        callHref: normalizedPhone ? `tel:${normalizedPhone}` : ''
       };
     })
     .sort((left, right) => {
@@ -275,7 +289,28 @@ export default async function ClientsPage({
                     <td>{row.appointmentsThisWeek}</td>
                     <td>{row.leadsThisWeek}</td>
                     <td className="client-row-actions-cell">
-                      <DeleteClientButton companyId={row.id} companyName={row.name} />
+                      <div className="client-row-actions">
+                        {row.websiteHref ? (
+                          <a
+                            className="button-secondary button-secondary-compact client-row-action-link"
+                            href={row.websiteHref}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Website
+                          </a>
+                        ) : (
+                          <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Website</span>
+                        )}
+                        {row.callHref ? (
+                          <a className="button-secondary button-secondary-compact client-row-action-link" href={row.callHref}>
+                            Call
+                          </a>
+                        ) : (
+                          <span className="button-secondary button-secondary-compact client-row-action-link is-disabled">Call</span>
+                        )}
+                        <DeleteClientButton companyId={row.id} companyName={row.name} />
+                      </div>
                     </td>
                   </tr>
                 ))
