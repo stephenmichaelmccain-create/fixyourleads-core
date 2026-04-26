@@ -33,7 +33,7 @@ export function CopyableCodeBlock({
           {copied ? 'Copied' : copyButtonLabel}
         </button>
       </div>
-      <pre className="code-block pre-wrap">{value}</pre>
+      <pre className="code-block pre-wrap telnyx-code-block">{value}</pre>
     </div>
   );
 }
