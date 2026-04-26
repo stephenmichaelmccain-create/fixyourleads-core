@@ -32,6 +32,73 @@ function buildVoiceWebhookExamplePayload(input: {
   );
 }
 
+function buildTelnyxBodyParameterSchema(input: {
+  companyId: string;
+  businessName: string;
+  calledNumber: string | null;
+  telnyxAssistantId: string | null;
+}) {
+  return JSON.stringify(
+    {
+      type: 'object',
+      properties: {
+        phone: {
+          type: 'string',
+          description: 'Caller phone number in E.164 format'
+        },
+        startTime: {
+          type: 'string',
+          description: 'Appointment start time in ISO 8601 format'
+        },
+        companyId: {
+          type: 'string',
+          description: 'Fix Your Leads client workspace ID',
+          default: input.companyId
+        },
+        calledNumber: {
+          type: 'string',
+          description: 'Client voice line used for routing',
+          default: input.calledNumber || '+13035550199'
+        },
+        telnyxAssistantId: {
+          type: 'string',
+          description: 'Optional Telnyx assistant ID for routing',
+          default: input.telnyxAssistantId || ''
+        },
+        fullName: {
+          type: 'string',
+          description: 'Caller full name'
+        },
+        email: {
+          type: 'string',
+          description: 'Caller email address'
+        },
+        purpose: {
+          type: 'string',
+          description: 'Reason for the booking'
+        },
+        notes: {
+          type: 'string',
+          description: 'Booking notes for the team'
+        },
+        meetingUrl: {
+          type: 'string',
+          description: 'Optional meeting link'
+        },
+        displayCompanyName: {
+          type: 'string',
+          description: 'Calendar-facing business name',
+          default: input.businessName
+        }
+      },
+      required: ['phone', 'startTime'],
+      additionalProperties: true
+    },
+    null,
+    2
+  );
+}
+
 export default async function ClientWorkflowPage({
   params
 }: {
@@ -81,6 +148,12 @@ export default async function ClientWorkflowPage({
     companyId: company.id,
     businessName: company.name,
     calledNumber: voiceState.phoneNumber
+  });
+  const telnyxBodyParameterSchema = buildTelnyxBodyParameterSchema({
+    companyId: company.id,
+    businessName: company.name,
+    calledNumber: voiceState.phoneNumber,
+    telnyxAssistantId: company.telnyxAssistantId
   });
 
   const telnyxToolName = 'fyl_book_call';
@@ -203,49 +276,8 @@ export default async function ClientWorkflowPage({
 
           <div className="telnyx-editor-section">
             <div className="metric-label">Body Parameters</div>
-            <div className="telnyx-setup-meta">
-              <div className="key-value-card">
-                <span className="key-value-label">Required</span>
-                phone, startTime
-              </div>
-              <div className="key-value-card">
-                <span className="key-value-label">Client routing</span>
-                companyId, calledNumber
-              </div>
-              <div className="key-value-card">
-                <span className="key-value-label">Optional routing</span>
-                telnyxAssistantId
-              </div>
-            </div>
-            <div className="telnyx-editor-two-up">
-              <CopyableUrlField
-                id="telnyx-company-id"
-                label="companyId"
-                defaultValue={company.id}
-                fallbackCopyValue={company.id}
-                copyButtonLabel="Copy"
-                readOnly
-              />
-              <CopyableUrlField
-                id="telnyx-called-number"
-                label="calledNumber"
-                defaultValue={voiceState.phoneNumber || ''}
-                placeholder="Save a client voice line first"
-                fallbackCopyValue={voiceState.phoneNumber || ''}
-                copyButtonLabel="Copy"
-                readOnly
-              />
-            </div>
-            <CopyableUrlField
-              id="telnyx-assistant-id"
-              label="telnyxAssistantId"
-              defaultValue={company.telnyxAssistantId || ''}
-              placeholder="Optional"
-              fallbackCopyValue={company.telnyxAssistantId || ''}
-              copyButtonLabel="Copy"
-              readOnly
-            />
-            <CopyableCodeBlock label="Starter JSON body" value={voiceWebhookExamplePayload} copyButtonLabel="Copy JSON" />
+            <CopyableCodeBlock label="Body parameter schema" value={telnyxBodyParameterSchema} copyButtonLabel="Copy JSON" />
+            <CopyableCodeBlock label="Example request body" value={voiceWebhookExamplePayload} copyButtonLabel="Copy example" />
           </div>
         </div>
       </section>
