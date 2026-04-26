@@ -1269,8 +1269,8 @@ select {
   transition: background-color 180ms ease, color 180ms ease;
 }
 
-.lead-command-group-outcomes .lead-command-button:last-child,
-.lead-command-group-callbacks .lead-command-button:last-child {
+.lead-command-group-outcomes .lead-command-button:last-of-type,
+.lead-command-group-callbacks .lead-command-button:last-of-type {
   border-right: 0;
 }
 
@@ -1644,21 +1644,24 @@ select {
 }
 
 .lead-context-dialog {
+  position: fixed;
+  inset: 0;
   width: 100%;
   max-width: none;
   min-width: 0;
   height: 100%;
   margin: 0;
-  padding: 0;
+  padding: 24px;
   border: 0;
   background: transparent;
   color: inherit;
-  overflow: visible;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .lead-context-dialog[open] {
   display: grid;
-  place-items: center;
+  place-items: start center;
 }
 
 .lead-context-dialog::backdrop {
@@ -1678,6 +1681,8 @@ select {
 
 .lead-book-meeting-dialog-card {
   width: min(640px, calc(100vw - 40px));
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
 }
 
 .lead-book-meeting-form {

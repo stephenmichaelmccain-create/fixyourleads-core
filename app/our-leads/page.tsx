@@ -469,7 +469,7 @@ const leadOutcomeCommands = [
   { value: 'no_answer', label: 'No answer', tone: 'info', icon: 'no_answer' as const },
   { value: 'voicemail', label: 'Left voicemail', tone: 'accent', icon: 'voicemail' as const },
   { value: 'not_interested', label: 'Not interested', tone: 'warning', icon: 'not_interested' as const },
-  { value: 'booked', label: 'Booked', tone: 'success', icon: 'booked' as const },
+  { value: 'booked', label: 'Book', tone: 'success', icon: 'booked' as const },
   { value: 'sold', label: 'Sold', tone: 'gold', icon: 'sold' as const },
   { value: 'do_not_contact', label: 'Do not contact', tone: 'danger', icon: 'do_not_contact' as const }
 ] as const;
@@ -1166,40 +1166,41 @@ export default async function OurLeadsPage({
                         <input type="hidden" name="status" value={selectedStatus} />
                         <input type="hidden" name="city" value={selectedCity} />
                         <input type="hidden" name="nextActionDue" value={selectedDue} />
-                        {leadOutcomeCommands
-                          .filter((command) => command.value !== 'booked')
-                          .map((command) => (
-                          <button
-                            key={command.value}
-                            type="submit"
-                            className="lead-command-button"
-                            data-tone={command.tone}
-                            name="outcome"
-                            value={command.value}
-                          >
-                            <span className="lead-command-icon">{leadCommandIcon(command.icon)}</span>
-                            <span className="lead-command-label">{command.label}</span>
-                          </button>
-                        ))}
+                        {leadOutcomeCommands.map((command) =>
+                          command.value === 'booked' ? (
+                            <LeadBookMeetingDialog
+                              key={command.value}
+                              initialOpen={shouldOpenBookMeeting}
+                              prospectId={selectedProspectView.id}
+                              nextProspectId={nextQueueProspectId}
+                              q={searchQuery}
+                              view={selectedView}
+                              status={selectedStatus}
+                              city={selectedCity}
+                              nextActionDue={selectedDue}
+                              companyName={selectedProspectView.name}
+                              contactName={selectedProspectView.ownerName || ''}
+                              contactPhone={selectedProspectView.phone || ''}
+                              website={selectedProspectView.website || ''}
+                              purpose="Discovery call"
+                              notes={selectedProspectView.plainNotes || ''}
+                              meetingError={meetingError || undefined}
+                            />
+                          ) : (
+                            <button
+                              key={command.value}
+                              type="submit"
+                              className="lead-command-button"
+                              data-tone={command.tone}
+                              name="outcome"
+                              value={command.value}
+                            >
+                              <span className="lead-command-icon">{leadCommandIcon(command.icon)}</span>
+                              <span className="lead-command-label">{command.label}</span>
+                            </button>
+                          )
+                        )}
                       </form>
-
-                      <LeadBookMeetingDialog
-                        initialOpen={shouldOpenBookMeeting}
-                        prospectId={selectedProspectView.id}
-                        nextProspectId={nextQueueProspectId}
-                        q={searchQuery}
-                        view={selectedView}
-                        status={selectedStatus}
-                        city={selectedCity}
-                        nextActionDue={selectedDue}
-                        companyName={selectedProspectView.name}
-                        contactName={selectedProspectView.ownerName || ''}
-                        contactPhone={selectedProspectView.phone || ''}
-                        website={selectedProspectView.website || ''}
-                        purpose="Discovery call"
-                        notes={selectedProspectView.plainNotes || ''}
-                        meetingError={meetingError || undefined}
-                      />
 
                       <form
                         action={scheduleProspectCallbackAction}

@@ -71,19 +71,42 @@ export function LeadBookMeetingDialog({
 }: LeadBookMeetingDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
-  function closeDialog() {
-    dialogRef.current?.close();
-
+  function clearDialogParams() {
     const url = new URL(window.location.href);
     url.searchParams.delete('bookMeeting');
     url.searchParams.delete('meetingError');
     window.history.replaceState({}, '', url.toString());
   }
 
+  function lockPageScroll() {
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+  }
+
+  function unlockPageScroll() {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+  }
+
+  function openDialog() {
+    dialogRef.current?.showModal();
+    lockPageScroll();
+  }
+
+  function closeDialog() {
+    dialogRef.current?.close();
+    clearDialogParams();
+    unlockPageScroll();
+  }
+
   useEffect(() => {
     if (initialOpen) {
-      dialogRef.current?.showModal();
+      openDialog();
     }
+
+    return () => {
+      unlockPageScroll();
+    };
   }, [initialOpen]);
 
   return (
@@ -93,7 +116,7 @@ export function LeadBookMeetingDialog({
           className="lead-command-button"
           data-tone="success"
           type="button"
-          onClick={() => dialogRef.current?.showModal()}
+          onClick={openDialog}
         >
           <span className="lead-command-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" focusable="false">
@@ -104,13 +127,17 @@ export function LeadBookMeetingDialog({
               <path d="m9 14 2 2 4-5" />
             </svg>
           </span>
-          <span className="lead-command-label">Booked</span>
+          <span className="lead-command-label">Book</span>
         </button>
       ) : null}
 
       <dialog
         ref={dialogRef}
         className="lead-context-dialog"
+        onClose={() => {
+          clearDialogParams();
+          unlockPageScroll();
+        }}
         onClick={(event) => {
           if (event.target === event.currentTarget) {
             closeDialog();
