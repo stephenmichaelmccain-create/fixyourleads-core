@@ -1609,7 +1609,7 @@ select {
 
   .lead-queue-list {
     grid-auto-flow: column;
-    grid-auto-columns: minmax(76vw, 76vw);
+    grid-auto-columns: calc(100vw - 52px);
     width: max-content;
   }
 
@@ -3726,7 +3726,7 @@ select {
   }
 
   .lead-queue-list {
-    grid-auto-columns: minmax(72vw, 72vw);
+    grid-auto-columns: calc(100vw - 52px);
   }
 
   .lead-queue-timing,
