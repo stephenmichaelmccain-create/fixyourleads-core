@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
+import { CopyableUrlField } from '@/app/clients/[id]/workflow/CopyableUrlField';
 import { saveClientWorkflowAction } from '@/app/clients/[id]/workflow/actions';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { emptyClientCalendarSetupState, parseClientCalendarSetupPayload } from '@/lib/client-calendar-setup';
@@ -87,6 +88,7 @@ export default async function ClientWorkflowPage({
 
   const appBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || null;
   const defaultWebhookUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/telnyx` : '';
+  const workflowPageUrl = appBaseUrl ? `${appBaseUrl}/clients/${company.id}/workflow` : '';
   const voiceWebhookTarget = voiceState.webhookUrl || '';
 
   const crmConnected = Boolean(company.crmCredentialsEncrypted);
@@ -227,30 +229,22 @@ export default async function ClientWorkflowPage({
                   placeholder="+13035550199"
                 />
               </div>
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="workflow-webhook-url">
-                  Webhook URL
-                </label>
-                <input
-                  id="workflow-webhook-url"
-                  className="text-input"
-                  name="webhookUrl"
-                  defaultValue={voiceWebhookTarget}
-                  placeholder={defaultWebhookUrl || 'https://your-provider.com/webhook'}
-                />
-              </div>
-              <div className="field-stack">
-                <label className="key-value-label" htmlFor="workflow-automation-url">
-                  Workflow URL
-                </label>
-                <input
-                  id="workflow-automation-url"
-                  className="text-input"
-                  name="automationUrl"
-                  defaultValue={voiceState.automationUrl || ''}
-                  placeholder="https://make.com/... or internal workflow link"
-                />
-              </div>
+              <CopyableUrlField
+                id="workflow-webhook-url"
+                name="webhookUrl"
+                defaultValue={voiceWebhookTarget}
+                placeholder={defaultWebhookUrl || 'https://your-provider.com/webhook'}
+                fallbackCopyValue={voiceWebhookTarget || defaultWebhookUrl}
+                label="Webhook URL"
+              />
+              <CopyableUrlField
+                id="workflow-automation-url"
+                name="automationUrl"
+                defaultValue={voiceState.automationUrl || ''}
+                placeholder={workflowPageUrl || 'https://make.com/... or internal workflow link'}
+                fallbackCopyValue={voiceState.automationUrl || workflowPageUrl}
+                label="Workflow URL"
+              />
             </div>
           </div>
 

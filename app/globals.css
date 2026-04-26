@@ -3358,6 +3358,20 @@ select {
   border-top: 0;
 }
 
+.workflow-copy-label-row {
+  gap: 10px;
+  align-items: center;
+}
+
+.workflow-copy-button {
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
 .client-record-sidebar-grid {
   display: grid;
   gap: 10px;
