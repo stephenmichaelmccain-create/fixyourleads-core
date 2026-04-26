@@ -87,7 +87,7 @@ export default async function ClientWorkflowPage({
     : emptyClientCalendarSetupState;
 
   const appBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || null;
-  const defaultWebhookUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/telnyx` : '';
+  const defaultVoiceWebhookUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/appointments` : '';
   const workflowPageUrl = appBaseUrl ? `${appBaseUrl}/clients/${company.id}/workflow` : '';
   const voiceWebhookTarget = voiceState.webhookUrl || '';
 
@@ -233,8 +233,8 @@ export default async function ClientWorkflowPage({
                 id="workflow-webhook-url"
                 name="webhookUrl"
                 defaultValue={voiceWebhookTarget}
-                placeholder={defaultWebhookUrl || 'https://your-provider.com/webhook'}
-                fallbackCopyValue={voiceWebhookTarget || defaultWebhookUrl}
+                placeholder={defaultVoiceWebhookUrl || 'https://your-provider.com/webhook'}
+                fallbackCopyValue={voiceWebhookTarget || defaultVoiceWebhookUrl}
                 label="Webhook URL"
               />
               <CopyableUrlField

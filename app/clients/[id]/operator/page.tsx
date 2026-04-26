@@ -453,18 +453,18 @@ export default async function ClientCommsLabPage({
           <div id="voice-lab" className="comms-lab-grid">
             <section className="panel panel-stack comms-lab-card">
               <div className="inline-row">
-                <span className="status-chip status-chip-muted">
-                  <strong>AI voice</strong> Planned
+                <span className="status-chip">
+                  <strong>AI voice</strong> Webhook ready
                 </span>
               </div>
-              <h3 className="section-title">Voice test bay is staged for the next batch.</h3>
+              <h3 className="section-title">Voice booking is ready for provider wiring.</h3>
               <div className="text-muted">
                 Keep this in the same client workspace so SMS and voice live together when we switch on AI calls.
               </div>
               <ul className="list-clean tiny-muted">
                 <li>Route test calls through the client&apos;s assigned line.</li>
-                <li>Play the live AI opener and capture transcript events.</li>
-                <li>Log call outcome, transfer, voicemail, and booking handoff.</li>
+                <li>Post bookings to the voice webhook saved in Workflow.</li>
+                <li>Capture recording, transcript, and booking handoff on the Meetings board.</li>
               </ul>
             </section>
 
@@ -477,11 +477,11 @@ export default async function ClientCommsLabPage({
                 </div>
                 <div className="key-value-card">
                   <span className="key-value-label">Status</span>
-                  Waiting on provider wiring and call transcript storage
+                  Waiting on live provider booking events
                 </div>
                 <div className="key-value-card">
                   <span className="key-value-label">Next step</span>
-                  Add provider wiring and call transcript storage
+                  Point Telnyx at the workflow voice webhook and run a live booking test
                 </div>
               </div>
             </section>
