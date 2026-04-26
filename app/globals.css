@@ -3520,7 +3520,27 @@ select {
   .timeline-card,
   .message-thread {
     border-radius: 0;
-    padding: 12px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 10px 8px;
+  }
+
+  .panel-success,
+  .panel-attention,
+  .panel-dark,
+  .metric-card-dark,
+  .surface-link-card,
+  .key-value-card {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .surface-link-card,
+  .key-value-card {
+    padding: 10px 8px;
   }
 
   .app-bottom-nav {
@@ -3585,7 +3605,7 @@ select {
   }
 
   .page-stack {
-    gap: 12px;
+    gap: 8px;
   }
 
   .record-header,
