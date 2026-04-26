@@ -3500,12 +3500,13 @@ select {
   }
 
   .app-shell {
-    padding: 12px 12px 88px;
+    max-width: none;
+    padding: 0 0 84px;
   }
 
   .app-frame {
     grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
+    gap: 0;
   }
 
   .app-sidebar {
@@ -3518,20 +3519,22 @@ select {
   .record-card,
   .timeline-card,
   .message-thread {
-    border-radius: 12px;
-    padding: 14px;
+    border-radius: 0;
+    padding: 12px;
   }
 
   .app-bottom-nav {
     position: fixed;
-    left: 50%;
-    bottom: calc(10px + env(safe-area-inset-bottom));
-    transform: translateX(-50%);
+    left: 4px;
+    right: 4px;
+    bottom: calc(4px + env(safe-area-inset-bottom));
+    transform: none;
     z-index: 40;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px;
-    width: min(calc(100% - 24px), 340px);
+    width: auto;
+    max-width: none;
     padding: 6px;
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.06);
