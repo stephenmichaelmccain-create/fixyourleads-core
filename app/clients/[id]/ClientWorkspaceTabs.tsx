@@ -1,6 +1,6 @@
 type ClientWorkspaceTabsProps = {
   companyId: string;
-  active: 'profile' | 'crm' | 'comms' | 'telnyx' | 'booking';
+  active: 'profile' | 'workflow';
 };
 
 export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsProps) {
@@ -14,22 +14,10 @@ export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsPr
           Client profile
         </a>
         <a
-          className={`workspace-tab-link ${active === 'crm' ? 'is-active' : ''}`}
-          href={`/clients/${companyId}/crm`}
+          className={`workspace-tab-link ${active === 'workflow' ? 'is-active' : ''}`}
+          href={`/clients/${companyId}/workflow`}
         >
-          CRM
-        </a>
-        <a
-          className={`workspace-tab-link ${active === 'telnyx' ? 'is-active' : ''}`}
-          href={`/clients/${companyId}/telnyx`}
-        >
-          AI Voice
-        </a>
-        <a
-          className={`workspace-tab-link ${active === 'booking' ? 'is-active' : ''}`}
-          href={`/clients/${companyId}/booking`}
-        >
-          Calendar
+          Workflow
         </a>
       </div>
     </section>

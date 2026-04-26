@@ -13,5 +13,5 @@ export default async function LegacyClientCalendarPage({
   const query = (await searchParams) || {};
   const notice = query.notice ? `?notice=${encodeURIComponent(query.notice)}` : '';
 
-  redirect(`/clients/${id}/booking${notice}`);
+  redirect(`/clients/${id}/workflow${notice}`);
 }

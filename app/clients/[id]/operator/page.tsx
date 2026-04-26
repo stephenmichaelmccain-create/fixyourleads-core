@@ -282,7 +282,7 @@ export default async function ClientCommsLabPage({
       variant="workspace"
       hidePageHeader
     >
-      <ClientWorkspaceTabs companyId={company.id} active="comms" />
+      <ClientWorkspaceTabs companyId={company.id} active="profile" />
 
       <section id="comms-lab" className="panel panel-stack">
         <div className="record-header">

@@ -3,6 +3,7 @@ import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
 import { ClientViewLinkActions } from '@/app/clients/[id]/ClientViewLinkActions';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { updateCompanyAction } from '@/app/companies/actions';
+import { parseClientCalendarSetupPayload } from '@/lib/client-calendar-setup';
 import { buildClientViewPath } from '@/lib/client-view-auth';
 import { db } from '@/lib/db';
 import { humanizeIntakeSource } from '@/lib/client-intake';
@@ -152,6 +153,8 @@ export default async function ClientProfilePage({
         select: {
           id: true,
           name: true,
+          crmProvider: true,
+          crmCredentialsEncrypted: true,
           notificationEmail: true,
           telnyxInboundNumber: true,
           createdAt: true,
@@ -196,6 +199,7 @@ export default async function ClientProfilePage({
     intakeEvents,
     latestWorkflowRun,
     latestVoiceSetupEvent,
+    latestBookingSetupEvent,
     leadCount,
     upcomingAppointmentCount
   ] = await Promise.all([
@@ -236,6 +240,15 @@ export default async function ClientProfilePage({
         }),
       null
     ),
+    safeLoad(
+      () =>
+        db.eventLog.findFirst({
+          where: { companyId: id, eventType: 'client_calendar_setup_updated' },
+          orderBy: { createdAt: 'desc' },
+          select: { payload: true, createdAt: true }
+        }),
+      null
+    ),
     safeLoad(() => db.lead.count({ where: { companyId: id } }), 0),
     safeLoad(
       () =>
@@ -253,6 +266,7 @@ export default async function ClientProfilePage({
   const latestSignupEvent = intakeEvents.find((event) => event.eventType === 'client_signup_received') || null;
   const latestSignupPayload = readPayloadRecord(latestSignupEvent?.payload);
   const voiceSetupState = latestVoiceSetupEvent ? parseTelnyxSetupPayload(latestVoiceSetupEvent.payload) : null;
+  const bookingSetupState = latestBookingSetupEvent ? parseClientCalendarSetupPayload(latestBookingSetupEvent.payload) : null;
 
   const importedSourceLabel = humanizeIntakeSource(payloadString(latestSignupPayload, 'source'));
   const appBaseUrl = process.env.APP_BASE_URL?.trim() || null;
@@ -261,6 +275,16 @@ export default async function ClientProfilePage({
     clientViewPath && appBaseUrl ? `${appBaseUrl.replace(/\/$/, '')}${clientViewPath}` : clientViewPath;
   const aiVoiceConfigured = Boolean(voiceSetupState?.webhookConfigured || voiceSetupState?.webhookUrl);
   const aiVoiceWebhookTarget = voiceSetupState?.webhookUrl || 'Not connected yet';
+  const bookingConfigured = Boolean(bookingSetupState?.externalPlatformName || bookingSetupState?.externalCalendarId);
+  const crmConfigured = Boolean(company.crmCredentialsEncrypted);
+  const workflowReady = aiVoiceConfigured || bookingConfigured || crmConfigured;
+  const workflowSummary = [
+    crmConfigured ? 'CRM saved' : null,
+    aiVoiceConfigured ? 'Voice webhook ready' : null,
+    bookingConfigured ? bookingSetupState?.externalPlatformName || 'Calendar saved' : null
+  ]
+    .filter(Boolean)
+    .join(' • ');
 
   return (
     <LayoutShell
@@ -299,14 +323,14 @@ export default async function ClientProfilePage({
             <div className="metric-label">Client profile</div>
             <h2 className="section-title">{company.name}</h2>
             <div className="record-subtitle">
-              Keep the core client record accurate here. Booking, CRM, and the AI voice hookup can live in their own tabs
-              without duplicating the same client details.
+              Keep the core client record accurate here. Workflow setup now lives in one simple tab so CRM, AI voice, and
+              calendar keys stay together instead of being split across separate screens.
             </div>
           </div>
           <div className="workspace-action-rail">
             <ClientViewLinkActions clientViewUrl={clientViewUrl} />
-            <a className="button" href={`/clients/${company.id}/telnyx`}>
-              AI Voice
+            <a className="button" href={`/clients/${company.id}/workflow`}>
+              Workflow
             </a>
             <a className="button-secondary" href={`/events?companyId=${encodeURIComponent(company.id)}`}>
               Activity
@@ -324,8 +348,8 @@ export default async function ClientProfilePage({
           <span className="status-chip status-chip-muted">
             <strong>Bookings</strong> {upcomingAppointmentCount}
           </span>
-          <span className={`status-chip ${aiVoiceConfigured ? 'status-chip-muted' : 'status-chip-attention'}`}>
-            <strong>AI voice</strong> {aiVoiceConfigured ? 'Webhook ready' : 'Needs hookup'}
+          <span className={`status-chip ${workflowReady ? 'status-chip-muted' : 'status-chip-attention'}`}>
+            <strong>Workflow</strong> {workflowReady ? 'In place' : 'Needs setup'}
           </span>
         </div>
       </section>
@@ -339,7 +363,7 @@ export default async function ClientProfilePage({
               <h3 className="section-title">Identity, contact, and handoff</h3>
               <div className="record-subtitle">
                   Keep this page focused on the information the rest of the workspace depends on: contact details, business
-                  info, notification inboxes, and AI voice handoff.
+                  info, notification inboxes, and the workflow handoff.
               </div>
             </div>
             </div>
@@ -353,10 +377,10 @@ export default async function ClientProfilePage({
                 </span>
               </div>
               <div className="key-value-card client-record-overview-card">
-                <span className="key-value-label">AI voice webhook</span>
-                <strong>{aiVoiceConfigured ? 'Connected' : 'Not connected'}</strong>
+                <span className="key-value-label">Workflow setup</span>
+                <strong>{workflowReady ? 'Connected' : 'Not connected'}</strong>
                 <span className="tiny-muted">
-                  {aiVoiceConfigured ? aiVoiceWebhookTarget : 'Open the AI Voice tab to save the webhook target for this client.'}
+                  {workflowSummary || 'Open the Workflow tab to save the webhook target and API keys for this client.'}
                 </span>
               </div>
               <div className="key-value-card client-record-overview-card">
@@ -377,15 +401,15 @@ export default async function ClientProfilePage({
             </div>
 
             <div className="surface-link-grid">
-              <a className="surface-link-card" href={`/clients/${company.id}/telnyx`}>
-                <span className="metric-label">AI Voice</span>
-                <strong>Store the client webhook and voice hookup details</strong>
-                <span className="tiny-muted">Keep the provider webhook target and install notes in one place.</span>
+              <a className="surface-link-card" href={`/clients/${company.id}/workflow`}>
+                <span className="metric-label">Workflow</span>
+                <strong>Save CRM, AI voice, and calendar setup in one place</strong>
+                <span className="tiny-muted">Store the webhook target and API keys on one simple screen.</span>
               </a>
               <a className="surface-link-card" href={`/events?companyId=${encodeURIComponent(company.id)}`}>
                 <span className="metric-label">Activity log</span>
                 <strong>Review signup, booking, and webhook events</strong>
-                <span className="tiny-muted">Useful when QAing intake, workflows, or AI voice handoff.</span>
+                <span className="tiny-muted">Useful when QAing intake, workflow saves, or launch handoff.</span>
               </a>
               <a
                 className={`surface-link-card${clientViewPath ? '' : ' is-disabled'}`}
