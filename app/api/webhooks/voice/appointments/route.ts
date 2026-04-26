@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyTelnyxWebhookSignature } from '@/lib/security';
+import { authenticateVoiceWebhookRequest } from '@/lib/voice-webhook-auth';
 import { bookVoiceAppointment } from '@/services/voice-bookings';
 
 export const runtime = 'nodejs';
@@ -92,44 +92,19 @@ function normalizePayload(body: unknown) {
   };
 }
 
-function webhookSecretMatches(request: NextRequest) {
-  const secret =
-    process.env.VOICE_BOOKING_WEBHOOK_SECRET?.trim() ||
-    process.env.VOICE_DEMO_WEBHOOK_SECRET?.trim();
-
-  if (!secret) {
-    return true;
-  }
-
-  const authorization = request.headers.get('authorization') || '';
-  const bearer = authorization.replace(/^Bearer\s+/i, '').trim();
-  const headerSecret =
-    request.headers.get('x-webhook-secret') || request.headers.get('x-voice-webhook-secret') || '';
-
-  return bearer === secret || headerSecret === secret;
-}
-
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
-  const signatureResult = verifyTelnyxWebhookSignature(
-    rawBody,
-    request.headers.get('telnyx-signature-ed25519'),
-    request.headers.get('telnyx-timestamp')
-  );
+  const authResult = authenticateVoiceWebhookRequest(rawBody, request.headers);
 
-  if (!signatureResult.ok) {
+  if (!authResult.ok) {
     return NextResponse.json(
-      { success: false, error: 'invalid_signature', reason: signatureResult.reason },
+      { success: false, error: authResult.error, reason: authResult.reason },
       { status: 401, headers: corsHeaders }
     );
-  }
-
-  if (!webhookSecretMatches(request)) {
-    return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401, headers: corsHeaders });
   }
 
   let body: unknown;
