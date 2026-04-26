@@ -2245,15 +2245,35 @@ select {
   display: grid;
   gap: 10px;
   padding-top: 4px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .routing-summary {
   display: flex;
+  width: 100%;
+  min-width: 0;
   justify-content: space-between;
   gap: 12px;
   align-items: center;
   cursor: pointer;
   list-style: none;
+  overflow: hidden;
+}
+
+.routing-summary > * {
+  min-width: 0;
+}
+
+.routing-summary .metric-label {
+  flex: 1 1 auto;
+}
+
+.routing-summary .tiny-muted {
+  flex: 0 0 auto;
+  max-width: 100%;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .routing-summary::-webkit-details-marker {
@@ -3019,6 +3039,14 @@ select {
   .routing-summary {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .routing-summary {
+    width: 100%;
+  }
+
+  .routing-summary .tiny-muted {
+    text-align: left;
   }
 
   .workspace-action-rail,
