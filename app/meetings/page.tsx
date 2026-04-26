@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { extractMeetingLink, meetingLinkLabel } from '@/lib/meetings';
+import { normalizePhone } from '@/lib/phone';
+import { isLikelyTestWorkspaceName } from '@/lib/test-workspaces';
 import { safeLoadDb } from '@/lib/ui-data';
 import styles from './page.module.css';
 
@@ -113,11 +115,35 @@ export default async function MeetingsPage() {
     []
   );
 
-  const rows = appointments.map((appointment) => {
+  const companyIds = Array.from(new Set(appointments.map((appointment) => appointment.company.id)));
+  const approvedRows =
+    companyIds.length > 0
+      ? await safeLoadDb(
+          () =>
+            db.eventLog.findMany({
+              where: {
+                companyId: { in: companyIds },
+                eventType: 'client_signup_approved'
+              },
+              select: {
+                companyId: true
+              }
+            }),
+          []
+        )
+      : [];
+
+  const approvedCompanyIds = new Set(approvedRows.map((event) => event.companyId));
+  const liveAppointments = appointments.filter(
+    (appointment) => approvedCompanyIds.has(appointment.company.id) || !isLikelyTestWorkspaceName(appointment.company.name)
+  );
+
+  const rows = liveAppointments.map((appointment) => {
     const meetingLink = extractMeetingLink(appointment.notes);
 
     return {
       ...appointment,
+      contactPhone: normalizePhone(appointment.contact.phone),
       meetingLink
     };
   });
@@ -198,7 +224,7 @@ export default async function MeetingsPage() {
                     </div>
                     <div className={styles.field}>
                       <div className={styles.fieldLabel}>Phone</div>
-                      <div className={styles.fieldValue}>{appointment.contact.phone}</div>
+                      <div className={styles.fieldValue}>{appointment.contactPhone || 'No phone yet'}</div>
                     </div>
                     <div className={styles.field}>
                       <div className={styles.fieldLabel}>Email</div>
