@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
 import { LayoutShell } from '@/app/components/LayoutShell';
-import { LiveFeedControls } from '@/app/events/LiveFeedControls';
 import { db } from '@/lib/db';
 import { safeLoad } from '@/lib/ui-data';
 
@@ -33,11 +32,6 @@ const WEBHOOK_EVENT_TYPES = [
 
 type EventTone = 'ok' | 'warn' | 'error';
 type EventAccent = 'violet' | 'green' | 'amber' | 'blue' | 'pink' | 'red';
-type EventCategory = ReturnType<typeof eventCategory>;
-
-type SearchParamShape = Promise<{
-  category?: string;
-}>;
 
 function formatCompactDateTime(value: Date | string | null | undefined) {
   if (!value) {
@@ -85,17 +79,6 @@ function humanizeEventType(eventType: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function buildLiveLogHref(companyId: string, category?: string) {
-  const params = new URLSearchParams();
-
-  if (category && category !== 'all') {
-    params.set('category', category);
-  }
-
-  const query = params.toString();
-  return query ? `/clients/${companyId}/live-log?${query}` : `/clients/${companyId}/live-log`;
 }
 
 function payloadRecord(payload: unknown) {
@@ -291,14 +274,11 @@ function payloadLinks(companyId: string, payload: unknown) {
 }
 
 export default async function ClientLiveLogPage({
-  params,
-  searchParams
+  params
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: SearchParamShape;
 }) {
   const { id } = await params;
-  const query = (await searchParams) || {};
   const now = new Date();
   const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -377,16 +357,7 @@ export default async function ClientLiveLogPage({
     ...(company.telnyxInboundNumber ? [company.telnyxInboundNumber] : []),
     ...company.telnyxInboundNumbers.map((entry) => entry.number)
   ];
-  const allCategories: EventCategory[] = Array.from(new Set(recentEvents.map((event) => eventCategory(event.eventType))));
-  const selectedCategoryCandidate = query.category;
-  const selectedCategory: EventCategory | 'all' =
-    selectedCategoryCandidate &&
-    allCategories.some((category) => category === selectedCategoryCandidate)
-      ? (selectedCategoryCandidate as EventCategory)
-      : 'all';
-  const visibleEvents =
-    selectedCategory === 'all' ? recentEvents : recentEvents.filter((event) => eventCategory(event.eventType) === selectedCategory);
-  const latestEvent = visibleEvents[0] || recentEvents[0] || null;
+  const latestEvent = recentEvents[0] || null;
   const attentionEvents24h = recentEvents.filter((event) => {
     if (event.createdAt < last24Hours) {
       return false;
@@ -401,12 +372,15 @@ export default async function ClientLiveLogPage({
 
     return resolveEventPresentation(event.eventType, event.payload).tone === 'error';
   });
-  const visibleAttentionEvents = visibleEvents.filter(
-    (event) => resolveEventPresentation(event.eventType, event.payload).tone !== 'ok'
-  );
-  const latestAttentionEvent = attentionEvents24h[0] || null;
-  const categoryLabel = selectedCategory === 'all' ? 'All client events' : selectedCategory;
-  const snapshotAt = now.toISOString();
+  const healthSummary =
+    attentionEvents24h.length > 0
+      ? `${attentionEvents24h.length} issue${attentionEvents24h.length === 1 ? '' : 's'} in the last 24 hours`
+      : 'No recent failures detected';
+  const setupHealthParts = [
+    company.crmProvider && company.crmProvider !== 'NONE' ? `CRM: ${company.crmProvider}` : 'CRM missing',
+    inboundNumbers.length > 0 ? 'Phone line ready' : 'Phone line missing',
+    company.notificationEmail ? 'Alert email ready' : 'Alert email missing'
+  ];
 
   return (
     <LayoutShell
@@ -419,209 +393,68 @@ export default async function ClientLiveLogPage({
     >
       <ClientWorkspaceTabs companyId={company.id} active="live-log" />
 
-      <LiveFeedControls
-        snapshotAt={snapshotAt}
-        categoryLabel={categoryLabel}
-        visibleCount={visibleEvents.length}
-        latestEventLabel={latestEvent ? humanizeEventType(latestEvent.eventType) : null}
-        latestEventAt={latestEvent ? latestEvent.createdAt.toISOString() : null}
-        companyName={company.name}
-      />
-
       <section className="panel panel-stack">
         <div className="record-header">
           <div className="panel-stack">
-            <div className="metric-label">Needs attention now</div>
-            <h3 className="section-title">
-              {attentionEvents24h.length > 0 ? 'Recent failures or warnings were detected.' : 'No recent failures detected.'}
-            </h3>
-            <div className="record-subtitle">
-              This strip is meant to answer one question quickly: is anything breaking for this client right now?
-            </div>
-          </div>
-          <span className={`status-chip ${attentionEvents24h.length > 0 ? 'status-chip-attention' : ''}`}>
-            <span className={`status-dot ${attentionEvents24h.length > 0 ? 'error' : 'ok'}`} />
-            {attentionEvents24h.length > 0 ? `${attentionEvents24h.length} issue${attentionEvents24h.length === 1 ? '' : 's'} in 24h` : 'Healthy in 24h'}
-          </span>
-        </div>
-
-        {visibleAttentionEvents.length > 0 ? (
-          <div className="record-grid">
-            {visibleAttentionEvents.slice(0, 6).map((event) => {
-              const presentation = resolveEventPresentation(event.eventType, event.payload);
-              const summaryLine = shortPayload(event.eventType, event.payload);
-
-              return (
-                <article
-                  key={`${event.id}-attention`}
-                  className={`record-card record-card-activity-minimal activity-feed-card activity-feed-card-${presentation.accent}`}
-                >
-                  <div className={`activity-feed-icon activity-feed-icon-${presentation.accent}`} aria-hidden="true">
-                    <span className="activity-feed-icon-glyph">{presentation.tone === 'error' ? '!' : '?'}</span>
-                  </div>
-
-                  <div className="activity-feed-card-main">
-                    <div className="record-card-live-head">
-                      <span className={`status-chip ${presentation.tone === 'error' ? 'status-chip-attention' : 'status-chip-muted'}`}>
-                        <span className={`status-dot ${presentation.tone}`} />
-                        {humanizeEventType(event.eventType)}
-                      </span>
-                      <span className="tiny-muted">{eventCategory(event.eventType)}</span>
-                      <span className="tiny-muted">{formatElapsedTime(event.createdAt)}</span>
-                    </div>
-
-                    <div className="text-muted activity-feed-summary">
-                      {summaryLine || 'This event needs attention. Open the raw payload for details.'}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="empty-state">No warning or failure events are visible for this client right now.</div>
-        )}
-      </section>
-
-      <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">Webhook and API log</div>
-            <h3 className="section-title">Live integration activity</h3>
-            <div className="record-subtitle">
-              Recent webhook receipts, API setup changes, messaging events, and workflow-side connection activity for this
-              client.
-            </div>
+            <div className="metric-label">Live log</div>
+            <h3 className="section-title">Basic health</h3>
+            <div className="record-subtitle">Quick status up top, newest webhook and API events underneath.</div>
           </div>
           <div className="inline-actions">
-            <Link className="button-secondary" href={buildLiveLogHref(company.id, selectedCategory === 'all' ? undefined : selectedCategory)}>
+            <Link className="button-secondary" href={`/clients/${company.id}/live-log`}>
               Refresh log
             </Link>
-            <Link className="button-secondary" href={`/clients/${company.id}`}>
-              Client profile
-            </Link>
-            <Link className="button" href={`/clients/${company.id}/workflow`}>
-              Workflow
-            </Link>
           </div>
         </div>
 
-        <div className="key-value-grid">
-          <div className="key-value-card">
-            <span className="key-value-label">Snapshot</span>
-            {formatCompactDateTime(now)}
-          </div>
-          <div className="key-value-card">
-            <span className="key-value-label">CRM provider</span>
-            {company.crmProvider}
-          </div>
-          <div className="key-value-card">
-            <span className="key-value-label">Notification email</span>
-            {company.notificationEmail || 'Not set'}
-          </div>
-          <div className="key-value-card">
-            <span className="key-value-label">Inbound numbers</span>
-            {inboundNumbers.length > 0 ? inboundNumbers.join(', ') : 'Not set'}
-          </div>
-        </div>
-
-        {allCategories.length > 0 ? (
-          <div className="readiness-pills">
-            {allCategories.map((category) => (
-              <span key={category} className="readiness-pill is-ready">
-                {category}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </section>
-
-      <div className="metric-grid">
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Issues (24h)</div>
-          <div className="metric-value">{attentionEvents24h.length}</div>
-          <div className="metric-copy">Warnings and failures recorded in the last 24 hours.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Hard failures (24h)</div>
-          <div className="metric-value">{criticalEvents24h.length}</div>
-          <div className="metric-copy">Only the red-level failures from the last 24 hours.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Webhook activity (24h)</div>
-          <div className="metric-value">{webhooks24h}</div>
-          <div className="metric-copy">Telnyx, messaging, and review webhook-related activity in the last day.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Latest issue</div>
-          <div className="metric-value">{latestAttentionEvent ? formatCompactDateTime(latestAttentionEvent.createdAt) : '-'}</div>
-          <div className="metric-copy">
-            {latestAttentionEvent ? humanizeEventType(latestAttentionEvent.eventType) : 'No warning or failure event in the last 24 hours.'}
-          </div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Setup changes (30d)</div>
-          <div className="metric-value">{setupChanges30d}</div>
-          <div className="metric-copy">Saved webhook, CRM, calendar, signup, and onboarding changes in the last 30 days.</div>
-        </section>
-        <section className="metric-card panel-stack">
-          <div className="metric-label">Latest event</div>
-          <div className="metric-value">{latestEvent ? formatCompactDateTime(latestEvent.createdAt) : '-'}</div>
-          <div className="metric-copy">{latestEvent ? humanizeEventType(latestEvent.eventType) : 'No client log entries yet.'}</div>
-        </section>
-      </div>
-
-      <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">Category filter</div>
-            <h3 className="section-title">Focus the feed</h3>
-            <div className="record-subtitle">Trim the stream down to a single connection area when you are troubleshooting.</div>
-          </div>
-        </div>
-
-        <div className="filter-bar">
-          <Link className={`filter-chip${selectedCategory === 'all' ? ' is-active' : ''}`} href={buildLiveLogHref(company.id)}>
-            All
-            <span>{recentEvents.length}</span>
-          </Link>
-          {allCategories.map((category) => {
-            const count = recentEvents.filter((event) => eventCategory(event.eventType) === category).length;
-
-            return (
-              <Link
-                key={category}
-                className={`filter-chip${selectedCategory === category ? ' is-active' : ''}`}
-                href={buildLiveLogHref(company.id, category)}
-              >
-                {category}
-                <span>{count}</span>
-              </Link>
-            );
-          })}
+        <div className="metric-grid">
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Status</div>
+            <div className="metric-value">{attentionEvents24h.length > 0 ? 'Attention' : 'Healthy'}</div>
+            <div className="metric-copy">{healthSummary}</div>
+          </section>
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Failures (24h)</div>
+            <div className="metric-value">{criticalEvents24h.length}</div>
+            <div className="metric-copy">Hard failures in the last 24 hours.</div>
+          </section>
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Webhook activity (24h)</div>
+            <div className="metric-value">{webhooks24h}</div>
+            <div className="metric-copy">Webhook and messaging events in the last day.</div>
+          </section>
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Latest event</div>
+            <div className="metric-value">{latestEvent ? formatCompactDateTime(latestEvent.createdAt) : '-'}</div>
+            <div className="metric-copy">{latestEvent ? humanizeEventType(latestEvent.eventType) : 'No client log entries yet.'}</div>
+          </section>
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Connections</div>
+            <div className="metric-value">{setupHealthParts.filter((part) => !part.includes('missing')).length}/3</div>
+            <div className="metric-copy">{setupHealthParts.join(' · ')}</div>
+          </section>
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Setup changes (30d)</div>
+            <div className="metric-value">{setupChanges30d}</div>
+            <div className="metric-copy">Recent saved CRM, phone, calendar, or onboarding changes.</div>
+          </section>
         </div>
       </section>
 
       <section className="panel panel-stack">
         <div className="record-header">
           <div className="panel-stack">
-            <div className="metric-label">Event stream</div>
-            <h3 className="section-title">Recent client system events</h3>
-            <div className="record-subtitle">
-              Showing the newest {visibleEvents.length} {selectedCategory === 'all' ? 'non-lead log events' : `${selectedCategory.toLowerCase()} events`} for this client workspace.
-            </div>
+            <div className="metric-label">Live log</div>
+            <h3 className="section-title">Recent events</h3>
+            <div className="record-subtitle">Newest webhook, API, and setup events for this client.</div>
           </div>
         </div>
 
-        {visibleEvents.length === 0 ? (
-          <div className="empty-state">
-            {selectedCategory === 'all'
-              ? 'No webhook or API activity has been recorded for this client yet.'
-              : `No ${selectedCategory.toLowerCase()} events have been recorded for this client yet.`}
-          </div>
+        {recentEvents.length === 0 ? (
+          <div className="empty-state">No webhook or API activity has been recorded for this client yet.</div>
         ) : (
           <div className="record-grid">
-            {visibleEvents.map((event) => {
+            {recentEvents.map((event) => {
               const presentation = resolveEventPresentation(event.eventType, event.payload);
               const summaryLine = shortPayload(event.eventType, event.payload);
               const links = payloadLinks(company.id, event.payload);
