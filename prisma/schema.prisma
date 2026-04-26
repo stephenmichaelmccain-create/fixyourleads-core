@@ -199,6 +199,8 @@ model Appointment {
   status                   AppointmentStatus             @default(BOOKED)
   purpose                  String?
   meetingUrl               String?
+  hostEmail                String?
+  attendeeEmails           String[]                      @default([])
   displayCompanyName       String?
   sourceProspectId         String?
   notes                    String?

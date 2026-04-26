@@ -5,22 +5,15 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { normalizeClinicKey, normalizeWebsiteKey } from '@/lib/client-intake';
 import { db } from '@/lib/db';
+import {
+  INTERNAL_COMPANY_ID,
+  ensureInternalCompany,
+  getMeetingTeamDefaults,
+  normalizeMeetingEmail
+} from '@/lib/meeting-team-defaults';
 import { normalizePhone } from '@/lib/phone';
 import { buildProspectNotes, parseProspectNotes } from '@/lib/prospect-metadata';
 import { resolveAppointmentStartTime } from '@/services/booking';
-
-const INTERNAL_COMPANY_ID = 'fixyourleads';
-
-async function ensureInternalCompany() {
-  await db.company.upsert({
-    where: { id: INTERNAL_COMPANY_ID },
-    update: {},
-    create: {
-      id: INTERNAL_COMPANY_ID,
-      name: 'Fix Your Leads'
-    }
-  });
-}
 
 function readText(formData: FormData, key: string) {
   return String(formData.get(key) || '').trim();
@@ -909,6 +902,7 @@ export async function createProspectMeetingAction(formData: FormData) {
   const contactPhoneRaw = readText(formData, 'contactPhone');
   const meetingUrl = readText(formData, 'meetingUrl');
   const purpose = readText(formData, 'purpose');
+  const hostEmailRaw = readText(formData, 'hostEmail');
   const notes = readText(formData, 'notes');
 
   if (!prospectId) {
@@ -1047,6 +1041,38 @@ export async function createProspectMeetingAction(formData: FormData) {
   }
 
   await ensureInternalCompany();
+  const meetingDefaults = await getMeetingTeamDefaults(INTERNAL_COMPANY_ID);
+  const normalizedHostEmail = normalizeMeetingEmail(hostEmailRaw);
+
+  if (hostEmailRaw && !normalizedHostEmail) {
+    redirect(
+      buildOurLeadsHref({
+        prospectId,
+        q,
+        view,
+        status,
+        city,
+        nextActionDue,
+        bookMeeting: '1',
+        meetingError: 'host_invalid'
+      })
+    );
+  }
+
+  if (normalizedHostEmail && !meetingDefaults.defaultAttendeeEmails.includes(normalizedHostEmail)) {
+    redirect(
+      buildOurLeadsHref({
+        prospectId,
+        q,
+        view,
+        status,
+        city,
+        nextActionDue,
+        bookMeeting: '1',
+        meetingError: 'host_invalid'
+      })
+    );
+  }
 
   const resolvedContactName = contactName || existing.ownerName || existing.name;
   const noteParts = [notes];
@@ -1114,6 +1140,8 @@ export async function createProspectMeetingAction(formData: FormData) {
       status: AppointmentStatus.BOOKED,
       purpose,
       meetingUrl: parsedMeetingUrl.toString(),
+      hostEmail: normalizedHostEmail,
+      attendeeEmails: meetingDefaults.defaultAttendeeEmails,
       displayCompanyName: existing.name,
       sourceProspectId: prospectId,
       notes: noteParts.filter(Boolean).join('\n')
@@ -1125,6 +1153,8 @@ export async function createProspectMeetingAction(formData: FormData) {
         data: {
           purpose,
           meetingUrl: parsedMeetingUrl.toString(),
+          hostEmail: normalizedHostEmail,
+          attendeeEmails: meetingDefaults.defaultAttendeeEmails,
           displayCompanyName: existing.name,
           sourceProspectId: prospectId,
           notes: noteParts.filter(Boolean).join('\n')
@@ -1154,8 +1184,11 @@ export async function createProspectMeetingAction(formData: FormData) {
           contactPhone: normalizedPhone,
           purpose,
           meetingUrl: parsedMeetingUrl.toString(),
+          hostEmail: normalizedHostEmail,
+          attendeeEmails: meetingDefaults.defaultAttendeeEmails,
           startTime: appointmentTime.toISOString(),
-          displayCompanyName: existing.name
+          displayCompanyName: existing.name,
+          defaultAttendeeEmails: meetingDefaults.defaultAttendeeEmails
         }
       }
     });

@@ -2,6 +2,7 @@ import { ProspectStatus } from '@prisma/client';
 import Link from 'next/link';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
+import { getMeetingTeamDefaults } from '@/lib/meeting-team-defaults';
 import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoadDb } from '@/lib/ui-data';
 import { LeadBookMeetingDialog } from './LeadBookMeetingDialog';
@@ -652,6 +653,9 @@ export default async function OurLeadsPage({
         ...parseProspectNotes(selectedProspect.notes)
       }
     : null;
+  const meetingTeamDefaults = await safeLoadDb(() => getMeetingTeamDefaults(), {
+    defaultAttendeeEmails: []
+  });
   const duplicateLeadHref = selectedProspectId ? `${buildPageHref({ prospectId: selectedProspectId })}#selected-lead` : '/leads';
   const duplicateCompanyHref = duplicateCompanyId ? `/clients/${duplicateCompanyId}` : '/clients';
   const errorMessage =
@@ -750,6 +754,8 @@ export default async function OurLeadsPage({
                       ? 'Paste the meeting link.'
                       : meetingError === 'meetingUrl_invalid'
                         ? 'Meeting link must be a valid URL.'
+                        : meetingError === 'host_invalid'
+                          ? 'Host must be one of the default attendee emails or none.'
                         : meetingError === 'startTime_in_past'
                           ? 'Meeting time must be in the future.'
                           : 'Meeting could not be booked.'}
@@ -1184,6 +1190,7 @@ export default async function OurLeadsPage({
                               website={selectedProspectView.website || ''}
                               purpose="Discovery call"
                               notes={selectedProspectView.plainNotes || ''}
+                              defaultAttendeeEmails={meetingTeamDefaults.defaultAttendeeEmails}
                               meetingError={meetingError || undefined}
                             />
                           ) : (

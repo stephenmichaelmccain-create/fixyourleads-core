@@ -90,9 +90,9 @@
 
 .heroStats {
   display: grid;
-  grid-template-columns: repeat(2, minmax(170px, 1fr));
+  grid-template-columns: repeat(3, minmax(170px, 1fr));
   gap: 0;
-  min-width: min(100%, 410px);
+  min-width: min(100%, 680px);
   border-radius: 18px;
   border: 1px solid rgba(126, 103, 255, 0.18);
   background: rgba(34, 29, 77, 0.72);
@@ -108,6 +108,17 @@
 }
 
 .heroStat + .heroStat {
+  border-left: 1px solid rgba(126, 103, 255, 0.14);
+}
+
+.heroRoster {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-left: 1px solid rgba(126, 103, 255, 0.14);
+}
+
+.heroRoster + .heroStat {
   border-left: 1px solid rgba(126, 103, 255, 0.14);
 }
 
@@ -148,6 +159,87 @@
   margin-top: 4px;
   color: rgba(231, 227, 255, 0.66);
   font-size: 0.82rem;
+}
+
+.heroRosterForm {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.heroRosterInput {
+  min-width: 0;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(126, 103, 255, 0.18);
+  background: rgba(19, 16, 43, 0.78);
+  color: #f4f2ff;
+}
+
+.heroRosterButton {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(126, 103, 255, 0.2);
+  background: rgba(111, 76, 255, 0.18);
+  color: #d9d0ff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.heroRosterList {
+  display: grid;
+  gap: 8px;
+}
+
+.heroRosterList summary {
+  cursor: pointer;
+  color: rgba(231, 227, 255, 0.72);
+  font-size: 0.84rem;
+  font-weight: 700;
+  list-style: none;
+}
+
+.heroRosterList summary::-webkit-details-marker {
+  display: none;
+}
+
+.heroRosterItems {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.heroRosterItem {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(126, 103, 255, 0.14);
+  background: rgba(20, 18, 47, 0.54);
+  color: rgba(241, 238, 255, 0.88);
+  overflow-wrap: anywhere;
+}
+
+.heroRosterEmpty {
+  color: rgba(231, 227, 255, 0.58);
+  font-size: 0.84rem;
+}
+
+.heroRosterRemove {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 110, 145, 0.2);
+  background: rgba(255, 110, 145, 0.1);
+  color: #ffb3c4;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .tableShell {
@@ -438,8 +530,16 @@
   }
 
   .heroStats {
+    grid-template-columns: 1fr;
     min-width: 0;
     width: 100%;
+  }
+
+  .heroRoster,
+  .heroStat + .heroStat,
+  .heroRoster + .heroStat {
+    border-left: 0;
+    border-top: 1px solid rgba(126, 103, 255, 0.14);
   }
 }
 
@@ -468,11 +568,6 @@
 
   .heroStats {
     grid-template-columns: 1fr;
-  }
-
-  .heroStat + .heroStat {
-    border-left: 0;
-    border-top: 1px solid rgba(126, 103, 255, 0.14);
   }
 
   .heroTitleWrap {

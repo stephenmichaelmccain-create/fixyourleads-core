@@ -1,8 +1,13 @@
 import { AppointmentExternalSyncStatus, AppointmentStatus } from '@prisma/client';
 import Link from 'next/link';
 import { LayoutShell } from '@/app/components/LayoutShell';
-import { retryMeetingCalendarSyncAction } from '@/app/meetings/actions';
+import {
+  addMeetingDefaultAttendeeAction,
+  removeMeetingDefaultAttendeeAction,
+  retryMeetingCalendarSyncAction
+} from '@/app/meetings/actions';
 import { db } from '@/lib/db';
+import { getMeetingTeamDefaults } from '@/lib/meeting-team-defaults';
 import { extractMeetingLink, meetingLinkLabel } from '@/lib/meetings';
 import { normalizePhone } from '@/lib/phone';
 import { isLikelyTestWorkspaceName } from '@/lib/test-workspaces';
@@ -158,6 +163,8 @@ export default async function MeetingsPage({
           status: true,
           purpose: true,
           meetingUrl: true,
+          hostEmail: true,
+          attendeeEmails: true,
           displayCompanyName: true,
           sourceProspectId: true,
           notes: true,
@@ -185,6 +192,9 @@ export default async function MeetingsPage({
       }),
     []
   );
+  const meetingTeamDefaults = await safeLoadDb(() => getMeetingTeamDefaults(), {
+    defaultAttendeeEmails: []
+  });
 
   const companyIds = Array.from(new Set(appointments.map((appointment) => appointment.company.id)));
   const approvedRows =
@@ -293,6 +303,42 @@ export default async function MeetingsPage({
                 </div>
               </div>
 
+              <div className={styles.heroRoster}>
+                <div className={styles.heroStatLabel}>Default attendee emails</div>
+                <form action={addMeetingDefaultAttendeeAction} className={styles.heroRosterForm}>
+                  <input
+                    type="email"
+                    name="email"
+                    className={styles.heroRosterInput}
+                    placeholder="add@gmail.com"
+                    aria-label="Add default attendee email"
+                  />
+                  <button type="submit" className={styles.heroRosterButton}>
+                    Add
+                  </button>
+                </form>
+                <details className={styles.heroRosterList}>
+                  <summary>
+                    Current auto-added people ({meetingTeamDefaults.defaultAttendeeEmails.length})
+                  </summary>
+                  <div className={styles.heroRosterItems}>
+                    {meetingTeamDefaults.defaultAttendeeEmails.length === 0 ? (
+                      <div className={styles.heroRosterEmpty}>No attendee emails saved yet.</div>
+                    ) : (
+                      meetingTeamDefaults.defaultAttendeeEmails.map((email) => (
+                        <form key={email} action={removeMeetingDefaultAttendeeAction} className={styles.heroRosterItem}>
+                          <input type="hidden" name="email" value={email} />
+                          <span>{email}</span>
+                          <button type="submit" className={styles.heroRosterRemove}>
+                            Remove
+                          </button>
+                        </form>
+                      ))
+                    )}
+                  </div>
+                </details>
+              </div>
+
               <div className={styles.heroStat}>
                 <span className={`${styles.heroStatIcon} ${styles.heroStatAlert}`} aria-hidden="true">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -368,6 +414,7 @@ export default async function MeetingsPage({
                           <div className={styles.primaryText}>{contactName}</div>
                           <div className={styles.contactMeta}>{appointment.contactPhone || 'No phone yet'}</div>
                           {appointment.contact.email?.trim() ? <div className={styles.contactMeta}>{appointment.contact.email.trim()}</div> : null}
+                          <div className={styles.contactMeta}>Host: {appointment.hostEmail || 'None assigned'}</div>
                         </div>
 
                         <div className={styles.purposeText}>
@@ -462,6 +509,7 @@ export default async function MeetingsPage({
                               {'\n'}
                               {appointment.contactPhone || 'No phone yet'}
                               {appointment.contact.email?.trim() ? `\n${appointment.contact.email.trim()}` : ''}
+                              {`\nHost: ${appointment.hostEmail || 'None assigned'}`}
                             </div>
                           </div>
                           <div>

@@ -19,6 +19,8 @@ type LeadBookMeetingDialogProps = {
   website: string;
   purpose: string;
   notes: string;
+  defaultAttendeeEmails: string[];
+  initialHostEmail?: string;
   meetingError?: string;
 };
 
@@ -46,6 +48,7 @@ function bookingErrorCopy(value?: string) {
   if (value === 'purpose_required') return 'Add the meeting purpose so the meeting taker has context.';
   if (value === 'meetingUrl_required') return 'Paste the Google Meet or other meeting link.';
   if (value === 'meetingUrl_invalid') return 'Meeting link must be a valid URL.';
+  if (value === 'host_invalid') return 'Pick a host from the default attendee list or leave it set to none.';
   if (value === 'startTime_in_past') return 'Meeting time has to be in the future.';
 
   return 'The meeting could not be booked. Check the details and try again.';
@@ -67,6 +70,8 @@ export function LeadBookMeetingDialog({
   website,
   purpose,
   notes,
+  defaultAttendeeEmails,
+  initialHostEmail,
   meetingError
 }: LeadBookMeetingDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -242,6 +247,25 @@ export function LeadBookMeetingDialog({
             </div>
 
             <div className="field-stack">
+              <label className="key-value-label" htmlFor="lead-booking-host-email">
+                Host / person in charge
+              </label>
+              <select
+                id="lead-booking-host-email"
+                name="hostEmail"
+                className="text-input"
+                defaultValue={initialHostEmail || ''}
+              >
+                <option value="">None</option>
+                {defaultAttendeeEmails.map((email) => (
+                  <option key={email} value={email}>
+                    {email}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field-stack">
               <label className="key-value-label" htmlFor="lead-booking-link">
                 Meeting link
               </label>
@@ -266,6 +290,10 @@ export function LeadBookMeetingDialog({
                 defaultValue={notes}
                 placeholder="Anything the meeting taker should know before joining."
               />
+            </div>
+
+            <div className="text-muted">
+              Default attendee emails auto-added to this meeting: {defaultAttendeeEmails.length > 0 ? defaultAttendeeEmails.join(', ') : 'none yet'}.
             </div>
 
             <div className="text-muted">

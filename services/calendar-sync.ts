@@ -264,6 +264,8 @@ function calendarEventDescription(input: {
   contactName: string | null;
   contactPhone: string;
   contactEmail: string | null;
+  hostEmail: string | null;
+  attendeeEmails: string[];
   notes: string | null;
 }) {
   return [
@@ -273,6 +275,8 @@ function calendarEventDescription(input: {
     `Contact: ${input.contactName?.trim() || 'Unnamed contact'}`,
     `Phone: ${input.contactPhone}`,
     `Email: ${input.contactEmail?.trim() || 'Unknown'}`,
+    `Host: ${input.hostEmail?.trim() || 'None assigned'}`,
+    `Auto-added attendees: ${input.attendeeEmails.length > 0 ? input.attendeeEmails.join(', ') : 'None'}`,
     '',
     input.notes?.trim() || 'No appointment notes'
   ].join('\n');
@@ -286,6 +290,7 @@ async function createGoogleCalendarEvent(input: {
   durationMinutes: number;
   summary: string;
   description: string;
+  attendeeEmails: string[];
 }) {
   const endTime = new Date(input.startTime.getTime() + input.durationMinutes * 60_000);
   const response = await fetch(`${GOOGLE_CALENDAR_API_BASE}/calendars/${encodeURIComponent(input.calendarId)}/events`, {
@@ -297,6 +302,7 @@ async function createGoogleCalendarEvent(input: {
     body: JSON.stringify({
       summary: input.summary,
       description: input.description,
+      attendees: input.attendeeEmails.map((email) => ({ email })),
       start: {
         dateTime: input.startTime.toISOString(),
         timeZone: input.timezone
@@ -379,6 +385,8 @@ export async function syncAppointmentToExternalCalendar(
       companyId: true,
       contactId: true,
       startTime: true,
+      hostEmail: true,
+      attendeeEmails: true,
       notes: true,
       externalSyncAttempts: true,
       company: {
@@ -455,16 +463,19 @@ export async function syncAppointmentToExternalCalendar(
       timezone: target.timezone,
       startTime: appointment.startTime,
       durationMinutes: target.durationMinutes,
-      summary: calendarEventSummary(appointment.company.name, appointment.contact.name, appointment.contact.phone),
-      description: calendarEventDescription({
-        appointmentId: appointment.id,
-        companyName: appointment.company.name,
-        contactName: appointment.contact.name,
-        contactPhone: appointment.contact.phone,
-        contactEmail: appointment.contact.email,
-        notes: appointment.notes
-      })
-    });
+        summary: calendarEventSummary(appointment.company.name, appointment.contact.name, appointment.contact.phone),
+        description: calendarEventDescription({
+          appointmentId: appointment.id,
+          companyName: appointment.company.name,
+          contactName: appointment.contact.name,
+          contactPhone: appointment.contact.phone,
+          contactEmail: appointment.contact.email,
+          hostEmail: appointment.hostEmail,
+          attendeeEmails: appointment.attendeeEmails,
+          notes: appointment.notes
+        }),
+        attendeeEmails: appointment.attendeeEmails
+      });
 
     await db.appointment.update({
       where: { id: appointment.id },

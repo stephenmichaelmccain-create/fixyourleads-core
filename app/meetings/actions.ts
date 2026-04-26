@@ -4,6 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import {
+  getMeetingTeamDefaults,
+  normalizeMeetingEmail,
+  saveMeetingTeamDefaults
+} from '@/lib/meeting-team-defaults';
+import {
   enqueueAppointmentCalendarSyncRetry,
   notifyCalendarSyncFailure,
   syncAppointmentToExternalCalendar
@@ -32,6 +37,32 @@ function redirectPathWithValues(path: string, values: Record<string, string | nu
 
   const search = url.searchParams.toString();
   return search ? `${url.pathname}?${search}` : url.pathname;
+}
+
+export async function addMeetingDefaultAttendeeAction(formData: FormData) {
+  const email = normalizeMeetingEmail(String(formData.get('email') || ''));
+
+  if (!email) {
+    redirect('/meetings');
+  }
+
+  const existing = await getMeetingTeamDefaults();
+  await saveMeetingTeamDefaults([...existing.defaultAttendeeEmails, email]);
+  revalidatePath('/meetings');
+  redirect('/meetings');
+}
+
+export async function removeMeetingDefaultAttendeeAction(formData: FormData) {
+  const email = normalizeMeetingEmail(String(formData.get('email') || ''));
+
+  if (!email) {
+    redirect('/meetings');
+  }
+
+  const existing = await getMeetingTeamDefaults();
+  await saveMeetingTeamDefaults(existing.defaultAttendeeEmails.filter((value) => value !== email));
+  revalidatePath('/meetings');
+  redirect('/meetings');
 }
 
 export async function retryMeetingCalendarSyncAction(formData: FormData) {
