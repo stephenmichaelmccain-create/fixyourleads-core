@@ -43,6 +43,7 @@ Use this app for the workflow layer:
 - `docs/PROJECT_STATUS.md` for the current handoff and deploy state
 - `docs/MINIMUM_PRODUCTION_WORKFLOW.md` for the narrow product target
 - `docs/NEW_CHAT_PROMPT.md` for a paste-ready fresh-chat brief
+- `docs/N8N_MCP_SETUP.md` for the preferred Telnyx MCP voice-assistant path
 - `docs/N8N_AUTOMATION_SETUP.md` for the shared n8n provisioning flow
 
 ## Stack

@@ -1,5 +1,11 @@
 # n8n Automation Setup
 
+This document covers the older shared-webhook provisioning flow.
+
+If you are wiring Telnyx voice assistants through one MCP server per client assistant, start with:
+
+- [docs/N8N_MCP_SETUP.md](/Users/stephenmccain/Documents/Codex/2026-04-26/you-re-taking-over-work-on-2/fixyourleads-core/docs/N8N_MCP_SETUP.md)
+
 This is the minimum setup needed to make the new shared n8n provisioning path work in production.
 
 ## Goal

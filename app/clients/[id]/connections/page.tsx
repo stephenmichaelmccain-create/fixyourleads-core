@@ -290,7 +290,6 @@ export default async function ClientConnectionsPage({
   const directVoiceWebhookTarget = voiceState.webhookUrl || (appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/appointments` : '');
   const voiceWebhookTarget = automationState.workflowWebhookUrl || directVoiceWebhookTarget;
   const availabilityToolUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/check-availability` : '';
-  const bookingToolUrl = voiceWebhookTarget;
   const cancelToolUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/cancel` : '';
   const voiceWebhookSecret =
     process.env.VOICE_BOOKING_WEBHOOK_SECRET?.trim() ||
@@ -313,14 +312,15 @@ export default async function ClientConnectionsPage({
     calledNumber: voiceState.phoneNumber,
     telnyxAssistantId: company.telnyxAssistantId
   });
-  const telnyxToolName = 'fyl_book_call';
-  const availabilityToolName = 'fyl_check_availability';
-  const cancelToolName = 'fyl_cancel_appointment';
-  const telnyxToolDescription = `Book a ${company.name} discovery call after availability is confirmed. Only use this after confirming the slot with the caller.`;
-  const availabilityToolDescription = `Check whether ${company.name} is available for a requested appointment time before offering or booking the slot.`;
-  const cancelToolDescription = `Cancel an existing ${company.name} appointment for the caller when they ask to cancel or reschedule.`;
+  const mcpServerName = `${company.name} voice mcp`;
+  const availabilityToolName = 'check_availability';
+  const bookingToolName = 'book_appointment';
+  const cancelToolName = 'cancel_appointment';
+  const availabilityToolDescription = `Check whether ${company.name} is available for the requested time before you offer or book that slot.`;
+  const bookingToolDescription = `Book a live appointment for ${company.name}. If a real provider must be updated first, do that inside n8n and then write the confirmed booking back into Fix Your Leads.`;
+  const cancelToolDescription = `Cancel an existing ${company.name} appointment when the caller asks to cancel or reschedule.`;
   const telnyxHeaderName = 'X-Voice-Webhook-Secret';
-  const usingN8nWebhook = Boolean(automationState.workflowWebhookUrl);
+  const mcpAllowedTools = JSON.stringify([availabilityToolName, bookingToolName, cancelToolName], null, 2);
   const bookingPlatformLabel =
     calendarState.externalPlatformName ||
     (calendarState.connectionMode === 'google_calendar'
@@ -329,7 +329,7 @@ export default async function ClientConnectionsPage({
         ? 'External booking platform'
         : null);
   const step1Ready = Boolean(automationState.workflowActive && voiceWebhookTarget);
-  const step2Ready = Boolean(voiceWebhookTarget);
+  const step2Ready = Boolean(automationState.workflowEditorUrl);
   const step3Ready = Boolean(bookingPlatformLabel && automationState.bookingCreateUrl);
   const step4Ready = Boolean(calendarState.syncTestPassed && calendarState.launchApproved);
 
@@ -432,17 +432,62 @@ export default async function ClientConnectionsPage({
           <div className="record-header">
             <div>
               <div className="metric-label">Step 2</div>
-              <h4 className="section-title" style={{ marginBottom: 4 }}>Create these 3 Telnyx tools</h4>
-              <div className="text-muted">Telnyx needs one tool for availability, one for booking, and one for canceling.</div>
+              <h4 className="section-title" style={{ marginBottom: 4 }}>Add one MCP server in Telnyx</h4>
+              <div className="text-muted">Instead of 3 separate custom tools, connect this assistant to one client MCP server and allow the 3 booking actions below.</div>
             </div>
             <span className={stepTone(step2Ready)}>
               <span className={`status-dot ${step2Ready ? 'ok' : 'warn'}`} />
-              {step2Ready ? 'Ready' : 'Missing destination'}
+              {step2Ready ? 'Ready to add' : 'Get the workflow live first'}
+            </span>
+          </div>
+
+          <CopyableUrlField
+            id="connections-mcp-server-name"
+            label="MCP server name"
+            defaultValue={mcpServerName}
+            fallbackCopyValue={mcpServerName}
+            copyButtonLabel="Copy"
+            readOnly
+          />
+          <CopyableCodeBlock label="Allowed MCP tools" value={mcpAllowedTools} copyButtonLabel="Copy JSON" />
+          <CopyableUrlField
+            id="connections-mcp-shared-secret"
+            label="Fix Your Leads shared secret"
+            defaultValue={voiceWebhookSecret}
+            placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET or INTERNAL_API_KEY in Railway"
+            fallbackCopyValue={voiceWebhookSecret}
+            copyButtonLabel="Copy secret"
+            readOnly
+          />
+          <div className="text-muted">
+            In n8n, add an <strong>MCP Server Trigger</strong> to this client workflow, expose the 3 tools in Step 3, then paste that MCP server URL into Telnyx.
+          </div>
+
+          <div className="action-cluster">
+            {automationState.workflowEditorUrl ? (
+              <a className="button-secondary" href={automationState.workflowEditorUrl} target="_blank" rel="noreferrer">
+                Open in n8n
+              </a>
+            ) : null}
+          </div>
+
+        </section>
+
+        <section className="panel panel-dark panel-stack">
+          <div className="record-header">
+            <div>
+              <div className="metric-label">Step 3</div>
+              <h4 className="section-title" style={{ marginBottom: 4 }}>Expose 3 MCP actions in n8n and connect Fix Your Leads</h4>
+              <div className="text-muted">Build these 3 MCP tools inside the client workflow. Check and cancel can point straight at Fix Your Leads. Booking can go through a real provider first and then write back into Fix Your Leads.</div>
+            </div>
+            <span className={stepTone(step3Ready)}>
+              <span className={`status-dot ${step3Ready ? 'ok' : 'warn'}`} />
+              {step3Ready ? 'Ready to test' : 'Set this up'}
             </span>
           </div>
 
           <div className="panel panel-dark panel-stack">
-            <div className="metric-label">Tool 1 · Check availability</div>
+            <div className="metric-label">MCP tool 1 · Check availability</div>
             <CopyableUrlField
               id="connections-availability-tool-name"
               label="Tool name"
@@ -453,7 +498,7 @@ export default async function ClientConnectionsPage({
             />
             <CopyableUrlField
               id="connections-availability-tool-url"
-              label="Tool URL"
+              label="Fix Your Leads endpoint"
               defaultValue={availabilityToolUrl}
               fallbackCopyValue={availabilityToolUrl}
               copyButtonLabel="Copy URL"
@@ -461,46 +506,57 @@ export default async function ClientConnectionsPage({
             />
             <CopyableUrlField
               id="connections-availability-tool-description"
-              label="Tool description"
+              label="What it should do"
               defaultValue={availabilityToolDescription}
               fallbackCopyValue={availabilityToolDescription}
               copyButtonLabel="Copy"
               readOnly
             />
-            <CopyableCodeBlock label="Body schema" value={availabilityBodyParameterSchema} copyButtonLabel="Copy JSON" />
+            <CopyableCodeBlock label="Input schema" value={availabilityBodyParameterSchema} copyButtonLabel="Copy JSON" />
           </div>
 
           <div className="panel panel-dark panel-stack">
-            <div className="metric-label">Tool 2 · Book appointment</div>
+            <div className="metric-label">MCP tool 2 · Book appointment</div>
             <CopyableUrlField
               id="connections-book-tool-name"
               label="Tool name"
-              defaultValue={telnyxToolName}
-              fallbackCopyValue={telnyxToolName}
+              defaultValue={bookingToolName}
+              fallbackCopyValue={bookingToolName}
               copyButtonLabel="Copy"
-              readOnly
-            />
-            <CopyableUrlField
-              id="connections-book-tool-url"
-              label="Tool URL"
-              defaultValue={bookingToolUrl}
-              fallbackCopyValue={bookingToolUrl}
-              copyButtonLabel="Copy URL"
               readOnly
             />
             <CopyableUrlField
               id="connections-book-tool-description"
-              label="Tool description"
-              defaultValue={telnyxToolDescription}
-              fallbackCopyValue={telnyxToolDescription}
+              label="What it should do"
+              defaultValue={bookingToolDescription}
+              fallbackCopyValue={bookingToolDescription}
               copyButtonLabel="Copy"
               readOnly
             />
-            <CopyableCodeBlock label="Body schema" value={telnyxBodyParameterSchema} copyButtonLabel="Copy JSON" />
+            <CopyableCodeBlock label="Input schema" value={telnyxBodyParameterSchema} copyButtonLabel="Copy JSON" />
+            <CopyableUrlField
+              id="connections-booking-platform"
+              label="Real booking platform"
+              defaultValue={bookingPlatformLabel || 'Not chosen yet'}
+              fallbackCopyValue={bookingPlatformLabel || 'Not chosen yet'}
+              copyButtonLabel="Copy"
+              readOnly
+            />
+            <CopyableUrlField
+              id="connections-booking-writeback"
+              label="Final Fix Your Leads writeback URL"
+              defaultValue={automationState.bookingCreateUrl ?? undefined}
+              fallbackCopyValue={automationState.bookingCreateUrl ?? undefined}
+              copyButtonLabel="Copy URL"
+              readOnly
+            />
+            <div className="text-muted">
+              If the real provider must be updated first, insert that provider step before the final writeback. If Fix Your Leads is the source of truth, you can post the booking straight to the writeback URL.
+            </div>
           </div>
 
           <div className="panel panel-dark panel-stack">
-            <div className="metric-label">Tool 3 · Cancel appointment</div>
+            <div className="metric-label">MCP tool 3 · Cancel appointment</div>
             <CopyableUrlField
               id="connections-cancel-tool-name"
               label="Tool name"
@@ -511,7 +567,7 @@ export default async function ClientConnectionsPage({
             />
             <CopyableUrlField
               id="connections-cancel-tool-url"
-              label="Tool URL"
+              label="Fix Your Leads endpoint"
               defaultValue={cancelToolUrl}
               fallbackCopyValue={cancelToolUrl}
               copyButtonLabel="Copy URL"
@@ -519,57 +575,15 @@ export default async function ClientConnectionsPage({
             />
             <CopyableUrlField
               id="connections-cancel-tool-description"
-              label="Tool description"
+              label="What it should do"
               defaultValue={cancelToolDescription}
               fallbackCopyValue={cancelToolDescription}
               copyButtonLabel="Copy"
               readOnly
             />
-            <CopyableCodeBlock label="Body schema" value={cancelBodyParameterSchema} copyButtonLabel="Copy JSON" />
+            <CopyableCodeBlock label="Input schema" value={cancelBodyParameterSchema} copyButtonLabel="Copy JSON" />
           </div>
 
-          <CopyableUrlField
-            id="connections-header-name"
-            label="Header name"
-            defaultValue={telnyxHeaderName}
-            fallbackCopyValue={telnyxHeaderName}
-            copyButtonLabel="Copy"
-            readOnly
-          />
-          <CopyableUrlField
-            id="connections-header-value"
-            label="Header value"
-            defaultValue={voiceWebhookSecret}
-            placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET or INTERNAL_API_KEY in Railway"
-            fallbackCopyValue={voiceWebhookSecret}
-            copyButtonLabel="Copy secret"
-            readOnly
-          />
-          <div className="text-muted">Use this same header on all 3 Telnyx tools.</div>
-
-        </section>
-
-        <section className="panel panel-dark panel-stack">
-          <div className="record-header">
-            <div>
-              <div className="metric-label">Step 3</div>
-              <h4 className="section-title" style={{ marginBottom: 4 }}>Connect the provider inside the workflow</h4>
-              <div className="text-muted">Open the workflow and add the real provider step between `Fetch client config` and `Create appointment in Fix Your Leads`.</div>
-            </div>
-            <span className={stepTone(step3Ready)}>
-              <span className={`status-dot ${step3Ready ? 'ok' : 'warn'}`} />
-              {step3Ready ? 'Ready to test' : 'Set this up'}
-            </span>
-          </div>
-
-          <CopyableUrlField
-            id="connections-booking-platform"
-            label="Booking platform"
-            defaultValue={bookingPlatformLabel || 'Not chosen yet'}
-            fallbackCopyValue={bookingPlatformLabel || 'Not chosen yet'}
-            copyButtonLabel="Copy"
-            readOnly
-          />
           <CopyableUrlField
             id="connections-config-url"
             label="Client config endpoint"
@@ -579,16 +593,13 @@ export default async function ClientConnectionsPage({
             readOnly
           />
           <CopyableUrlField
-            id="connections-booking-writeback"
-            label="Booking writeback URL"
-            defaultValue={automationState.bookingCreateUrl ?? undefined}
-            fallbackCopyValue={automationState.bookingCreateUrl ?? undefined}
-            copyButtonLabel="Copy URL"
+            id="connections-header-name"
+            label="Fix Your Leads auth header"
+            defaultValue={telnyxHeaderName}
+            fallbackCopyValue={telnyxHeaderName}
+            copyButtonLabel="Copy"
             readOnly
           />
-          <div className="text-muted">
-            Keep the final `Create appointment in Fix Your Leads` node at the end. Add the client&apos;s real booking node before it.
-          </div>
 
           <div className="action-cluster">
             {automationState.workflowEditorUrl ? (
