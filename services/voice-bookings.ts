@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
-import { normalizePhone } from '@/lib/phone';
 import { createAppointmentFlow, resolveAppointmentStartTime } from '@/services/booking';
 import { createLeadFlow } from '@/services/leads';
+import { resolveVoiceSchedulingCompany } from '@/services/voice-scheduling';
 
 export type VoiceAppointmentBookingInput = {
   phone: string;
@@ -40,57 +40,8 @@ function clean(value?: string | null) {
   return trimmed || undefined;
 }
 
-async function resolveVoiceBookingCompany(
-  input: Pick<VoiceAppointmentBookingInput, 'companyId' | 'telnyxAssistantId' | 'calledNumber'>
-) {
-  const directCompanyId = clean(input.companyId);
-
-  if (directCompanyId) {
-    const company = await db.company.findUnique({ where: { id: directCompanyId } });
-
-    if (company) {
-      return company;
-    }
-  }
-
-  const assistantId = clean(input.telnyxAssistantId);
-
-  if (assistantId) {
-    const company = await db.company.findUnique({ where: { telnyxAssistantId: assistantId } });
-
-    if (company) {
-      return company;
-    }
-  }
-
-  const calledNumber = normalizePhone(input.calledNumber || '');
-
-  if (calledNumber) {
-    const company = await db.company.findFirst({
-      where: {
-        OR: [
-          { telnyxInboundNumber: calledNumber },
-          {
-            telnyxInboundNumbers: {
-              some: {
-                number: calledNumber
-              }
-            }
-          }
-        ]
-      }
-    });
-
-    if (company) {
-      return company;
-    }
-  }
-
-  return null;
-}
-
 export async function bookVoiceAppointment(input: VoiceAppointmentBookingInput): Promise<VoiceAppointmentBookingResult> {
-  const company = await resolveVoiceBookingCompany(input);
+  const company = await resolveVoiceSchedulingCompany(input);
 
   if (!company) {
     throw new Error('company_not_resolved');

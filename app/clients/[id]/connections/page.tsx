@@ -123,6 +123,97 @@ function buildTelnyxBodyParameterSchema(input: {
   );
 }
 
+function buildAvailabilityBodyParameterSchema(input: {
+  companyId: string;
+  calledNumber: string | null;
+  telnyxAssistantId: string | null;
+}) {
+  return JSON.stringify(
+    {
+      type: 'object',
+      properties: {
+        startTime: {
+          type: 'string',
+          description: 'Requested appointment time in ISO 8601 format'
+        },
+        durationMinutes: {
+          type: 'number',
+          description: 'Optional appointment length in minutes',
+          default: 60
+        },
+        companyId: {
+          type: 'string',
+          description: 'Fix Your Leads client workspace ID',
+          default: input.companyId
+        },
+        calledNumber: {
+          type: 'string',
+          description: 'Client voice line used for routing',
+          default: input.calledNumber || '+13035550199'
+        },
+        telnyxAssistantId: {
+          type: 'string',
+          description: 'Optional Telnyx assistant ID for routing',
+          default: input.telnyxAssistantId || ''
+        }
+      },
+      required: ['startTime'],
+      additionalProperties: true
+    },
+    null,
+    2
+  );
+}
+
+function buildCancelBodyParameterSchema(input: {
+  companyId: string;
+  calledNumber: string | null;
+  telnyxAssistantId: string | null;
+}) {
+  return JSON.stringify(
+    {
+      type: 'object',
+      properties: {
+        appointmentId: {
+          type: 'string',
+          description: 'Known appointment ID if the caller has one'
+        },
+        phone: {
+          type: 'string',
+          description: 'Caller phone number in E.164 format'
+        },
+        startTime: {
+          type: 'string',
+          description: 'Optional appointment start time if the caller is canceling a specific slot'
+        },
+        reason: {
+          type: 'string',
+          description: 'Optional cancellation reason'
+        },
+        companyId: {
+          type: 'string',
+          description: 'Fix Your Leads client workspace ID',
+          default: input.companyId
+        },
+        calledNumber: {
+          type: 'string',
+          description: 'Client voice line used for routing',
+          default: input.calledNumber || '+13035550199'
+        },
+        telnyxAssistantId: {
+          type: 'string',
+          description: 'Optional Telnyx assistant ID for routing',
+          default: input.telnyxAssistantId || ''
+        }
+      },
+      required: ['phone'],
+      additionalProperties: true
+    },
+    null,
+    2
+  );
+}
+
 function stepTone(isReady: boolean) {
   return isReady ? 'status-chip status-chip-confirmed' : 'status-chip status-chip-muted';
 }
@@ -198,19 +289,36 @@ export default async function ClientConnectionsPage({
   const appBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || null;
   const directVoiceWebhookTarget = voiceState.webhookUrl || (appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/appointments` : '');
   const voiceWebhookTarget = automationState.workflowWebhookUrl || directVoiceWebhookTarget;
+  const availabilityToolUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/check-availability` : '';
+  const bookingToolUrl = voiceWebhookTarget;
+  const cancelToolUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/cancel` : '';
   const voiceWebhookSecret =
     process.env.VOICE_BOOKING_WEBHOOK_SECRET?.trim() ||
     process.env.VOICE_DEMO_WEBHOOK_SECRET?.trim() ||
     process.env.INTERNAL_API_KEY?.trim() ||
     '';
+  const availabilityBodyParameterSchema = buildAvailabilityBodyParameterSchema({
+    companyId: company.id,
+    calledNumber: voiceState.phoneNumber,
+    telnyxAssistantId: company.telnyxAssistantId
+  });
   const telnyxBodyParameterSchema = buildTelnyxBodyParameterSchema({
     companyId: company.id,
     businessName: company.name,
     calledNumber: voiceState.phoneNumber,
     telnyxAssistantId: company.telnyxAssistantId
   });
+  const cancelBodyParameterSchema = buildCancelBodyParameterSchema({
+    companyId: company.id,
+    calledNumber: voiceState.phoneNumber,
+    telnyxAssistantId: company.telnyxAssistantId
+  });
   const telnyxToolName = 'fyl_book_call';
+  const availabilityToolName = 'fyl_check_availability';
+  const cancelToolName = 'fyl_cancel_appointment';
   const telnyxToolDescription = `Book a ${company.name} discovery call after availability is confirmed. Only use this after confirming the slot with the caller.`;
+  const availabilityToolDescription = `Check whether ${company.name} is available for a requested appointment time before offering or booking the slot.`;
+  const cancelToolDescription = `Cancel an existing ${company.name} appointment for the caller when they ask to cancel or reschedule.`;
   const telnyxHeaderName = 'X-Voice-Webhook-Secret';
   const usingN8nWebhook = Boolean(automationState.workflowWebhookUrl);
   const bookingPlatformLabel =
@@ -324,8 +432,8 @@ export default async function ClientConnectionsPage({
           <div className="record-header">
             <div>
               <div className="metric-label">Step 2</div>
-              <h4 className="section-title" style={{ marginBottom: 4 }}>Paste these into Telnyx</h4>
-              <div className="text-muted">Create or update the booking tool in the client's Telnyx assistant with these values.</div>
+              <h4 className="section-title" style={{ marginBottom: 4 }}>Create these 3 Telnyx tools</h4>
+              <div className="text-muted">Telnyx needs one tool for availability, one for booking, and one for canceling.</div>
             </div>
             <span className={stepTone(step2Ready)}>
               <span className={`status-dot ${step2Ready ? 'ok' : 'warn'}`} />
@@ -333,72 +441,120 @@ export default async function ClientConnectionsPage({
             </span>
           </div>
 
-          <CopyableUrlField
-            id="connections-tool-name"
-            label="Tool name"
-            defaultValue={telnyxToolName}
-            fallbackCopyValue={telnyxToolName}
-            copyButtonLabel="Copy"
-            readOnly
-          />
-          <CopyableUrlField
-            id="connections-method"
-            label="Method"
-            defaultValue="POST"
-            fallbackCopyValue="POST"
-            copyButtonLabel="Copy"
-            readOnly
-          />
-          <CopyableUrlField
-            id="connections-webhook-url"
-            label="Tool URL"
-            defaultValue={voiceWebhookTarget}
-            fallbackCopyValue={voiceWebhookTarget}
-            copyButtonLabel="Copy URL"
-            readOnly
-          />
-          <CopyableUrlField
-            id="connections-tool-description"
-            label="Tool description"
-            defaultValue={telnyxToolDescription}
-            fallbackCopyValue={telnyxToolDescription}
-            copyButtonLabel="Copy"
-            readOnly
-          />
+          <div className="panel panel-dark panel-stack">
+            <div className="metric-label">Tool 1 · Check availability</div>
+            <CopyableUrlField
+              id="connections-availability-tool-name"
+              label="Tool name"
+              defaultValue={availabilityToolName}
+              fallbackCopyValue={availabilityToolName}
+              copyButtonLabel="Copy"
+              readOnly
+            />
+            <CopyableUrlField
+              id="connections-availability-tool-url"
+              label="Tool URL"
+              defaultValue={availabilityToolUrl}
+              fallbackCopyValue={availabilityToolUrl}
+              copyButtonLabel="Copy URL"
+              readOnly
+            />
+            <CopyableUrlField
+              id="connections-availability-tool-description"
+              label="Tool description"
+              defaultValue={availabilityToolDescription}
+              fallbackCopyValue={availabilityToolDescription}
+              copyButtonLabel="Copy"
+              readOnly
+            />
+            <CopyableCodeBlock label="Body schema" value={availabilityBodyParameterSchema} copyButtonLabel="Copy JSON" />
+          </div>
 
-          {usingN8nWebhook ? (
-            <div className="text-muted">Headers are not required for the client n8n webhook.</div>
-          ) : (
-            <>
-              <CopyableUrlField
-                id="connections-header-name"
-                label="Header name"
-                defaultValue={telnyxHeaderName}
-                fallbackCopyValue={telnyxHeaderName}
-                copyButtonLabel="Copy"
-                readOnly
-              />
-              <CopyableUrlField
-                id="connections-header-value"
-                label="Header value"
-                defaultValue={voiceWebhookSecret}
-                placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET or INTERNAL_API_KEY in Railway"
-                fallbackCopyValue={voiceWebhookSecret}
-                copyButtonLabel="Copy secret"
-                readOnly
-              />
-            </>
-          )}
+          <div className="panel panel-dark panel-stack">
+            <div className="metric-label">Tool 2 · Book appointment</div>
+            <CopyableUrlField
+              id="connections-book-tool-name"
+              label="Tool name"
+              defaultValue={telnyxToolName}
+              fallbackCopyValue={telnyxToolName}
+              copyButtonLabel="Copy"
+              readOnly
+            />
+            <CopyableUrlField
+              id="connections-book-tool-url"
+              label="Tool URL"
+              defaultValue={bookingToolUrl}
+              fallbackCopyValue={bookingToolUrl}
+              copyButtonLabel="Copy URL"
+              readOnly
+            />
+            <CopyableUrlField
+              id="connections-book-tool-description"
+              label="Tool description"
+              defaultValue={telnyxToolDescription}
+              fallbackCopyValue={telnyxToolDescription}
+              copyButtonLabel="Copy"
+              readOnly
+            />
+            <CopyableCodeBlock label="Body schema" value={telnyxBodyParameterSchema} copyButtonLabel="Copy JSON" />
+          </div>
 
-          <CopyableCodeBlock label="Body schema" value={telnyxBodyParameterSchema} copyButtonLabel="Copy JSON" />
+          <div className="panel panel-dark panel-stack">
+            <div className="metric-label">Tool 3 · Cancel appointment</div>
+            <CopyableUrlField
+              id="connections-cancel-tool-name"
+              label="Tool name"
+              defaultValue={cancelToolName}
+              fallbackCopyValue={cancelToolName}
+              copyButtonLabel="Copy"
+              readOnly
+            />
+            <CopyableUrlField
+              id="connections-cancel-tool-url"
+              label="Tool URL"
+              defaultValue={cancelToolUrl}
+              fallbackCopyValue={cancelToolUrl}
+              copyButtonLabel="Copy URL"
+              readOnly
+            />
+            <CopyableUrlField
+              id="connections-cancel-tool-description"
+              label="Tool description"
+              defaultValue={cancelToolDescription}
+              fallbackCopyValue={cancelToolDescription}
+              copyButtonLabel="Copy"
+              readOnly
+            />
+            <CopyableCodeBlock label="Body schema" value={cancelBodyParameterSchema} copyButtonLabel="Copy JSON" />
+          </div>
+
+          <CopyableUrlField
+            id="connections-header-name"
+            label="Header name"
+            defaultValue={telnyxHeaderName}
+            fallbackCopyValue={telnyxHeaderName}
+            copyButtonLabel="Copy"
+            readOnly
+          />
+          <CopyableUrlField
+            id="connections-header-value"
+            label="Header value"
+            defaultValue={voiceWebhookSecret}
+            placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET or INTERNAL_API_KEY in Railway"
+            fallbackCopyValue={voiceWebhookSecret}
+            copyButtonLabel="Copy secret"
+            readOnly
+          />
+          <div className="text-muted">Use this same header on all 3 Telnyx tools.</div>
+
         </section>
 
         <section className="panel panel-dark panel-stack">
           <div className="record-header">
             <div>
               <div className="metric-label">Step 3</div>
-              <h4 className="section-title" style={{ marginBottom: 4 }}>Connect the real booking system in n8n</h4>
-              <div className="text-muted">Inside the workflow, connect the client's real booking system and keep the writeback URL at the end.</div>
+              <h4 className="section-title" style={{ marginBottom: 4 }}>Connect the provider inside the workflow</h4>
+              <div className="text-muted">Open the workflow and add the real provider step between `Fetch client config` and `Create appointment in Fix Your Leads`.</div>
             </div>
             <span className={stepTone(step3Ready)}>
               <span className={`status-dot ${step3Ready ? 'ok' : 'warn'}`} />
@@ -430,6 +586,9 @@ export default async function ClientConnectionsPage({
             copyButtonLabel="Copy URL"
             readOnly
           />
+          <div className="text-muted">
+            Keep the final `Create appointment in Fix Your Leads` node at the end. Add the client&apos;s real booking node before it.
+          </div>
 
           <div className="action-cluster">
             {automationState.workflowEditorUrl ? (
