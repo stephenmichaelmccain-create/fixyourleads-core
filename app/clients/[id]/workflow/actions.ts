@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { encryptJson } from '@/lib/encrypted-json';
+import { buildN8nEditorUrl } from '@/lib/n8n';
 import { emptyTelnyxSetupState, parseTelnyxSetupPayload } from '@/lib/client-telnyx-setup';
 import { provisionClientAutomation } from '@/services/automation';
 
@@ -300,7 +301,7 @@ export async function saveClientWorkflowAction(formData: FormData) {
     });
   }
 
-  await provisionClientAutomation(companyId, 'workflow_save');
+  const provisionResult = await provisionClientAutomation(companyId, 'workflow_save');
 
   revalidatePath(`/clients/${companyId}`);
   revalidatePath(`/clients/${companyId}/workflow`);
@@ -314,7 +315,15 @@ export async function saveClientWorkflowAction(formData: FormData) {
   revalidatePath(`/bookings?companyId=${companyId}`);
   revalidatePath('/diagnostics/voice');
 
-  redirect(workflowPath(companyId, 'updated'));
+  if (provisionResult.status !== 'FAILED' && provisionResult.workflowId) {
+    const editorUrl = buildN8nEditorUrl(provisionResult.workflowId);
+
+    if (editorUrl) {
+      redirect(editorUrl);
+    }
+  }
+
+  redirect(workflowPath(companyId, provisionResult.status === 'FAILED' ? 'automation_failed' : 'updated'));
 }
 
 export async function retryClientAutomationAction(formData: FormData) {
