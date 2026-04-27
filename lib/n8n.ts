@@ -304,8 +304,14 @@ export async function createN8nWorkflow(workflow: N8nWorkflow) {
 
 export async function updateN8nWorkflow(workflowId: string, payload: Partial<N8nWorkflow> & Record<string, unknown>) {
   return n8nRequest<N8nWorkflow>(`/workflows/${workflowId}`, {
-    method: 'PATCH',
+    method: 'PUT',
     body: JSON.stringify(payload)
+  });
+}
+
+export async function activateN8nWorkflow(workflowId: string) {
+  return n8nRequest<N8nWorkflow>(`/workflows/${workflowId}/activate`, {
+    method: 'POST'
   });
 }
 
@@ -335,7 +341,7 @@ export async function cloneN8nTemplateWorkflow(input: {
   let activationError: string | null = null;
 
   try {
-    activatedWorkflow = await updateN8nWorkflow(workflowId, { active: true });
+    activatedWorkflow = await activateN8nWorkflow(workflowId);
   } catch (error) {
     activationError = error instanceof Error ? error.message : 'n8n_activation_failed';
   }
