@@ -5,6 +5,7 @@ import { CopyableUrlField } from '@/app/clients/[id]/workflow/CopyableUrlField';
 import { retryClientAutomationAction } from '@/app/clients/[id]/workflow/actions';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { emptyClientAutomationState, parseClientAutomationPayload } from '@/lib/client-automation';
+import { emptyClientCalendarSetupState, parseClientCalendarSetupPayload } from '@/lib/client-calendar-setup';
 import { db } from '@/lib/db';
 import { emptyTelnyxSetupState, parseTelnyxSetupPayload } from '@/lib/client-telnyx-setup';
 import { safeLoad } from '@/lib/ui-data';
@@ -176,6 +177,10 @@ function assistantRouteLabel(input: {
   return 'No live destination is ready yet';
 }
 
+function stepTone(isReady: boolean) {
+  return isReady ? 'status-chip status-chip-confirmed' : 'status-chip status-chip-muted';
+}
+
 export default async function ClientConnectionsPage({
   params,
   searchParams
@@ -203,7 +208,7 @@ export default async function ClientConnectionsPage({
     notFound();
   }
 
-  const [latestVoiceSetupEvent, latestAutomationEvent] = await Promise.all([
+  const [latestVoiceSetupEvent, latestAutomationEvent, latestCalendarSetupEvent] = await Promise.all([
     safeLoad(
       () =>
         db.eventLog.findFirst({
@@ -221,6 +226,15 @@ export default async function ClientConnectionsPage({
           select: { payload: true }
         }),
       null
+    ),
+    safeLoad(
+      () =>
+        db.eventLog.findFirst({
+          where: { companyId: id, eventType: 'client_calendar_setup_updated' },
+          orderBy: { createdAt: 'desc' },
+          select: { payload: true }
+        }),
+      null
     )
   ]);
 
@@ -230,6 +244,9 @@ export default async function ClientConnectionsPage({
   const automationState = latestAutomationEvent
     ? parseClientAutomationPayload(latestAutomationEvent.payload)
     : emptyClientAutomationState;
+  const calendarState = latestCalendarSetupEvent
+    ? parseClientCalendarSetupPayload(latestCalendarSetupEvent.payload)
+    : emptyClientCalendarSetupState;
   const automationPresentation = automationStatusPresentation(automationState.status);
 
   const appBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || null;
@@ -255,6 +272,20 @@ export default async function ClientConnectionsPage({
   const telnyxToolDescription = `Book a ${company.name} discovery call after availability is confirmed. Only use this after confirming the slot with the caller.`;
   const telnyxHeaderName = 'X-Voice-Webhook-Secret';
   const usingN8nWebhook = Boolean(automationState.workflowWebhookUrl);
+  const bookingPlatformLabel =
+    calendarState.externalPlatformName ||
+    (calendarState.connectionMode === 'google_calendar'
+      ? 'Google Calendar'
+      : calendarState.connectionMode === 'external_booking'
+        ? 'External booking platform'
+        : null);
+  const step1Ready = Boolean(automationState.workflowActive && voiceWebhookTarget);
+  const step2Ready = Boolean(voiceWebhookTarget);
+  const step3Ready = Boolean(
+    bookingPlatformLabel &&
+      (calendarState.externalPlatformReviewed || calendarState.writebackConfigured || calendarState.googleOauthConnected)
+  );
+  const step4Ready = Boolean(calendarState.syncTestPassed && calendarState.launchApproved);
 
   return (
     <LayoutShell
@@ -295,10 +326,9 @@ export default async function ClientConnectionsPage({
         <div className="record-header">
           <div className="panel-stack">
             <div className="metric-label">Connections</div>
-            <h3 className="section-title">Voice assistant and booking automation</h3>
+            <h3 className="section-title">Set this client up from top to bottom</h3>
             <div className="record-subtitle">
-              This page keeps the full call path together: how Telnyx should hand the booking out of the call and where n8n
-              should send it inside Fix Your Leads.
+              Work down this page in order. When you finish the last step, the client's booking system should be wired and ready for live calls.
             </div>
           </div>
           <span className={automationPresentation.toneClass}>
@@ -307,121 +337,74 @@ export default async function ClientConnectionsPage({
           </span>
         </div>
 
-        <div className="panel-grid integration-page-grid">
-          <section className="metric-card panel-stack">
-            <div className="metric-label">What this page answers</div>
-            <div className="metric-copy">
-              What URL Telnyx should call, which client workflow receives the booking, and how the booking returns to Fix Your Leads.
+        <section className="panel panel-dark panel-stack">
+          <div className="record-header">
+            <div>
+              <div className="metric-label">Step 1</div>
+              <h4 className="section-title" style={{ marginBottom: 4 }}>Make sure the shared workflow is live</h4>
+              <div className="text-muted">This gives the client a dedicated n8n webhook for voice bookings.</div>
             </div>
-          </section>
-          <section className="metric-card panel-stack">
-            <div className="metric-label">Current route</div>
-            <div className="metric-copy">
-              {assistantRouteLabel({ hasN8nWebhook: usingN8nWebhook, hasDirectWebhook: Boolean(directVoiceWebhookTarget) })}
-            </div>
-          </section>
-          <section className="metric-card panel-stack">
-            <div className="metric-label">Operator action</div>
-            <div className="metric-copy">
-              Copy the Telnyx tool settings below, then use the automation section to confirm the client workflow is active.
-            </div>
-          </section>
-        </div>
-
-        <div className="metric-grid">
-          <section className="metric-card panel-stack">
-            <div className="metric-label">Workflow</div>
-            <div className="metric-value" style={{ fontSize: '1rem' }}>
-              {automationState.workflowId ? automationState.workflowId.slice(-10) : '—'}
-            </div>
-            <div className="metric-copy">{automationState.workflowName || 'No n8n workflow has been provisioned yet.'}</div>
-          </section>
-          <section className="metric-card panel-stack">
-            <div className="metric-label">Tool destination</div>
-            <div className="metric-value" style={{ fontSize: '1rem' }}>
-              {usingN8nWebhook ? 'n8n webhook' : 'Direct app fallback'}
-            </div>
-            <div className="metric-copy">
-              {voiceWebhookTarget || 'No live destination is configured yet.'}
-            </div>
-          </section>
-          <section className="metric-card panel-stack">
-            <div className="metric-label">Last sync</div>
-            <div className="metric-value" style={{ fontSize: '1rem' }}>
-              {automationState.updatedAt ? new Date(automationState.updatedAt).toLocaleString() : '—'}
-            </div>
-            <div className="metric-copy">{automationState.notes || 'No connection notes yet.'}</div>
-          </section>
-        </div>
-
-        <div className="panel panel-dark panel-stack">
-          <div className="metric-label">What happens on a live call</div>
-          <div className="status-list">
-            <div className="status-item">
-              <span className="status-label">
-                <span className={`status-dot ${voiceWebhookTarget ? 'ok' : 'warn'}`} />
-                1. Telnyx tool sends the booking request
-              </span>
-              <span className="text-muted">
-                {voiceWebhookTarget || 'No live destination is configured yet.'}
-              </span>
-            </div>
-            <div className="status-item">
-              <span className="status-label">
-                <span className={`status-dot ${automationState.configUrl ? 'ok' : 'warn'}`} />
-                2. n8n loads the client config
-              </span>
-              <span className="text-muted">
-                {automationState.configUrl || 'Client config URL is missing.'}
-              </span>
-            </div>
-            <div className="status-item">
-              <span className="status-label">
-                <span className={`status-dot ${automationState.bookingCreateUrl ? 'ok' : 'warn'}`} />
-                3. Fix Your Leads writes the booking
-              </span>
-              <span className="text-muted">
-                {automationState.bookingCreateUrl || 'Booking writeback URL is missing.'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="status-list">
-          <div className="status-item">
-            <span className="status-label">
-              <span className={`status-dot ${usingN8nWebhook ? 'ok' : 'warn'}`} />
-              Recommended mode
-            </span>
-            <span className="text-muted">
-              {usingN8nWebhook
-                ? 'Telnyx should call the client-specific n8n webhook. n8n then loads client config and writes the booking back into Fix Your Leads.'
-                : 'The client does not have a live n8n webhook yet, so the tool is falling back to the direct app booking webhook.'}
+            <span className={stepTone(step1Ready)}>
+              <span className={`status-dot ${step1Ready ? 'ok' : 'warn'}`} />
+              {step1Ready ? 'Done' : 'Do this first'}
             </span>
           </div>
-          <div className="status-item">
-            <span className="status-label">
-              <span className={`status-dot ${automationState.workflowActive ? 'ok' : 'warn'}`} />
-              Workflow activation
-            </span>
-            <span className="text-muted">
-              {automationState.workflowActive ? 'Workflow is marked active in n8n.' : 'Workflow is not active yet or still needs a manual check.'}
-            </span>
+          <div className="metric-grid">
+            <section className="metric-card panel-stack">
+              <div className="metric-label">Workflow</div>
+              <div className="metric-value" style={{ fontSize: '1rem' }}>
+                {automationState.workflowId ? automationState.workflowId.slice(-10) : '—'}
+              </div>
+              <div className="metric-copy">{automationState.workflowName || 'No n8n workflow has been provisioned yet.'}</div>
+            </section>
+            <section className="metric-card panel-stack">
+              <div className="metric-label">Status</div>
+              <div className="metric-value" style={{ fontSize: '1rem' }}>
+                {automationState.workflowActive ? 'Active' : 'Not active'}
+              </div>
+              <div className="metric-copy">
+                {automationState.lastSuccessAt
+                  ? `${new Date(automationState.lastSuccessAt).toLocaleString()} · ${formatAttemptLabel(automationState.source)}`
+                  : formatAttemptLabel(automationState.source)}
+              </div>
+            </section>
+            <section className="metric-card panel-stack">
+              <div className="metric-label">Webhook route</div>
+              <div className="metric-value" style={{ fontSize: '1rem' }}>
+                {usingN8nWebhook ? 'Client n8n webhook' : 'Direct fallback'}
+              </div>
+              <div className="metric-copy">{assistantRouteLabel({ hasN8nWebhook: usingN8nWebhook, hasDirectWebhook: Boolean(directVoiceWebhookTarget) })}</div>
+            </section>
           </div>
-          <div className="status-item">
-            <span className="status-label">
-              <span className={`status-dot ${automationState.lastSuccessAt ? 'ok' : 'warn'}`} />
-              Last successful run
-            </span>
-            <span className="text-muted">
-              {automationState.lastSuccessAt
-                ? `${new Date(automationState.lastSuccessAt).toLocaleString()} · ${formatAttemptLabel(automationState.source)}`
-                : formatAttemptLabel(automationState.source)}
-            </span>
+          <div className="action-cluster">
+            {automationState.workflowEditorUrl ? (
+              <a className="button-secondary" href={automationState.workflowEditorUrl} target="_blank" rel="noreferrer">
+                Open in n8n
+              </a>
+            ) : null}
+            <form action={retryClientAutomationAction}>
+              <input type="hidden" name="companyId" value={company.id} />
+              <button type="submit" className="button-ghost">
+                Retry provisioning
+              </button>
+            </form>
           </div>
-        </div>
+        </section>
 
-        <div className="telnyx-editor-shell">
+        <section className="panel panel-dark panel-stack">
+          <div className="record-header">
+            <div>
+              <div className="metric-label">Step 2</div>
+              <h4 className="section-title" style={{ marginBottom: 4 }}>Paste this into the Telnyx booking tool</h4>
+              <div className="text-muted">Copy these values into the client's voice assistant so calls send structured bookings into the right destination.</div>
+            </div>
+            <span className={stepTone(step2Ready)}>
+              <span className={`status-dot ${step2Ready ? 'ok' : 'warn'}`} />
+              {step2Ready ? 'Ready to paste' : 'Missing destination'}
+            </span>
+          </div>
+
+          <div className="telnyx-editor-shell">
           <div className="telnyx-editor-grid">
             <CopyableUrlField
               id="connections-tool-name"
@@ -534,43 +517,117 @@ export default async function ClientConnectionsPage({
             <CopyableCodeBlock label="Body parameter schema" value={telnyxBodyParameterSchema} copyButtonLabel="Copy JSON" />
             <CopyableCodeBlock label="Example request body" value={voiceWebhookExamplePayload} copyButtonLabel="Copy example" />
           </div>
-        </div>
+          </div>
+        </section>
 
-        <div className="panel-grid integration-page-grid">
-          <section className="panel panel-dark panel-stack">
-            <div className="metric-label">Automation endpoints</div>
-            <CopyableUrlField
-              id="connections-config-url"
-              label="Client config endpoint"
-              defaultValue={automationState.configUrl ?? undefined}
-              fallbackCopyValue={automationState.configUrl ?? undefined}
-              copyButtonLabel="Copy URL"
-              readOnly
-            />
-            <CopyableUrlField
-              id="connections-booking-writeback"
-              label="Booking writeback"
-              defaultValue={automationState.bookingCreateUrl ?? undefined}
-              fallbackCopyValue={automationState.bookingCreateUrl ?? undefined}
-              copyButtonLabel="Copy URL"
-              readOnly
-            />
-          </section>
-          <section className="panel panel-dark panel-stack">
-            <div className="metric-label">Direct app fallback</div>
-            <div className="text-muted">
-              Keep this only as a backup. It bypasses the client n8n workflow and sends bookings straight into Fix Your Leads.
+        <section className="panel panel-dark panel-stack">
+          <div className="record-header">
+            <div>
+              <div className="metric-label">Step 3</div>
+              <h4 className="section-title" style={{ marginBottom: 4 }}>Connect the client's real booking system in n8n</h4>
+              <div className="text-muted">Open the workflow, add the provider branch or credentials, and make sure the booking writes back into Fix Your Leads.</div>
             </div>
-            <CopyableUrlField
-              id="connections-direct-fallback-url"
-              label="Fallback URL"
-              defaultValue={directVoiceWebhookTarget}
-              fallbackCopyValue={directVoiceWebhookTarget}
-              copyButtonLabel="Copy URL"
-              readOnly
-            />
-          </section>
-        </div>
+            <span className={stepTone(step3Ready)}>
+              <span className={`status-dot ${step3Ready ? 'ok' : 'warn'}`} />
+              {step3Ready ? 'In progress' : 'Needs provider setup'}
+            </span>
+          </div>
+          <div className="metric-grid">
+            <section className="metric-card panel-stack">
+              <div className="metric-label">Booking platform</div>
+              <div className="metric-value" style={{ fontSize: '1rem' }}>
+                {bookingPlatformLabel || 'Not chosen'}
+              </div>
+              <div className="metric-copy">
+                {calendarState.connectionMode
+                  ? `Connection mode: ${calendarState.connectionMode.replace(/_/g, ' ')}`
+                  : 'Choose the provider and save its connection details from the client setup flow.'}
+              </div>
+            </section>
+            <section className="metric-card panel-stack">
+              <div className="metric-label">Client config endpoint</div>
+              <div className="metric-copy">
+                n8n loads the client settings from this endpoint before writing the booking back.
+              </div>
+              <CopyableUrlField
+                id="connections-config-url"
+                label="Config URL"
+                defaultValue={automationState.configUrl ?? undefined}
+                fallbackCopyValue={automationState.configUrl ?? undefined}
+                copyButtonLabel="Copy URL"
+                readOnly
+              />
+            </section>
+            <section className="metric-card panel-stack">
+              <div className="metric-label">Booking writeback</div>
+              <div className="metric-copy">
+                Keep this connected at the end of the workflow so successful bookings land in Fix Your Leads.
+              </div>
+              <CopyableUrlField
+                id="connections-booking-writeback"
+                label="Writeback URL"
+                defaultValue={automationState.bookingCreateUrl ?? undefined}
+                fallbackCopyValue={automationState.bookingCreateUrl ?? undefined}
+                copyButtonLabel="Copy URL"
+                readOnly
+              />
+            </section>
+          </div>
+          {calendarState.externalPlatformUrl ? (
+            <a className="button-ghost" href={calendarState.externalPlatformUrl} target="_blank" rel="noreferrer">
+              Open booking system
+            </a>
+          ) : null}
+        </section>
+
+        <section className="panel panel-dark panel-stack">
+          <div className="record-header">
+            <div>
+              <div className="metric-label">Step 4</div>
+              <h4 className="section-title" style={{ marginBottom: 4 }}>Test one real booking and mark it ready</h4>
+              <div className="text-muted">Run a test call or website booking, then confirm the booking appears in the client's real system and in Fix Your Leads.</div>
+            </div>
+            <span className={stepTone(step4Ready)}>
+              <span className={`status-dot ${step4Ready ? 'ok' : 'warn'}`} />
+              {step4Ready ? 'Connected and working' : 'Still needs a test'}
+            </span>
+          </div>
+          <div className="status-list">
+            <div className="status-item">
+              <span className="status-label">
+                <span className={`status-dot ${calendarState.writebackConfigured ? 'ok' : 'warn'}`} />
+                Writeback configured
+              </span>
+              <span className="text-muted">
+                {calendarState.writebackConfigured
+                  ? 'The provider workflow is set to send the final booking back into Fix Your Leads.'
+                  : 'Finish the writeback step inside n8n before launch.'}
+              </span>
+            </div>
+            <div className="status-item">
+              <span className="status-label">
+                <span className={`status-dot ${calendarState.syncTestPassed ? 'ok' : 'warn'}`} />
+                Test passed
+              </span>
+              <span className="text-muted">
+                {calendarState.syncTestPassed
+                  ? 'A test booking has already been confirmed.'
+                  : 'Place one test booking and confirm it lands in both the provider and Fix Your Leads.'}
+              </span>
+            </div>
+            <div className="status-item">
+              <span className="status-label">
+                <span className={`status-dot ${calendarState.launchApproved ? 'ok' : 'warn'}`} />
+                Launch approved
+              </span>
+              <span className="text-muted">
+                {calendarState.launchApproved
+                  ? 'This client is marked ready for live traffic.'
+                  : 'Mark launch approved after the test booking is clean.'}
+              </span>
+            </div>
+          </div>
+        </section>
 
         {automationState.lastError ? (
           <div className="panel panel-dark panel-stack">
@@ -579,24 +636,25 @@ export default async function ClientConnectionsPage({
           </div>
         ) : null}
 
-        <div className="action-cluster">
-          {automationState.workflowEditorUrl ? (
-            <a className="button-secondary" href={automationState.workflowEditorUrl} target="_blank" rel="noreferrer">
-              Open in n8n
-            </a>
-          ) : null}
+        <section className="panel panel-dark panel-stack">
+          <div className="metric-label">Backup tools</div>
+          <div className="text-muted">
+            Use these only if you need to inspect the raw wiring or fall back temporarily while you finish the provider setup.
+          </div>
+          <CopyableUrlField
+            id="connections-direct-fallback-url"
+            label="Direct app fallback"
+            defaultValue={directVoiceWebhookTarget}
+            fallbackCopyValue={directVoiceWebhookTarget}
+            copyButtonLabel="Copy URL"
+            readOnly
+          />
           {automationState.configUrl ? (
             <a className="button-ghost" href={automationState.configUrl} target="_blank" rel="noreferrer">
               Open config endpoint
             </a>
           ) : null}
-          <form action={retryClientAutomationAction}>
-            <input type="hidden" name="companyId" value={company.id} />
-            <button type="submit" className="button-ghost">
-              Retry provisioning
-            </button>
-          </form>
-        </div>
+        </section>
       </section>
     </LayoutShell>
   );
