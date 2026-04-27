@@ -44,6 +44,20 @@ function internalBookingCreateUrl() {
   return baseUrl ? `${baseUrl}/api/internal/bookings/create` : null;
 }
 
+function voiceAppointmentsWebhookUrl() {
+  const baseUrl = appBaseUrl();
+  return baseUrl ? `${baseUrl}/api/webhooks/voice/appointments` : null;
+}
+
+function configuredVoiceWebhookSecret() {
+  return (
+    String(process.env.VOICE_BOOKING_WEBHOOK_SECRET || '').trim() ||
+    String(process.env.VOICE_DEMO_WEBHOOK_SECRET || '').trim() ||
+    String(process.env.INTERNAL_API_KEY || '').trim() ||
+    null
+  );
+}
+
 function defaultWorkflowName(companyName: string) {
   return `${companyName} booking automation`;
 }
@@ -482,11 +496,14 @@ export async function automationClientConfig(companyId: string) {
     automation: automationState,
     endpoints: {
       bookingCreateUrl: internalBookingCreateUrl(),
-      clientConfigUrl: automationConfigUrl(company.id)
+      clientConfigUrl: automationConfigUrl(company.id),
+      voiceAppointmentsWebhookUrl: voiceAppointmentsWebhookUrl()
     },
     auth: {
       headerName: 'x-api-key',
-      internalApiKey: String(process.env.INTERNAL_API_KEY || '').trim() || null
+      internalApiKey: String(process.env.INTERNAL_API_KEY || '').trim() || null,
+      voiceWebhookHeaderName: 'x-voice-webhook-secret',
+      voiceWebhookSecret: configuredVoiceWebhookSecret()
     }
   };
 }

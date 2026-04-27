@@ -1,0 +1,103 @@
+{
+  "name": "FYL Shared Booking Template",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "__FYL_WEBHOOK_PATH__",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "Webhook_Receive",
+      "name": "Receive booking payload",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "__FYL_CONFIG_URL__",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-automation-secret",
+              "value": "__FYL_AUTOMATION_SECRET__"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "HTTP_Config",
+      "name": "Fetch client config",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Fetch client config').item.json.config.endpoints.voiceAppointmentsWebhookUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-voice-webhook-secret",
+              "value": "={{ $('Fetch client config').item.json.config.auth.voiceWebhookSecret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ phone: $json.phone || $json.phone_number || $json.caller_phone || $json.contact_phone, startTime: $json.startTime || $json.start_time || $json.appointment_time || $json.scheduled_for || $json.booking_time, fullName: $json.fullName || $json.full_name || $json.name || $json.caller_name || $json.contact_name, email: $json.email || $json.email_address || $json.caller_email || $json.contact_email, purpose: $json.purpose || $json.service || $json.appointment_type || $json.appointmentType, meetingUrl: $json.meetingUrl || $json.meeting_url || $json.google_meet_url || $json.googleMeetUrl, displayCompanyName: $json.displayCompanyName || $json.display_company_name || $('Fetch client config').item.json.config.company.name, notes: $json.notes || $json.summary || $json.booking_notes, companyId: $('Fetch client config').item.json.config.company.id, telnyxAssistantId: $json.telnyxAssistantId || $json.telnyx_assistant_id || $('Fetch client config').item.json.config.telnyx.telnyxAssistantId, calledNumber: $json.calledNumber || $json.called_number || $json.to || $json.to_number || $('Fetch client config').item.json.config.telnyx.calledNumber, callId: $json.callId || $json.call_id || $json.telnyx_call_control_id || $json.call_control_id, recordingUrl: $json.recordingUrl || $json.recording_url, transcriptUrl: $json.transcriptUrl || $json.transcript_url, transcriptText: $json.transcriptText || $json.transcript_text || $json.transcript, sourceProspectId: $json.sourceProspectId || $json.source_prospect_id || $json.prospectId || $json.prospect_id }) }}",
+        "options": {}
+      },
+      "id": "HTTP_Book",
+      "name": "Create appointment in Fix Your Leads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Receive booking payload": {
+      "main": [
+        [
+          {
+            "node": "Fetch client config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch client config": {
+      "main": [
+        [
+          {
+            "node": "Create appointment in Fix Your Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "fylTemplate": "shared-booking"
+  },
+  "versionId": "fyl-shared-booking-template"
+}

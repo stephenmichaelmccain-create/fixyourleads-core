@@ -325,6 +325,15 @@ export default async function ClientWorkflowPage({
               {automationState.bookingCreateUrl || 'INTERNAL_API_KEY and APP_BASE_URL are required so n8n can call back into booking creation.'}
             </span>
           </div>
+          <div className="status-item">
+            <span className="status-label">
+              <span className={`status-dot ${voiceWebhookTarget ? 'ok' : 'warn'}`} />
+              Voice booking endpoint
+            </span>
+            <span className="text-muted">
+              {voiceWebhookTarget || 'APP_BASE_URL is required so n8n can post finalized booking payloads back into the app.'}
+            </span>
+          </div>
         </div>
 
         {automationState.lastError ? (

@@ -43,6 +43,7 @@ Use this app for the workflow layer:
 - `docs/PROJECT_STATUS.md` for the current handoff and deploy state
 - `docs/MINIMUM_PRODUCTION_WORKFLOW.md` for the narrow product target
 - `docs/NEW_CHAT_PROMPT.md` for a paste-ready fresh-chat brief
+- `docs/N8N_AUTOMATION_SETUP.md` for the shared n8n provisioning flow
 
 ## Stack
 - Next.js
@@ -81,6 +82,19 @@ These are recommended for observability, but the app still runs without them:
 This is recommended for protected client status links:
 
 - CLIENT_VIEW_SECRET
+
+These are needed if you want the app to provision shared n8n workflows when a client is approved:
+
+- N8N_BASE_URL
+- N8N_API_KEY
+- N8N_TEMPLATE_BOOKING_WORKFLOW_ID
+- AUTOMATION_SHARED_SECRET
+
+Optional if your editor or webhook domain differs from the main n8n domain:
+
+- N8N_EDITOR_BASE_URL
+- N8N_WEBHOOK_BASE_URL
+- N8N_API_BASE_URL
 
 ## Local bootstrap
 Run `npm run env:bootstrap` from the repo root to generate `.env.local` from
