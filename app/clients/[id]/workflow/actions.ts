@@ -108,9 +108,13 @@ export async function saveClientWorkflowAction(formData: FormData) {
   const automationUrl = optionalText(formData.get('automationUrl')) || defaultWorkflowUrl(companyId);
 
   const bookingPlatformName = optionalText(formData.get('bookingPlatformName'));
+  const bookingPlatformUrl = optionalText(formData.get('bookingPlatformUrl'));
   const bookingPlatformId = optionalText(formData.get('bookingPlatformId'));
   const bookingApiKey = optionalText(formData.get('bookingApiKey'));
   const bookingSecondaryKey = optionalText(formData.get('bookingSecondaryKey'));
+  const secondaryPlatformName = optionalText(formData.get('secondaryPlatformName'));
+  const secondaryPlatformUrl = optionalText(formData.get('secondaryPlatformUrl'));
+  const secondaryPlatformId = optionalText(formData.get('secondaryPlatformId'));
 
   const [company, latestVoiceSetupEvent, latestBookingSetupEvent, latestCrmSetupEvent] = await Promise.all([
     db.company.findUnique({
@@ -234,10 +238,31 @@ export async function saveClientWorkflowAction(formData: FormData) {
   }
 
   const shouldWriteBookingSetup = Boolean(
-    latestBookingSetupEvent || bookingPlatformName || bookingPlatformId || bookingApiKey || bookingSecondaryKey
+    latestBookingSetupEvent ||
+      bookingPlatformName ||
+      bookingPlatformUrl ||
+      bookingPlatformId ||
+      bookingApiKey ||
+      bookingSecondaryKey ||
+      secondaryPlatformName ||
+      secondaryPlatformUrl ||
+      secondaryPlatformId
   );
 
   if (shouldWriteBookingSetup) {
+    const previousPlatformName =
+      typeof existingBookingPayload.externalPlatformName === 'string'
+        ? existingBookingPayload.externalPlatformName
+        : null;
+    const previousPlatformUrl =
+      typeof existingBookingPayload.externalPlatformUrl === 'string'
+        ? existingBookingPayload.externalPlatformUrl
+        : null;
+    const previousPlatformId =
+      typeof existingBookingPayload.externalCalendarId === 'string'
+        ? existingBookingPayload.externalCalendarId
+        : null;
+
     await db.eventLog.create({
       data: {
         companyId,
@@ -245,14 +270,30 @@ export async function saveClientWorkflowAction(formData: FormData) {
         payload: {
           ...existingBookingPayload,
           connectionMode:
-            bookingPlatformName || bookingPlatformId || bookingCredentialsEncrypted
+            bookingPlatformName || bookingPlatformUrl || bookingPlatformId || bookingCredentialsEncrypted
               ? 'external_booking'
               : typeof existingBookingPayload.connectionMode === 'string'
                 ? existingBookingPayload.connectionMode
                 : null,
-          externalPlatformName: bookingPlatformName,
-          externalCalendarId: bookingPlatformId,
+          externalPlatformName: bookingPlatformName || previousPlatformName,
+          externalPlatformUrl: bookingPlatformUrl || previousPlatformUrl,
+          externalCalendarId: bookingPlatformId || previousPlatformId,
           externalPlatformCredentialsEncrypted: bookingCredentialsEncrypted,
+          secondaryPlatformName:
+            secondaryPlatformName ||
+            (typeof existingBookingPayload.secondaryPlatformName === 'string'
+              ? existingBookingPayload.secondaryPlatformName
+              : null),
+          secondaryPlatformUrl:
+            secondaryPlatformUrl ||
+            (typeof existingBookingPayload.secondaryPlatformUrl === 'string'
+              ? existingBookingPayload.secondaryPlatformUrl
+              : null),
+          secondaryPlatformId:
+            secondaryPlatformId ||
+            (typeof existingBookingPayload.secondaryPlatformId === 'string'
+              ? existingBookingPayload.secondaryPlatformId
+              : null),
           updatedAt: new Date().toISOString()
         }
       }

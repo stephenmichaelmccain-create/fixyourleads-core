@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
 import { CopyableCodeBlock } from '@/app/clients/[id]/workflow/CopyableCodeBlock';
 import { CopyableUrlField } from '@/app/clients/[id]/workflow/CopyableUrlField';
-import { retryClientAutomationAction } from '@/app/clients/[id]/workflow/actions';
+import { retryClientAutomationAction, saveClientWorkflowAction } from '@/app/clients/[id]/workflow/actions';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { emptyClientAutomationState, parseClientAutomationPayload } from '@/lib/client-automation';
 import { emptyClientCalendarSetupState, parseClientCalendarSetupPayload } from '@/lib/client-calendar-setup';
@@ -218,6 +218,59 @@ function stepTone(isReady: boolean) {
   return isReady ? 'status-chip status-chip-confirmed' : 'status-chip status-chip-muted';
 }
 
+function payloadRecord(payload: unknown) {
+  return payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : {};
+}
+
+function payloadString(payload: unknown, key: string) {
+  const value = payloadRecord(payload)[key];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function connectionStage(input: {
+  platformConfigured: boolean;
+  workflowReady: boolean;
+  testPassed: boolean;
+}) {
+  if (input.testPassed) {
+    return {
+      label: 'Live and tested',
+      title: 'Live and tested.',
+      detail: 'The booking system, n8n workflow, and voice path have a confirmed test.',
+      toneClass: 'status-chip status-chip-confirmed',
+      dot: 'ok'
+    };
+  }
+
+  if (input.workflowReady) {
+    return {
+      label: 'Test booking needed',
+      title: 'MCP workflow ready.',
+      detail: 'Connect the Telnyx assistant to the n8n MCP server URL, then run one real booking test.',
+      toneClass: 'status-chip status-chip-muted',
+      dot: 'warn'
+    };
+  }
+
+  if (input.platformConfigured) {
+    return {
+      label: 'Ready to launch',
+      title: 'Booking system saved.',
+      detail: 'Launch the n8n MCP workflow, then connect the assistant in Telnyx.',
+      toneClass: 'status-chip status-chip-muted',
+      dot: 'warn'
+    };
+  }
+
+  return {
+    label: 'Needs setup',
+    title: 'Choose the booking system.',
+    detail: 'Pick where appointments actually live, then launch the n8n MCP connection.',
+    toneClass: 'status-chip status-chip-muted',
+    dot: 'warn'
+  };
+}
+
 export default async function ClientConnectionsPage({
   params,
   searchParams
@@ -235,6 +288,8 @@ export default async function ClientConnectionsPage({
         select: {
           id: true,
           name: true,
+          crmProvider: true,
+          telnyxInboundNumber: true,
           telnyxAssistantId: true
         }
       }),
@@ -285,10 +340,14 @@ export default async function ClientConnectionsPage({
     ? parseClientCalendarSetupPayload(latestCalendarSetupEvent.payload)
     : emptyClientCalendarSetupState;
   const automationPresentation = automationStatusPresentation(automationState.status);
+  const latestCalendarPayload = latestCalendarSetupEvent?.payload;
+  const bookingCredentialsSaved = Boolean(payloadString(latestCalendarPayload, 'externalPlatformCredentialsEncrypted'));
+  const secondaryPlatformName = payloadString(latestCalendarPayload, 'secondaryPlatformName');
+  const secondaryPlatformUrl = payloadString(latestCalendarPayload, 'secondaryPlatformUrl');
+  const secondaryPlatformId = payloadString(latestCalendarPayload, 'secondaryPlatformId');
 
   const appBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || null;
   const directVoiceWebhookTarget = voiceState.webhookUrl || (appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/appointments` : '');
-  const voiceWebhookTarget = automationState.workflowWebhookUrl || directVoiceWebhookTarget;
   const availabilityToolUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/check-availability` : '';
   const cancelToolUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/cancel` : '';
   const voiceWebhookSecret =
@@ -316,9 +375,6 @@ export default async function ClientConnectionsPage({
   const availabilityToolName = 'check_availability';
   const bookingToolName = 'book_appointment';
   const cancelToolName = 'cancel_appointment';
-  const availabilityToolDescription = `Check whether ${company.name} is available for the requested time before you offer or book that slot.`;
-  const bookingToolDescription = `Book a live appointment for ${company.name}. If a real provider must be updated first, do that inside n8n and then write the confirmed booking back into Fix Your Leads.`;
-  const cancelToolDescription = `Cancel an existing ${company.name} appointment when the caller asks to cancel or reschedule.`;
   const telnyxHeaderName = 'X-Voice-Webhook-Secret';
   const mcpAllowedTools = JSON.stringify([availabilityToolName, bookingToolName, cancelToolName], null, 2);
   const bookingPlatformLabel =
@@ -328,10 +384,16 @@ export default async function ClientConnectionsPage({
       : calendarState.connectionMode === 'external_booking'
         ? 'External booking platform'
         : null);
-  const step1Ready = Boolean(automationState.workflowActive && voiceWebhookTarget);
-  const step2Ready = Boolean(automationState.workflowEditorUrl);
-  const step3Ready = Boolean(bookingPlatformLabel && automationState.bookingCreateUrl);
-  const step4Ready = Boolean(calendarState.syncTestPassed && calendarState.launchApproved);
+  const platformConfigured = Boolean(bookingPlatformLabel || calendarState.externalPlatformUrl || bookingCredentialsSaved);
+  const workflowReady = Boolean(automationState.workflowActive && automationState.workflowEditorUrl);
+  const telnyxReady = Boolean(workflowReady && automationState.workflowEditorUrl);
+  const testReady = Boolean(calendarState.syncTestPassed && calendarState.launchApproved);
+  const stage = connectionStage({
+    platformConfigured,
+    workflowReady,
+    testPassed: testReady
+  });
+  const calledNumber = voiceState.phoneNumber || company.telnyxInboundNumber || '';
 
   return (
     <LayoutShell
@@ -349,18 +411,18 @@ export default async function ClientConnectionsPage({
           <div className="metric-label">Connections update</div>
           <h2 className="section-title" style={{ marginBottom: 4 }}>
             {query.notice === 'updated'
-              ? 'Connection settings saved.'
+              ? 'Connection setup saved.'
               : query.notice === 'automation_ready'
-                ? 'Connections are live.'
+                ? 'MCP workflow ready.'
                 : query.notice === 'automation_attention'
-                  ? 'Connections need one more check.'
+                  ? 'MCP workflow needs one more check.'
                   : 'Connection setup failed.'}
           </h2>
           <div className="text-muted">
             {query.notice === 'updated'
-              ? 'The latest voice wiring and booking automation settings were saved.'
+              ? 'The booking system was saved and the n8n workflow was updated.'
               : query.notice === 'automation_ready'
-                ? 'The client workflow is active and ready for the next step.'
+                ? 'The client workflow is active. Connect Telnyx to the n8n MCP server URL, then run one test booking.'
                 : query.notice === 'automation_attention'
                   ? automationState.lastError || 'Something still needs a manual check in n8n or Railway.'
                   : automationState.lastError || 'Provisioning failed. Review the error below and retry after fixing the blocker.'}
@@ -368,290 +430,310 @@ export default async function ClientConnectionsPage({
         </section>
       ) : null}
 
-      <section className="panel panel-stack telnyx-page-panel">
+      <section className="panel panel-stack telnyx-page-panel connections-launch-panel">
         <div className="record-header">
           <div className="panel-stack">
             <div className="metric-label">Connections</div>
-            <h3 className="section-title">Step-by-step setup</h3>
-            <div className="record-subtitle">
-              Follow these steps in order. When Step 4 is done, the client's booking system should be connected and working.
-            </div>
+            <h3 className="section-title">{stage.title}</h3>
+            <div className="record-subtitle">{stage.detail}</div>
           </div>
-          <span className={automationPresentation.toneClass}>
-            <span className={`status-dot ${automationPresentation.dot}`} />
-            {automationPresentation.label}
+          <span className={stage.toneClass}>
+            <span className={`status-dot ${stage.dot}`} />
+            {stage.label}
           </span>
         </div>
 
-        <section className="panel panel-dark panel-stack">
-          <div className="record-header">
-            <div>
-              <div className="metric-label">Step 1</div>
-              <h4 className="section-title" style={{ marginBottom: 4 }}>Get the client workflow live</h4>
-              <div className="text-muted">Do not continue until the workflow is active.</div>
-            </div>
-            <span className={stepTone(step1Ready)}>
-              <span className={`status-dot ${step1Ready ? 'ok' : 'warn'}`} />
-              {step1Ready ? 'Done' : 'Do this first'}
-            </span>
-          </div>
+        <form action={saveClientWorkflowAction} className="connections-flow">
+          <input type="hidden" name="companyId" value={company.id} />
+          <input type="hidden" name="crmProvider" value={company.crmProvider} />
+          <input type="hidden" name="voiceLine" value={calledNumber} />
+          <input type="hidden" name="webhookUrl" value={voiceState.webhookUrl || directVoiceWebhookTarget} />
 
-          <div className="status-list">
-            <div className="status-item">
-              <span className="status-label">
-                <span className={`status-dot ${automationState.workflowActive ? 'ok' : 'warn'}`} />
-                Workflow
-              </span>
-              <span className="text-muted">{automationState.workflowName || 'No workflow provisioned yet.'}</span>
+          <section className="connections-step">
+            <div className="connections-step-number">1</div>
+            <div className="connections-step-body">
+              <div className="connections-step-head">
+                <div>
+                  <h4 className="section-title">Choose system</h4>
+                  <div className="tiny-muted">Where availability, booking, and cancellation actually happen.</div>
+                </div>
+                <span className={stepTone(platformConfigured)}>
+                  <span className={`status-dot ${platformConfigured ? 'ok' : 'warn'}`} />
+                  {platformConfigured ? 'Saved' : 'Needed'}
+                </span>
+              </div>
+              <div className="workspace-filter-row">
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="connections-booking-platform">
+                    Primary platform
+                  </label>
+                  <input
+                    id="connections-booking-platform"
+                    className="text-input"
+                    name="bookingPlatformName"
+                    defaultValue={bookingPlatformLabel || ''}
+                    list="booking-platform-options"
+                    placeholder="Jane, GoHighLevel, Calendly, Google Calendar..."
+                  />
+                  <datalist id="booking-platform-options">
+                    <option value="GoHighLevel" />
+                    <option value="Google Calendar" />
+                    <option value="Calendly" />
+                    <option value="Jane App" />
+                    <option value="Vagaro" />
+                    <option value="Boulevard" />
+                    <option value="Acuity" />
+                    <option value="Square Appointments" />
+                    <option value="HubSpot" />
+                    <option value="Salesforce" />
+                    <option value="Other / custom" />
+                  </datalist>
+                </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="connections-booking-url">
+                    Platform URL
+                  </label>
+                  <input
+                    id="connections-booking-url"
+                    className="text-input"
+                    name="bookingPlatformUrl"
+                    defaultValue={calendarState.externalPlatformUrl || ''}
+                    placeholder="https://..."
+                  />
+                </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="connections-booking-id">
+                    Calendar or location ID
+                  </label>
+                  <input
+                    id="connections-booking-id"
+                    className="text-input"
+                    name="bookingPlatformId"
+                    defaultValue={calendarState.externalCalendarId || ''}
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <div className="workspace-filter-row">
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="connections-booking-key">
+                    API key or token
+                  </label>
+                  <input
+                    id="connections-booking-key"
+                    className="text-input"
+                    name="bookingApiKey"
+                    type="password"
+                    placeholder={bookingCredentialsSaved ? 'Saved. Enter a new key only to replace it.' : 'Paste key if needed'}
+                  />
+                </div>
+                <div className="field-stack">
+                  <label className="key-value-label" htmlFor="connections-booking-secret">
+                    Secret or second key
+                  </label>
+                  <input
+                    id="connections-booking-secret"
+                    className="text-input"
+                    name="bookingSecondaryKey"
+                    type="password"
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <details className="connections-secondary">
+                <summary className="details-summary">Secondary system</summary>
+                <div className="workspace-filter-row">
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="connections-secondary-platform">
+                      Secondary platform
+                    </label>
+                    <input
+                      id="connections-secondary-platform"
+                      className="text-input"
+                      name="secondaryPlatformName"
+                      defaultValue={secondaryPlatformName}
+                      placeholder="Optional CRM or backup calendar"
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="connections-secondary-url">
+                      Secondary URL
+                    </label>
+                    <input
+                      id="connections-secondary-url"
+                      className="text-input"
+                      name="secondaryPlatformUrl"
+                      defaultValue={secondaryPlatformUrl}
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div className="field-stack">
+                    <label className="key-value-label" htmlFor="connections-secondary-id">
+                      Secondary ID
+                    </label>
+                    <input
+                      id="connections-secondary-id"
+                      className="text-input"
+                      name="secondaryPlatformId"
+                      defaultValue={secondaryPlatformId}
+                      placeholder="Optional"
+                    />
+                  </div>
+                </div>
+              </details>
             </div>
-            <div className="status-item">
-              <span className="status-label">
-                <span className={`status-dot ${voiceWebhookTarget ? 'ok' : 'warn'}`} />
-                Webhook URL
-              </span>
-              <span className="text-muted">{voiceWebhookTarget || 'No live destination yet.'}</span>
-            </div>
-          </div>
+          </section>
 
-          <div className="action-cluster">
-            {automationState.workflowEditorUrl ? (
-              <a className="button-secondary" href={automationState.workflowEditorUrl} target="_blank" rel="noreferrer">
-                Open in n8n
-              </a>
-            ) : null}
-            <form action={retryClientAutomationAction}>
-              <input type="hidden" name="companyId" value={company.id} />
-              <button type="submit" className="button-ghost">
-                Retry provisioning
-              </button>
-            </form>
+          <section className="connections-step">
+            <div className="connections-step-number">2</div>
+            <div className="connections-step-body">
+              <div className="connections-step-head">
+                <div>
+                  <h4 className="section-title">Launch n8n MCP</h4>
+                  <div className="tiny-muted">Creates or updates this client's workflow from Fix Your Leads.</div>
+                </div>
+                <span className={stepTone(workflowReady)}>
+                  <span className={`status-dot ${workflowReady ? 'ok' : 'warn'}`} />
+                  {workflowReady ? 'Ready' : automationPresentation.label}
+                </span>
+              </div>
+              <div className="connections-inline-status">
+                <span>{automationState.workflowName || 'No workflow launched yet'}</span>
+                {automationState.workflowEditorUrl ? (
+                  <a className="button-ghost button-secondary-compact" href={automationState.workflowEditorUrl} target="_blank" rel="noreferrer">
+                    Open n8n
+                  </a>
+                ) : null}
+              </div>
+              <div className="action-cluster">
+                <button type="submit" className="button">
+                  Save and launch
+                </button>
+              </div>
+            </div>
+          </section>
+        </form>
+
+        <section className="connections-step">
+          <div className="connections-step-number">3</div>
+          <div className="connections-step-body">
+            <div className="connections-step-head">
+              <div>
+                <h4 className="section-title">Connect Telnyx</h4>
+                <div className="tiny-muted">Add one MCP server to the Telnyx assistant. The tools stay the same for every client.</div>
+              </div>
+              <span className={stepTone(telnyxReady)}>
+                <span className={`status-dot ${telnyxReady ? 'ok' : 'warn'}`} />
+                {telnyxReady ? 'Ready' : 'After launch'}
+              </span>
+            </div>
+            <div className="connections-tool-strip">
+              <span>{availabilityToolName}</span>
+              <span>{bookingToolName}</span>
+              <span>{cancelToolName}</span>
+            </div>
+            <div className="action-cluster">
+              <CopyableUrlField
+                id="connections-mcp-server-name"
+                label="Server name"
+                defaultValue={mcpServerName}
+                fallbackCopyValue={mcpServerName}
+                copyButtonLabel="Copy"
+                readOnly
+              />
+            </div>
+            <div className="tiny-muted">The MCP server URL comes from the n8n MCP Server Trigger after launch.</div>
           </div>
         </section>
 
-        <section className="panel panel-dark panel-stack">
-          <div className="record-header">
-            <div>
-              <div className="metric-label">Step 2</div>
-              <h4 className="section-title" style={{ marginBottom: 4 }}>Add one MCP server in Telnyx</h4>
-              <div className="text-muted">Instead of 3 separate custom tools, connect this assistant to one client MCP server and allow the 3 booking actions below.</div>
+        <section className="connections-step">
+          <div className="connections-step-number">4</div>
+          <div className="connections-step-body">
+            <div className="connections-step-head">
+              <div>
+                <h4 className="section-title">Test booking</h4>
+                <div className="tiny-muted">One real call should check a slot, book it, and cancel or reschedule cleanly.</div>
+              </div>
+              <span className={stepTone(testReady)}>
+                <span className={`status-dot ${testReady ? 'ok' : 'warn'}`} />
+                {testReady ? 'Passed' : 'Needed'}
+              </span>
             </div>
-            <span className={stepTone(step2Ready)}>
-              <span className={`status-dot ${step2Ready ? 'ok' : 'warn'}`} />
-              {step2Ready ? 'Ready to add' : 'Get the workflow live first'}
-            </span>
+            <div className="connections-checks">
+              <span>
+                <span className={`status-dot ${calendarState.writebackConfigured ? 'ok' : 'warn'}`} />
+                writeback
+              </span>
+              <span>
+                <span className={`status-dot ${calendarState.syncTestPassed ? 'ok' : 'warn'}`} />
+                booking test
+              </span>
+              <span>
+                <span className={`status-dot ${calendarState.launchApproved ? 'ok' : 'warn'}`} />
+                launch approved
+              </span>
+            </div>
           </div>
-
-          <CopyableUrlField
-            id="connections-mcp-server-name"
-            label="MCP server name"
-            defaultValue={mcpServerName}
-            fallbackCopyValue={mcpServerName}
-            copyButtonLabel="Copy"
-            readOnly
-          />
-          <CopyableCodeBlock label="Allowed MCP tools" value={mcpAllowedTools} copyButtonLabel="Copy JSON" />
-          <CopyableUrlField
-            id="connections-mcp-shared-secret"
-            label="Fix Your Leads shared secret"
-            defaultValue={voiceWebhookSecret}
-            placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET or INTERNAL_API_KEY in Railway"
-            fallbackCopyValue={voiceWebhookSecret}
-            copyButtonLabel="Copy secret"
-            readOnly
-          />
-          <div className="text-muted">
-            In n8n, add an <strong>MCP Server Trigger</strong> to this client workflow, expose the 3 tools in Step 3, then paste that MCP server URL into Telnyx.
-          </div>
-
-          <div className="action-cluster">
-            {automationState.workflowEditorUrl ? (
-              <a className="button-secondary" href={automationState.workflowEditorUrl} target="_blank" rel="noreferrer">
-                Open in n8n
-              </a>
-            ) : null}
-          </div>
-
         </section>
 
-        <section className="panel panel-dark panel-stack">
-          <div className="record-header">
-            <div>
-              <div className="metric-label">Step 3</div>
-              <h4 className="section-title" style={{ marginBottom: 4 }}>Expose 3 MCP actions in n8n and connect Fix Your Leads</h4>
-              <div className="text-muted">Build these 3 MCP tools inside the client workflow. Check and cancel can point straight at Fix Your Leads. Booking can go through a real provider first and then write back into Fix Your Leads.</div>
-            </div>
-            <span className={stepTone(step3Ready)}>
-              <span className={`status-dot ${step3Ready ? 'ok' : 'warn'}`} />
-              {step3Ready ? 'Ready to test' : 'Set this up'}
-            </span>
-          </div>
-
-          <div className="panel panel-dark panel-stack">
-            <div className="metric-label">MCP tool 1 · Check availability</div>
+        <details className="connections-advanced">
+          <summary className="details-summary">Advanced setup details</summary>
+          <div className="connections-advanced-grid">
             <CopyableUrlField
-              id="connections-availability-tool-name"
-              label="Tool name"
-              defaultValue={availabilityToolName}
-              fallbackCopyValue={availabilityToolName}
-              copyButtonLabel="Copy"
+              id="connections-mcp-shared-secret"
+              label="Fix Your Leads shared secret"
+              defaultValue={voiceWebhookSecret}
+              placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET or INTERNAL_API_KEY in Railway"
+              fallbackCopyValue={voiceWebhookSecret}
+              copyButtonLabel="Copy secret"
               readOnly
             />
+            <CopyableCodeBlock label="Allowed MCP tools" value={mcpAllowedTools} copyButtonLabel="Copy JSON" />
             <CopyableUrlField
               id="connections-availability-tool-url"
-              label="Fix Your Leads endpoint"
+              label="Availability endpoint"
               defaultValue={availabilityToolUrl}
               fallbackCopyValue={availabilityToolUrl}
               copyButtonLabel="Copy URL"
               readOnly
             />
-            <CopyableUrlField
-              id="connections-availability-tool-description"
-              label="What it should do"
-              defaultValue={availabilityToolDescription}
-              fallbackCopyValue={availabilityToolDescription}
-              copyButtonLabel="Copy"
-              readOnly
-            />
-            <CopyableCodeBlock label="Input schema" value={availabilityBodyParameterSchema} copyButtonLabel="Copy JSON" />
-          </div>
-
-          <div className="panel panel-dark panel-stack">
-            <div className="metric-label">MCP tool 2 · Book appointment</div>
-            <CopyableUrlField
-              id="connections-book-tool-name"
-              label="Tool name"
-              defaultValue={bookingToolName}
-              fallbackCopyValue={bookingToolName}
-              copyButtonLabel="Copy"
-              readOnly
-            />
-            <CopyableUrlField
-              id="connections-book-tool-description"
-              label="What it should do"
-              defaultValue={bookingToolDescription}
-              fallbackCopyValue={bookingToolDescription}
-              copyButtonLabel="Copy"
-              readOnly
-            />
-            <CopyableCodeBlock label="Input schema" value={telnyxBodyParameterSchema} copyButtonLabel="Copy JSON" />
-            <CopyableUrlField
-              id="connections-booking-platform"
-              label="Real booking platform"
-              defaultValue={bookingPlatformLabel || 'Not chosen yet'}
-              fallbackCopyValue={bookingPlatformLabel || 'Not chosen yet'}
-              copyButtonLabel="Copy"
-              readOnly
-            />
+            <CopyableCodeBlock label="Availability schema" value={availabilityBodyParameterSchema} copyButtonLabel="Copy JSON" />
             <CopyableUrlField
               id="connections-booking-writeback"
-              label="Final Fix Your Leads writeback URL"
+              label="Booking writeback URL"
               defaultValue={automationState.bookingCreateUrl ?? undefined}
               fallbackCopyValue={automationState.bookingCreateUrl ?? undefined}
               copyButtonLabel="Copy URL"
               readOnly
             />
-            <div className="text-muted">
-              If the real provider must be updated first, insert that provider step before the final writeback. If Fix Your Leads is the source of truth, you can post the booking straight to the writeback URL.
-            </div>
-          </div>
-
-          <div className="panel panel-dark panel-stack">
-            <div className="metric-label">MCP tool 3 · Cancel appointment</div>
-            <CopyableUrlField
-              id="connections-cancel-tool-name"
-              label="Tool name"
-              defaultValue={cancelToolName}
-              fallbackCopyValue={cancelToolName}
-              copyButtonLabel="Copy"
-              readOnly
-            />
+            <CopyableCodeBlock label="Booking schema" value={telnyxBodyParameterSchema} copyButtonLabel="Copy JSON" />
             <CopyableUrlField
               id="connections-cancel-tool-url"
-              label="Fix Your Leads endpoint"
+              label="Cancel endpoint"
               defaultValue={cancelToolUrl}
               fallbackCopyValue={cancelToolUrl}
               copyButtonLabel="Copy URL"
               readOnly
             />
+            <CopyableCodeBlock label="Cancel schema" value={cancelBodyParameterSchema} copyButtonLabel="Copy JSON" />
             <CopyableUrlField
-              id="connections-cancel-tool-description"
-              label="What it should do"
-              defaultValue={cancelToolDescription}
-              fallbackCopyValue={cancelToolDescription}
+              id="connections-config-url"
+              label="Client config endpoint"
+              defaultValue={automationState.configUrl ?? undefined}
+              fallbackCopyValue={automationState.configUrl ?? undefined}
+              copyButtonLabel="Copy URL"
+              readOnly
+            />
+            <CopyableUrlField
+              id="connections-header-name"
+              label="Fix Your Leads auth header"
+              defaultValue={telnyxHeaderName}
+              fallbackCopyValue={telnyxHeaderName}
               copyButtonLabel="Copy"
               readOnly
             />
-            <CopyableCodeBlock label="Input schema" value={cancelBodyParameterSchema} copyButtonLabel="Copy JSON" />
           </div>
-
-          <CopyableUrlField
-            id="connections-config-url"
-            label="Client config endpoint"
-            defaultValue={automationState.configUrl ?? undefined}
-            fallbackCopyValue={automationState.configUrl ?? undefined}
-            copyButtonLabel="Copy URL"
-            readOnly
-          />
-          <CopyableUrlField
-            id="connections-header-name"
-            label="Fix Your Leads auth header"
-            defaultValue={telnyxHeaderName}
-            fallbackCopyValue={telnyxHeaderName}
-            copyButtonLabel="Copy"
-            readOnly
-          />
-
-          <div className="action-cluster">
-            {automationState.workflowEditorUrl ? (
-              <a className="button-secondary" href={automationState.workflowEditorUrl} target="_blank" rel="noreferrer">
-                Open workflow
-              </a>
-            ) : null}
-            {calendarState.externalPlatformUrl ? (
-              <a className="button-ghost" href={calendarState.externalPlatformUrl} target="_blank" rel="noreferrer">
-                Open booking system
-              </a>
-            ) : null}
-          </div>
-        </section>
-
-        <section className="panel panel-dark panel-stack">
-          <div className="record-header">
-            <div>
-              <div className="metric-label">Step 4</div>
-              <h4 className="section-title" style={{ marginBottom: 4 }}>Run one test booking</h4>
-              <div className="text-muted">The test should land in the real booking system and in Fix Your Leads.</div>
-            </div>
-            <span className={stepTone(step4Ready)}>
-              <span className={`status-dot ${step4Ready ? 'ok' : 'warn'}`} />
-              {step4Ready ? 'Connected and working' : 'Still needs a test'}
-            </span>
-          </div>
-
-          <div className="status-list">
-            <div className="status-item">
-              <span className="status-label">
-                <span className={`status-dot ${calendarState.writebackConfigured ? 'ok' : 'warn'}`} />
-                Booking writes back
-              </span>
-              <span className="text-muted">{calendarState.writebackConfigured ? 'Yes' : 'Not confirmed yet'}</span>
-            </div>
-            <div className="status-item">
-              <span className="status-label">
-                <span className={`status-dot ${calendarState.syncTestPassed ? 'ok' : 'warn'}`} />
-                Test booking passed
-              </span>
-              <span className="text-muted">{calendarState.syncTestPassed ? 'Yes' : 'Not confirmed yet'}</span>
-            </div>
-            <div className="status-item">
-              <span className="status-label">
-                <span className={`status-dot ${calendarState.launchApproved ? 'ok' : 'warn'}`} />
-                Launch approved
-              </span>
-              <span className="text-muted">{calendarState.launchApproved ? 'Yes' : 'Not approved yet'}</span>
-            </div>
-          </div>
-        </section>
+        </details>
 
         {automationState.lastError ? (
           <div className="panel panel-dark panel-stack">
