@@ -4,6 +4,7 @@ import { emptyClientAutomationState, parseClientAutomationPayload } from '@/lib/
 import { emptyClientCalendarSetupState, parseClientCalendarSetupPayload } from '@/lib/client-calendar-setup';
 import { emptyTelnyxSetupState, parseTelnyxSetupPayload } from '@/lib/client-telnyx-setup';
 import {
+  activateN8nWorkflow,
   N8nRequestError,
   buildN8nEditorUrl,
   buildN8nWebhookUrl,
@@ -301,12 +302,25 @@ export async function provisionClientAutomation(companyId: string, source: Provi
   try {
     if (previousState.workflowId) {
       try {
-        const existingWorkflow = await getN8nWorkflow(previousState.workflowId);
-        const active = existingWorkflow.active === true;
+        let existingWorkflow = await getN8nWorkflow(previousState.workflowId);
+        let active = existingWorkflow.active === true;
+        let detail = 'Existing n8n workflow is active.';
+        let activationError: string | null = null;
+
+        if (!active) {
+          try {
+            existingWorkflow = await activateN8nWorkflow(previousState.workflowId);
+            active = existingWorkflow.active === true;
+            detail = active
+              ? 'Existing n8n workflow was re-activated.'
+              : 'Existing n8n workflow still needs activation in n8n.';
+          } catch (error) {
+            activationError = summarizeError(error);
+            detail = `Existing n8n workflow exists but activation still needs attention: ${activationError}`;
+          }
+        }
+
         const status = active ? 'READY' : 'ACTION_REQUIRED';
-        const detail = active
-          ? 'Existing n8n workflow is active.'
-          : 'Existing n8n workflow exists but still needs activation in n8n.';
 
         await recordAutomationState({
           companyId,
@@ -323,7 +337,7 @@ export async function provisionClientAutomation(companyId: string, source: Provi
             templateWorkflowId: readiness.templateWorkflowId,
             configUrl,
             bookingCreateUrl,
-            lastError: active ? null : detail,
+            lastError: active ? null : activationError || detail,
             notes: detail
           })
         });
