@@ -3482,7 +3482,7 @@ select {
   gap: 16px;
 }
 
-.telnyx-code-block {
+.code-block.telnyx-code-block {
   border: 1px solid rgba(194, 171, 255, 0.16);
   background: rgba(24, 20, 46, 0.96);
   color: rgba(235, 231, 255, 0.9);
