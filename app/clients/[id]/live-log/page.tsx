@@ -264,13 +264,13 @@ function payloadLinks(companyId: string, payload: unknown) {
       : null,
     record.appointmentId
       ? {
-          href: `/clients/${companyId}/workflow`,
-          label: 'Open workflow'
+          href: `/clients/${companyId}/n8n`,
+          label: 'Open n8n'
         }
       : record.workflowId || record.status
         ? {
-            href: `/clients/${companyId}/workflow`,
-            label: 'Open workflow'
+            href: `/clients/${companyId}/n8n`,
+            label: 'Open n8n'
           }
       : null
   ].filter(Boolean) as Array<{ href: string; label: string }>;

@@ -253,11 +253,11 @@ export default async function VoiceDiagnosticsPage({
                   </div>
                   <div className="panel-stack">
                     <strong>{row.companyName}</strong>
-                    <div className="text-muted">{row.lastError || 'Open the workflow workspace and retry provisioning.'}</div>
+                    <div className="text-muted">{row.lastError || 'Open the n8n workspace and retry provisioning.'}</div>
                   </div>
                   <div className="action-cluster">
-                    <Link className="button-ghost" href={`/clients/${row.companyId}/workflow`}>
-                      Open workflow
+                    <Link className="button-ghost" href={`/clients/${row.companyId}/n8n`}>
+                      Open n8n
                     </Link>
                   </div>
                 </article>

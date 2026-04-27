@@ -40,7 +40,7 @@ function workflowPath(companyId: string, notice?: string) {
   }
 
   const search = params.toString();
-  return search ? `/clients/${companyId}/workflow?${search}` : `/clients/${companyId}/workflow`;
+  return search ? `/clients/${companyId}/n8n?${search}` : `/clients/${companyId}/n8n`;
 }
 
 function appBaseUrl() {
@@ -54,7 +54,7 @@ function defaultVoiceWebhookUrl() {
 
 function defaultWorkflowUrl(companyId: string) {
   const baseUrl = appBaseUrl();
-  return baseUrl ? `${baseUrl}/clients/${companyId}/workflow` : null;
+  return baseUrl ? `${baseUrl}/clients/${companyId}/n8n` : null;
 }
 
 function buildCrmCredentials(provider: CrmProvider, apiKey: string | null, secondaryKey: string | null) {
@@ -263,6 +263,8 @@ export async function saveClientWorkflowAction(formData: FormData) {
 
   revalidatePath(`/clients/${companyId}`);
   revalidatePath(`/clients/${companyId}/workflow`);
+  revalidatePath(`/clients/${companyId}/n8n`);
+  revalidatePath(`/clients/${companyId}/telnyx`);
   revalidatePath(`/clients/${companyId}/live-log`);
   revalidatePath(`/clients/${companyId}/crm`);
   revalidatePath(`/clients/${companyId}/telnyx`);
@@ -287,6 +289,7 @@ export async function retryClientAutomationAction(formData: FormData) {
 
   revalidatePath(`/clients/${companyId}`);
   revalidatePath(`/clients/${companyId}/workflow`);
+  revalidatePath(`/clients/${companyId}/n8n`);
   revalidatePath(`/clients/${companyId}/live-log`);
   revalidatePath('/diagnostics/voice');
 

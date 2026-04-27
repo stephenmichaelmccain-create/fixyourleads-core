@@ -162,6 +162,7 @@ export async function approveSignupSubmissionAction(formData: FormData) {
   revalidatePath('/');
   revalidatePath(`/clients/${companyId}`);
   revalidatePath(`/clients/${companyId}/workflow`);
+  revalidatePath(`/clients/${companyId}/n8n`);
   revalidatePath('/diagnostics/voice');
 
   redirect('/clients?notice=approved');

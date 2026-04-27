@@ -28,6 +28,7 @@ function revalidateVoiceSurfaces(companyId?: string | null) {
   if (companyId) {
     revalidatePath(`/clients/${companyId}`);
     revalidatePath(`/clients/${companyId}/workflow`);
+    revalidatePath(`/clients/${companyId}/n8n`);
     revalidatePath(`/clients/${companyId}/operator`);
     revalidatePath(`/events?companyId=${companyId}`);
   }

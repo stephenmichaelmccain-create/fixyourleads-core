@@ -225,7 +225,7 @@ export async function WebhookConnectionsFeed({
                 <tr key={row.id}>
                   <td>
                     <div className="panel-stack" style={{ gap: 6 }}>
-                      <a className="table-link" href={`/clients/${row.id}/workflow`}>
+                      <a className="table-link" href={`/clients/${row.id}/n8n`}>
                         <strong>{row.name}</strong>
                       </a>
                       <div className="tiny-muted">

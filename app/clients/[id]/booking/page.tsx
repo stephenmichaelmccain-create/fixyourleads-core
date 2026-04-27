@@ -22,5 +22,5 @@ export default async function LegacyClientBookingPage({
   }
 
   const search = paramsOut.toString();
-  redirect(search ? `/clients/${id}/workflow?${search}` : `/clients/${id}/workflow`);
+  redirect(search ? `/clients/${id}/n8n?${search}` : `/clients/${id}/n8n`);
 }

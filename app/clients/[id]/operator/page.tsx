@@ -485,7 +485,7 @@ export default async function ClientCommsLabPage({
                 </div>
                 <div className="key-value-card">
                   <span className="key-value-label">Next step</span>
-                  Point Telnyx at the workflow voice webhook and run a live booking test
+                  Point Telnyx at the client n8n webhook and run a live booking test
                 </div>
               </div>
             </section>
