@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { findMatchingCompany } from '@/lib/intake-matching';
+import { provisionClientAutomation } from '@/services/automation';
 
 function readText(formData: FormData, key: string) {
   return String(formData.get(key) || '').trim();
@@ -154,10 +155,14 @@ export async function approveSignupSubmissionAction(formData: FormData) {
     });
   }
 
+  await provisionClientAutomation(companyId, 'signup_approval');
+
   revalidatePath('/clients');
   revalidatePath('/clients/intake');
   revalidatePath('/');
   revalidatePath(`/clients/${companyId}`);
+  revalidatePath(`/clients/${companyId}/workflow`);
+  revalidatePath('/diagnostics/voice');
 
   redirect('/clients?notice=approved');
 }

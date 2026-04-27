@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { getRuntimeHealth } from '@/lib/health';
+import { loadAutomationSummary } from '@/services/automation';
 import {
   assignUnroutedTelnyxNumberAction,
   markUnroutedTelnyxEventHandledAction
@@ -56,7 +57,7 @@ export default async function VoiceDiagnosticsPage({
   const query = (await searchParams) || {};
   const health = await getRuntimeHealth();
 
-  const [failedAppointments, pendingAppointments, unroutedEvents, companies] = await Promise.all([
+  const [failedAppointments, pendingAppointments, unroutedEvents, companies, automationSummary] = await Promise.all([
     db.appointment.findMany({
       where: {
         externalSyncStatus: AppointmentExternalSyncStatus.FAILED
@@ -130,7 +131,8 @@ export default async function VoiceDiagnosticsPage({
         id: true,
         name: true
       }
-    })
+    }),
+    loadAutomationSummary()
   ]);
 
   return (
@@ -182,6 +184,13 @@ export default async function VoiceDiagnosticsPage({
           </div>
           <div className="metric-copy">Worker retries for background calendar sync jobs.</div>
         </section>
+        <section className="metric-card panel-stack">
+          <div className="metric-label">n8n automation</div>
+          <div className="metric-value">{automationSummary.ready}</div>
+          <div className="metric-copy">
+            {automationSummary.failed} failed · {automationSummary.actionRequired} need attention · {automationSummary.pending} provisioning
+          </div>
+        </section>
       </div>
 
       <section className="panel panel-stack">
@@ -194,6 +203,7 @@ export default async function VoiceDiagnosticsPage({
         <div className="status-list">
           {[
             ['Google Calendar', health.checks.googleCalendar.status, health.checks.googleCalendar.detail || 'No detail'],
+            ['n8n automation', health.checks.n8nAutomation.status, health.checks.n8nAutomation.detail || 'No detail'],
             ['Operator alerts', health.checks.operatorAlerts.status, health.checks.operatorAlerts.detail || 'No detail'],
             ['SMTP notifications', health.checks.notifications.status, health.checks.notifications.detail || 'No detail'],
             ['Worker heartbeat', health.checks.workerHeartbeat.status, health.checks.workerHeartbeat.detail || 'No detail']
@@ -207,6 +217,53 @@ export default async function VoiceDiagnosticsPage({
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="panel panel-stack">
+        <div className="record-header">
+          <div className="panel-stack">
+            <div className="metric-label">Automation exceptions</div>
+            <h2 className="section-title">Clients whose n8n workflow is not fully ready</h2>
+          </div>
+        </div>
+
+        {automationSummary.rows.filter((row) => row.status !== 'READY').length === 0 ? (
+          <div className="empty-state">No automation blockers are open right now.</div>
+        ) : (
+          <div className="record-grid">
+            {automationSummary.rows
+              .filter((row) => row.status !== 'READY')
+              .slice(0, 8)
+              .map((row) => (
+                <article key={row.companyId} className="record-card">
+                  <div className="record-card-live-head">
+                    <span
+                      className={
+                        row.status === 'FAILED'
+                          ? 'status-chip status-chip-attention'
+                          : row.status === 'ACTION_REQUIRED'
+                            ? 'status-chip status-chip-attention'
+                            : 'status-chip status-chip-muted'
+                      }
+                    >
+                      <span className={`status-dot ${row.status === 'FAILED' ? 'error' : 'warn'}`} />
+                      {row.status.replace(/_/g, ' ')}
+                    </span>
+                    <span className="tiny-muted">{row.updatedAt ? formatDateTime(row.updatedAt) : '—'}</span>
+                  </div>
+                  <div className="panel-stack">
+                    <strong>{row.companyName}</strong>
+                    <div className="text-muted">{row.lastError || 'Open the workflow workspace and retry provisioning.'}</div>
+                  </div>
+                  <div className="action-cluster">
+                    <Link className="button-ghost" href={`/clients/${row.companyId}/workflow`}>
+                      Open workflow
+                    </Link>
+                  </div>
+                </article>
+              ))}
+          </div>
+        )}
       </section>
 
       <section className="panel panel-stack">

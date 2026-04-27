@@ -11,6 +11,7 @@ const SETUP_EVENT_TYPES = [
   'client_crm_setup_updated',
   'client_telnyx_setup_updated',
   'client_calendar_setup_updated',
+  'client_automation_updated',
   'client_signup_received',
   'client_signup_approved',
   'client_onboarding_received'
@@ -202,6 +203,17 @@ function shortPayload(eventType: string, payload: unknown) {
     return parts.join(' · ');
   }
 
+  if (value === 'client_automation_updated') {
+    const parts = [
+      stringValue(record.status) ? `status ${String(record.status)}` : null,
+      stringValue(record.workflowId) ? `workflow ${String(record.workflowId).slice(-8)}` : null,
+      record.workflowActive === true ? 'workflow active' : null,
+      stringValue(record.lastError)
+    ].filter(Boolean) as string[];
+
+    return parts.join(' · ');
+  }
+
   if (value === 'client_signup_received' || value === 'client_onboarding_received') {
     const parts = [
       stringValue(record.contactName) ? `contact ${String(record.contactName)}` : null,
@@ -255,6 +267,11 @@ function payloadLinks(companyId: string, payload: unknown) {
           href: `/clients/${companyId}/workflow`,
           label: 'Open workflow'
         }
+      : record.workflowId || record.status
+        ? {
+            href: `/clients/${companyId}/workflow`,
+            label: 'Open workflow'
+          }
       : null
   ].filter(Boolean) as Array<{ href: string; label: string }>;
 }

@@ -28,7 +28,11 @@ export function envPresence() {
     operatorAlertEmailSet: hasConfiguredEnv('OPERATOR_ALERT_EMAIL'),
     smtpUserSet: hasConfiguredEnv('SMTP_USER'),
     smtpPasswordSet: hasConfiguredEnv('SMTP_PASSWORD'),
-    notificationFromSet: hasConfiguredEnv('NOTIFICATION_FROM_EMAIL') || hasConfiguredEnv('SMTP_USER')
+    notificationFromSet: hasConfiguredEnv('NOTIFICATION_FROM_EMAIL') || hasConfiguredEnv('SMTP_USER'),
+    n8nBaseUrlSet: hasConfiguredEnv('N8N_BASE_URL'),
+    n8nApiKeySet: hasConfiguredEnv('N8N_API_KEY'),
+    n8nTemplateWorkflowIdSet: hasConfiguredEnv('N8N_TEMPLATE_BOOKING_WORKFLOW_ID'),
+    automationSharedSecretSet: hasConfiguredEnv('AUTOMATION_SHARED_SECRET')
   };
 }
 

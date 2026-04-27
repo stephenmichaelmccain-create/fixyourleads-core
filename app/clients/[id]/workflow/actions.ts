@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { encryptJson } from '@/lib/encrypted-json';
 import { emptyTelnyxSetupState, parseTelnyxSetupPayload } from '@/lib/client-telnyx-setup';
+import { provisionClientAutomation } from '@/services/automation';
 
 function optionalText(value: FormDataEntryValue | null) {
   const text = String(value || '').trim();
@@ -258,6 +259,8 @@ export async function saveClientWorkflowAction(formData: FormData) {
     });
   }
 
+  await provisionClientAutomation(companyId, 'workflow_save');
+
   revalidatePath(`/clients/${companyId}`);
   revalidatePath(`/clients/${companyId}/workflow`);
   revalidatePath(`/clients/${companyId}/live-log`);
@@ -268,6 +271,31 @@ export async function saveClientWorkflowAction(formData: FormData) {
   revalidatePath(`/clients/${companyId}/operator`);
   revalidatePath(`/events?companyId=${companyId}`);
   revalidatePath(`/bookings?companyId=${companyId}`);
+  revalidatePath('/diagnostics/voice');
 
   redirect(workflowPath(companyId, 'updated'));
+}
+
+export async function retryClientAutomationAction(formData: FormData) {
+  const companyId = String(formData.get('companyId') || '').trim();
+
+  if (!companyId) {
+    throw new Error('company_id_required');
+  }
+
+  const result = await provisionClientAutomation(companyId, 'manual_retry');
+
+  revalidatePath(`/clients/${companyId}`);
+  revalidatePath(`/clients/${companyId}/workflow`);
+  revalidatePath(`/clients/${companyId}/live-log`);
+  revalidatePath('/diagnostics/voice');
+
+  const notice =
+    result.status === 'READY'
+      ? 'automation_ready'
+      : result.status === 'ACTION_REQUIRED'
+        ? 'automation_attention'
+        : 'automation_failed';
+
+  redirect(workflowPath(companyId, notice));
 }

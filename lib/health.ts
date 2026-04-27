@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { notificationReadiness } from '@/lib/notifications';
 import { getBookingQueue, getCalendarSyncQueue, getLeadQueue, getMessageQueue, getWorkflowQueue } from '@/lib/queue';
 import { getRedis } from '@/lib/redis';
+import { checkN8nConnectivity } from '@/lib/n8n';
 import { envPresence, missingRequiredEnvVars } from '@/lib/runtime-safe';
 import { getTelnyxWebhookSecurityConfig } from '@/lib/security';
 import { checkTelnyxConnectivity } from '@/lib/telnyx';
@@ -127,6 +128,19 @@ function telnyxFromNumberCheck(env: ReturnType<typeof envPresence>): DependencyC
 
 function internalApiKeyCheck(env: ReturnType<typeof envPresence>): DependencyCheck {
   return env.internalApiKeySet ? { status: 'ok' } : { status: 'missing_config', detail: 'INTERNAL_API_KEY is missing' };
+}
+
+function n8nConfigCheck(env: ReturnType<typeof envPresence>): DependencyCheck {
+  const missing = [
+    env.n8nBaseUrlSet ? null : 'N8N_BASE_URL',
+    env.n8nApiKeySet ? null : 'N8N_API_KEY',
+    env.n8nTemplateWorkflowIdSet ? null : 'N8N_TEMPLATE_BOOKING_WORKFLOW_ID',
+    env.automationSharedSecretSet ? null : 'AUTOMATION_SHARED_SECRET'
+  ].filter(Boolean) as string[];
+
+  return missing.length === 0
+    ? { status: 'ok', detail: 'n8n provisioning env is present' }
+    : { status: 'missing_config', detail: `Missing ${missing.join(', ')}` };
 }
 
 function observabilityCheck(sentryDsnSet: boolean): DependencyCheck {
@@ -315,7 +329,8 @@ export async function getRuntimeHealth() {
     latestLeads,
     latestMessages,
     queueHealth,
-    workerHeartbeat
+    workerHeartbeat,
+    n8nConnection
   ] = await Promise.all([
     checkDatabase(env.databaseUrlSet),
     checkRedis(env.redisUrlSet),
@@ -408,7 +423,8 @@ export async function getRuntimeHealth() {
       }
     }),
     getQueueHealth(env.redisUrlSet),
-    readWorkerHeartbeatSummary()
+    readWorkerHeartbeatSummary(),
+    checkN8nConnectivity()
   ]);
 
   const deployment = baseDeployment(env);
@@ -591,6 +607,8 @@ export async function getRuntimeHealth() {
       telnyxWebhookVerification: telnyxWebhookVerificationStatus,
       telnyxCompanyRouting: telnyxRoutingStatus,
       internalApiKey: internalApiKeyCheck(env),
+      n8nAutomationConfig: n8nConfigCheck(env),
+      n8nAutomation: n8nConnection,
       googleCalendar: googleCalendarCheck(env),
       operatorAlerts: operatorAlertCheck(env),
       observability: observabilityCheck(sentryDsnSet),
@@ -610,6 +628,7 @@ export async function getRuntimeHealthProbe() {
   const deployment = baseDeployment(env);
   const observability = observabilitySummary(env);
   const workerHeartbeat = env.redisUrlSet ? await readWorkerHeartbeatSummary() : emptyWorkerHeartbeatSummary();
+  const n8nConnection = await checkN8nConnectivity();
   const checks = {
     database,
     redis,
@@ -625,6 +644,8 @@ export async function getRuntimeHealthProbe() {
       detail: 'Skipped in lightweight probe mode'
     } satisfies DependencyCheck,
     internalApiKey: internalApiKeyCheck(env),
+    n8nAutomationConfig: n8nConfigCheck(env),
+    n8nAutomation: n8nConnection,
     googleCalendar: googleCalendarCheck(env),
     operatorAlerts: operatorAlertCheck(env),
     observability: observabilityCheck(observability.sentryDsnSet),
