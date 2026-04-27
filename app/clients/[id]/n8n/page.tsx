@@ -52,6 +52,22 @@ function automationStatusPresentation(status: string) {
   };
 }
 
+function formatAttemptLabel(source: string | null) {
+  if (source === 'signup_approval') {
+    return 'Created during client approval';
+  }
+
+  if (source === 'workflow_save') {
+    return 'Re-ran after setup changes';
+  }
+
+  if (source === 'manual_retry') {
+    return 'Re-ran from the n8n page';
+  }
+
+  return 'No provisioning attempts yet';
+}
+
 export default async function ClientN8nPage({
   params,
   searchParams
@@ -132,16 +148,37 @@ export default async function ClientN8nPage({
         <div className="record-header">
           <div className="panel-stack">
             <div className="metric-label">Automation</div>
-            <h3 className="section-title">Shared n8n provisioning</h3>
+            <h3 className="section-title">Booking automation in n8n</h3>
             <div className="record-subtitle">
-              Each client now gets one dedicated n8n workflow so booking-system glue can live in a visual editor instead of
-              custom app code.
+              This page shows where the Telnyx tool should send booking requests after the call. n8n receives the payload,
+              loads the client config from Fix Your Leads, and writes the booking back into the app.
             </div>
           </div>
           <span className={automationPresentation.toneClass}>
             <span className={`status-dot ${automationPresentation.dot}`} />
             {automationPresentation.label}
           </span>
+        </div>
+
+        <div className="panel-grid integration-page-grid">
+          <section className="metric-card panel-stack">
+            <div className="metric-label">This page is for</div>
+            <div className="metric-copy">
+              Confirming the client workflow exists, is active, and has a live webhook that Telnyx can call.
+            </div>
+          </section>
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Telnyx lives on</div>
+            <div className="metric-copy">
+              Use the <strong>Telnyx</strong> tab to wire the assistant tool. That page shows the fields you paste into Telnyx.
+            </div>
+          </section>
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Current flow</div>
+            <div className="metric-copy">
+              Telnyx tool call → client n8n webhook → client config lookup → Fix Your Leads booking writeback.
+            </div>
+          </section>
         </div>
 
         <div className="metric-grid">
@@ -168,6 +205,39 @@ export default async function ClientN8nPage({
             </div>
             <div className="metric-copy">{automationState.notes || 'No automation notes yet.'}</div>
           </section>
+        </div>
+
+        <div className="panel panel-dark panel-stack">
+          <div className="metric-label">What happens after the assistant books a call</div>
+          <div className="status-list">
+            <div className="status-item">
+              <span className="status-label">
+                <span className="status-dot ok" />
+                1. Telnyx calls the production webhook
+              </span>
+              <span className="text-muted">
+                {automationState.workflowWebhookUrl || 'Provision the workflow to generate the webhook URL.'}
+              </span>
+            </div>
+            <div className="status-item">
+              <span className="status-label">
+                <span className={`status-dot ${automationState.configUrl ? 'ok' : 'warn'}`} />
+                2. n8n loads client settings
+              </span>
+              <span className="text-muted">
+                {automationState.configUrl || 'Client config URL is missing.'}
+              </span>
+            </div>
+            <div className="status-item">
+              <span className="status-label">
+                <span className={`status-dot ${automationState.bookingCreateUrl ? 'ok' : 'warn'}`} />
+                3. n8n writes the booking back into Fix Your Leads
+              </span>
+              <span className="text-muted">
+                {automationState.bookingCreateUrl || 'Booking writeback URL is missing.'}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="status-list">
@@ -207,6 +277,17 @@ export default async function ClientN8nPage({
               {automationState.workflowWebhookUrl || 'Provision the client once to generate the live webhook for this workspace.'}
             </span>
           </div>
+          <div className="status-item">
+            <span className="status-label">
+              <span className={`status-dot ${automationState.lastSuccessAt ? 'ok' : 'warn'}`} />
+              Last successful run
+            </span>
+            <span className="text-muted">
+              {automationState.lastSuccessAt
+                ? `${new Date(automationState.lastSuccessAt).toLocaleString()} · ${formatAttemptLabel(automationState.source)}`
+                : formatAttemptLabel(automationState.source)}
+            </span>
+          </div>
         </div>
 
         {automationState.lastError ? (
@@ -217,6 +298,9 @@ export default async function ClientN8nPage({
         ) : null}
 
         <div className="action-cluster">
+          <a className="button-ghost" href={`/clients/${company.id}/telnyx`}>
+            Open Telnyx wiring
+          </a>
           {automationState.workflowEditorUrl ? (
             <a className="button-secondary" href={automationState.workflowEditorUrl} target="_blank" rel="noreferrer">
               Open in n8n

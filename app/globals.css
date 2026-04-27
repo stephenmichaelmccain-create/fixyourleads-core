@@ -3438,6 +3438,11 @@ select {
   gap: 18px;
 }
 
+.integration-page-grid .metric-card,
+.integration-page-grid .panel {
+  min-height: 0;
+}
+
 .telnyx-editor-shell {
   display: grid;
   gap: 18px;

@@ -3,6 +3,7 @@ import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
 import { CopyableCodeBlock } from '@/app/clients/[id]/workflow/CopyableCodeBlock';
 import { CopyableUrlField } from '@/app/clients/[id]/workflow/CopyableUrlField';
 import { LayoutShell } from '@/app/components/LayoutShell';
+import { emptyClientAutomationState, parseClientAutomationPayload } from '@/lib/client-automation';
 import { db } from '@/lib/db';
 import { emptyTelnyxSetupState, parseTelnyxSetupPayload } from '@/lib/client-telnyx-setup';
 import { safeLoad } from '@/lib/ui-data';
@@ -30,6 +31,21 @@ function buildVoiceWebhookExamplePayload(input: {
     null,
     2
   );
+}
+
+function assistantRouteLabel(input: {
+  hasN8nWebhook: boolean;
+  hasDirectWebhook: boolean;
+}) {
+  if (input.hasN8nWebhook) {
+    return 'Preferred: Telnyx tool → client n8n webhook → Fix Your Leads';
+  }
+
+  if (input.hasDirectWebhook) {
+    return 'Fallback: Telnyx tool → direct Fix Your Leads webhook';
+  }
+
+  return 'No live destination is ready yet';
 }
 
 function buildTelnyxBodyParameterSchema(input: {
@@ -132,10 +148,22 @@ export default async function LegacyClientTelnyxPage({
       }),
     null
   );
+  const latestAutomationEvent = await safeLoad(
+    () =>
+      db.eventLog.findFirst({
+        where: { companyId: id, eventType: 'client_automation_updated' },
+        orderBy: { createdAt: 'desc' },
+        select: { payload: true }
+      }),
+    null
+  );
 
   const voiceState = latestVoiceSetupEvent
     ? parseTelnyxSetupPayload(latestVoiceSetupEvent.payload)
     : emptyTelnyxSetupState;
+  const automationState = latestAutomationEvent
+    ? parseClientAutomationPayload(latestAutomationEvent.payload)
+    : emptyClientAutomationState;
 
   const appBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || null;
   const voiceWebhookSecret =
@@ -143,7 +171,8 @@ export default async function LegacyClientTelnyxPage({
     process.env.VOICE_DEMO_WEBHOOK_SECRET?.trim() ||
     process.env.INTERNAL_API_KEY?.trim() ||
     '';
-  const voiceWebhookTarget = voiceState.webhookUrl || (appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/appointments` : '');
+  const directVoiceWebhookTarget = voiceState.webhookUrl || (appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/appointments` : '');
+  const voiceWebhookTarget = automationState.workflowWebhookUrl || directVoiceWebhookTarget;
   const voiceWebhookExamplePayload = buildVoiceWebhookExamplePayload({
     companyId: company.id,
     businessName: company.name,
@@ -159,6 +188,7 @@ export default async function LegacyClientTelnyxPage({
   const telnyxToolName = 'fyl_book_call';
   const telnyxToolDescription = `Book a ${company.name} discovery call after availability is confirmed. Only use this after confirming the slot with the caller.`;
   const telnyxHeaderName = 'X-Voice-Webhook-Secret';
+  const usingN8nWebhook = Boolean(automationState.workflowWebhookUrl);
 
   return (
     <LayoutShell
@@ -175,10 +205,66 @@ export default async function LegacyClientTelnyxPage({
         <div className="record-header">
           <div className="panel-stack">
             <div className="metric-label">Telnyx</div>
-            <h3 className="section-title">Edit Webhook Tool</h3>
+            <h3 className="section-title">Assistant wiring for Telnyx</h3>
             <div className="record-subtitle">
-              This page mirrors the Telnyx webhook editor so someone can copy each field straight into the client&apos;s tool.
+              Use this page when you are inside the Telnyx assistant. Copy these fields into the tool so the assistant knows
+              where to send booking requests after the call.
             </div>
+          </div>
+          <span className={usingN8nWebhook ? 'status-chip status-chip-confirmed' : 'status-chip status-chip-muted'}>
+            <span className={`status-dot ${usingN8nWebhook ? 'ok' : 'warn'}`} />
+            {usingN8nWebhook ? 'Using n8n webhook' : 'Using direct app fallback'}
+          </span>
+        </div>
+
+        <div className="panel-grid integration-page-grid">
+          <section className="metric-card panel-stack">
+            <div className="metric-label">This page is for</div>
+            <div className="metric-copy">
+              Pasting the exact tool fields into Telnyx so the voice assistant can hand bookings out of the call.
+            </div>
+          </section>
+          <section className="metric-card panel-stack">
+            <div className="metric-label">n8n lives on</div>
+            <div className="metric-copy">
+              Use the <strong>n8n</strong> tab to confirm the workflow is provisioned, active, and ready to receive this tool call.
+            </div>
+          </section>
+          <section className="metric-card panel-stack">
+            <div className="metric-label">Current route</div>
+            <div className="metric-copy">{assistantRouteLabel({ hasN8nWebhook: usingN8nWebhook, hasDirectWebhook: Boolean(directVoiceWebhookTarget) })}</div>
+          </section>
+        </div>
+
+        <div className="status-list">
+          <div className="status-item">
+            <span className="status-label">
+              <span className={`status-dot ${voiceWebhookTarget ? 'ok' : 'warn'}`} />
+              Tool destination
+            </span>
+            <span className="text-muted">
+              {voiceWebhookTarget || 'No live destination is configured yet.'}
+            </span>
+          </div>
+          <div className="status-item">
+            <span className="status-label">
+              <span className={`status-dot ${usingN8nWebhook ? 'ok' : 'warn'}`} />
+              Recommended mode
+            </span>
+            <span className="text-muted">
+              {usingN8nWebhook
+                ? 'Telnyx should call the client-specific n8n webhook. n8n then loads client config and writes the booking back into Fix Your Leads.'
+                : 'The client does not have a live n8n webhook yet, so this page is falling back to the direct app booking webhook.'}
+            </span>
+          </div>
+          <div className="status-item">
+            <span className="status-label">
+              <span className={`status-dot ${automationState.workflowEditorUrl ? 'ok' : 'warn'}`} />
+              Workflow reference
+            </span>
+            <span className="text-muted">
+              {automationState.workflowEditorUrl || 'Open the n8n tab to provision the workflow before wiring Telnyx.'}
+            </span>
           </div>
         </div>
 
@@ -247,31 +333,49 @@ export default async function LegacyClientTelnyxPage({
           </div>
 
           <div className="telnyx-editor-section">
-            <div className="telnyx-editor-two-up">
-              <CopyableUrlField
-                id="telnyx-header-name"
-                label="Header Name"
-                defaultValue={telnyxHeaderName}
-                fallbackCopyValue={telnyxHeaderName}
-                copyButtonLabel="Copy"
-                readOnly
-              />
-              <CopyableUrlField
-                id="telnyx-header-value"
-                label="Header Value"
-                defaultValue={voiceWebhookSecret}
-                placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET or INTERNAL_API_KEY in Railway"
-                fallbackCopyValue={voiceWebhookSecret}
-                copyButtonLabel="Copy secret"
-                readOnly
-              />
-            </div>
-            {!voiceWebhookSecret ? (
-              <div className="text-muted">
-                No shared webhook secret is configured yet. Add `VOICE_BOOKING_WEBHOOK_SECRET` in Railway, or the app will use
-                `INTERNAL_API_KEY` once that exists.
+            <div className="metric-label">Headers</div>
+            {usingN8nWebhook ? (
+              <div className="panel panel-dark panel-stack">
+                <div className="text-muted">
+                  No custom header is required for the shared n8n webhook. Paste the URL above into Telnyx and send the JSON
+                  body directly.
+                </div>
+                {directVoiceWebhookTarget ? (
+                  <div className="tiny-muted">
+                    If you ever bypass n8n and send Telnyx straight to the app webhook, switch to the direct fallback below and
+                    include <code>{telnyxHeaderName}</code>.
+                  </div>
+                ) : null}
               </div>
-            ) : null}
+            ) : (
+              <>
+                <div className="telnyx-editor-two-up">
+                  <CopyableUrlField
+                    id="telnyx-header-name"
+                    label="Header Name"
+                    defaultValue={telnyxHeaderName}
+                    fallbackCopyValue={telnyxHeaderName}
+                    copyButtonLabel="Copy"
+                    readOnly
+                  />
+                  <CopyableUrlField
+                    id="telnyx-header-value"
+                    label="Header Value"
+                    defaultValue={voiceWebhookSecret}
+                    placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET or INTERNAL_API_KEY in Railway"
+                    fallbackCopyValue={voiceWebhookSecret}
+                    copyButtonLabel="Copy secret"
+                    readOnly
+                  />
+                </div>
+                {!voiceWebhookSecret ? (
+                  <div className="text-muted">
+                    No shared webhook secret is configured yet. Add `VOICE_BOOKING_WEBHOOK_SECRET` in Railway, or the app will use
+                    `INTERNAL_API_KEY` once that exists.
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
 
           <div className="telnyx-editor-section">
@@ -279,6 +383,30 @@ export default async function LegacyClientTelnyxPage({
             <CopyableCodeBlock label="Body parameter schema" value={telnyxBodyParameterSchema} copyButtonLabel="Copy JSON" />
             <CopyableCodeBlock label="Example request body" value={voiceWebhookExamplePayload} copyButtonLabel="Copy example" />
           </div>
+        </div>
+
+        <div className="panel-grid integration-page-grid">
+          <section className="panel panel-dark panel-stack">
+            <div className="metric-label">Direct app fallback</div>
+            <div className="text-muted">
+              Keep this only as a backup. It bypasses the client n8n workflow and sends bookings straight into Fix Your Leads.
+            </div>
+            <CopyableUrlField
+              id="telnyx-direct-fallback-url"
+              label="Fallback URL"
+              defaultValue={directVoiceWebhookTarget}
+              fallbackCopyValue={directVoiceWebhookTarget}
+              copyButtonLabel="Copy URL"
+              readOnly
+            />
+          </section>
+          <section className="panel panel-dark panel-stack">
+            <div className="metric-label">What happens on a live call</div>
+            <div className="text-muted">
+              The assistant gathers caller details, uses this tool, sends the body to the URL above, and then the client
+              workflow or direct webhook creates the booking in Fix Your Leads.
+            </div>
+          </section>
         </div>
       </section>
     </LayoutShell>
