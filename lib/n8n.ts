@@ -216,8 +216,7 @@ function sanitizeWorkflow(template: N8nWorkflow, workflowName: string, replaceme
     connections: template.connections && typeof template.connections === 'object' ? template.connections : {},
     settings: template.settings && typeof template.settings === 'object' ? template.settings : {},
     staticData: template.staticData ?? null,
-    pinData: template.pinData && typeof template.pinData === 'object' ? template.pinData : undefined,
-    tags: Array.isArray(template.tags) ? template.tags : []
+    pinData: template.pinData && typeof template.pinData === 'object' ? template.pinData : undefined
   }) as N8nWorkflow;
 
   clone.nodes = clone.nodes.map((node) => {
