@@ -45,6 +45,16 @@ function internalBookingCreateUrl() {
   return baseUrl ? `${baseUrl}/api/internal/bookings/create` : null;
 }
 
+function voiceAvailabilityWebhookUrl() {
+  const baseUrl = appBaseUrl();
+  return baseUrl ? `${baseUrl}/api/webhooks/voice/check-availability` : null;
+}
+
+function voiceCancelWebhookUrl() {
+  const baseUrl = appBaseUrl();
+  return baseUrl ? `${baseUrl}/api/webhooks/voice/cancel` : null;
+}
+
 function voiceAppointmentsWebhookUrl() {
   const baseUrl = appBaseUrl();
   return baseUrl ? `${baseUrl}/api/webhooks/voice/appointments` : null;
@@ -366,7 +376,11 @@ export async function provisionClientAutomation(companyId: string, source: Provi
       __FYL_TELNYX_ASSISTANT_ID__: company.telnyxAssistantId || '',
       __FYL_NOTIFICATION_EMAIL__: company.notificationEmail || '',
       __FYL_EXTERNAL_BOOKING_PLATFORM__: calendarState.externalPlatformName || '',
-      __FYL_EXTERNAL_CALENDAR_ID__: calendarState.externalCalendarId || ''
+      __FYL_EXTERNAL_BOOKING_PLATFORM_URL__: calendarState.externalPlatformUrl || '',
+      __FYL_EXTERNAL_CALENDAR_ID__: calendarState.externalCalendarId || '',
+      __FYL_SECONDARY_PLATFORM_NAME__: calendarState.secondaryPlatformName || '',
+      __FYL_SECONDARY_PLATFORM_URL__: calendarState.secondaryPlatformUrl || '',
+      __FYL_SECONDARY_PLATFORM_ID__: calendarState.secondaryPlatformId || ''
     };
 
     const created = await cloneN8nTemplateWorkflow({
@@ -492,6 +506,10 @@ export async function automationClientConfig(companyId: string) {
   });
 
   return {
+    mcp: {
+      serverName: `${company.name} voice mcp`,
+      tools: ['check_availability', 'book_appointment', 'cancel_appointment']
+    },
     company: {
       id: company.id,
       name: company.name,
@@ -508,8 +526,22 @@ export async function automationClientConfig(companyId: string) {
     },
     calendar: calendarState,
     automation: automationState,
+    platforms: {
+      primary: {
+        name: calendarState.externalPlatformName,
+        url: calendarState.externalPlatformUrl,
+        id: calendarState.externalCalendarId
+      },
+      secondary: {
+        name: calendarState.secondaryPlatformName,
+        url: calendarState.secondaryPlatformUrl,
+        id: calendarState.secondaryPlatformId
+      }
+    },
     endpoints: {
+      availabilityWebhookUrl: voiceAvailabilityWebhookUrl(),
       bookingCreateUrl: internalBookingCreateUrl(),
+      cancelWebhookUrl: voiceCancelWebhookUrl(),
       clientConfigUrl: automationConfigUrl(company.id),
       voiceAppointmentsWebhookUrl: voiceAppointmentsWebhookUrl()
     },

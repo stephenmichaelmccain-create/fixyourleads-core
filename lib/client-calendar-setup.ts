@@ -29,6 +29,9 @@ export type ClientCalendarSetupState = {
   externalPlatformName: string | null;
   externalPlatformUrl: string | null;
   externalCalendarId: string | null;
+  secondaryPlatformName: string | null;
+  secondaryPlatformUrl: string | null;
+  secondaryPlatformId: string | null;
   timezone: string | null;
   defaultDurationMinutes: string | null;
   reviewAutomationEnabled: boolean;
@@ -70,6 +73,9 @@ export const emptyClientCalendarSetupState: ClientCalendarSetupState = {
   externalPlatformName: null,
   externalPlatformUrl: null,
   externalCalendarId: null,
+  secondaryPlatformName: null,
+  secondaryPlatformUrl: null,
+  secondaryPlatformId: null,
   timezone: null,
   defaultDurationMinutes: null,
   reviewAutomationEnabled: false,
@@ -120,6 +126,9 @@ export function parseClientCalendarSetupPayload(payload: unknown): ClientCalenda
     externalPlatformName: payloadText(record, 'externalPlatformName'),
     externalPlatformUrl: payloadText(record, 'externalPlatformUrl'),
     externalCalendarId: payloadText(record, 'externalCalendarId'),
+    secondaryPlatformName: payloadText(record, 'secondaryPlatformName'),
+    secondaryPlatformUrl: payloadText(record, 'secondaryPlatformUrl'),
+    secondaryPlatformId: payloadText(record, 'secondaryPlatformId'),
     timezone: payloadText(record, 'timezone'),
     defaultDurationMinutes: payloadText(record, 'defaultDurationMinutes'),
     reviewAutomationEnabled: record.reviewAutomationEnabled === true,
