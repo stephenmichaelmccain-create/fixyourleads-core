@@ -51,8 +51,8 @@ export async function saveClientTelnyxSetupAction(formData: FormData) {
 
   revalidatePath(`/clients/${companyId}`);
   revalidatePath(`/clients/${companyId}/operator`);
-  revalidatePath(`/clients/${companyId}/telnyx`);
+  revalidatePath(`/clients/${companyId}/connections`);
   revalidatePath(`/events?companyId=${companyId}`);
 
-  redirect(`/clients/${companyId}/telnyx?notice=updated`);
+  redirect(`/clients/${companyId}/connections?notice=updated`);
 }

@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 type ClientWorkspaceTabsProps = {
   companyId: string;
-  active: 'live-log' | 'profile' | 'n8n' | 'telnyx';
+  active: 'live-log' | 'profile' | 'connections';
 };
 
 export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsProps) {
@@ -22,16 +22,10 @@ export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsPr
           Client profile
         </Link>
         <Link
-          className={`workspace-tab-link ${active === 'n8n' ? 'is-active' : ''}`}
-          href={`/clients/${companyId}/n8n`}
+          className={`workspace-tab-link ${active === 'connections' ? 'is-active' : ''}`}
+          href={`/clients/${companyId}/connections`}
         >
-          n8n
-        </Link>
-        <Link
-          className={`workspace-tab-link ${active === 'telnyx' ? 'is-active' : ''}`}
-          href={`/clients/${companyId}/telnyx`}
-        >
-          Telnyx
+          Connections
         </Link>
       </div>
     </section>

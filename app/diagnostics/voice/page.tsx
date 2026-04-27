@@ -256,8 +256,8 @@ export default async function VoiceDiagnosticsPage({
                     <div className="text-muted">{row.lastError || 'Open the n8n workspace and retry provisioning.'}</div>
                   </div>
                   <div className="action-cluster">
-                    <Link className="button-ghost" href={`/clients/${row.companyId}/n8n`}>
-                      Open n8n
+                    <Link className="button-ghost" href={`/clients/${row.companyId}/connections`}>
+                      Open connections
                     </Link>
                   </div>
                 </article>
