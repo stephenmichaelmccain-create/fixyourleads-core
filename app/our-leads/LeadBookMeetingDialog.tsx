@@ -162,6 +162,7 @@ export function LeadBookMeetingDialog({
             <input type="hidden" name="status" value={status} />
             <input type="hidden" name="city" value={city} />
             <input type="hidden" name="nextActionDue" value={nextActionDue} />
+            <input type="hidden" name="meetingStage" value="demo_booked" />
 
             <div className="inline-row justify-between lead-panel-header">
               <span className="metric-label">Book meeting</span>

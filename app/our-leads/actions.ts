@@ -11,6 +11,14 @@ import {
   getMeetingTeamDefaults,
   normalizeMeetingEmail
 } from '@/lib/meeting-team-defaults';
+import {
+  composeMeetingFlowNotes,
+  defaultMeetingFlowStage,
+  isMeetingFlowStageKey,
+  meetingFlowDefaultPurpose,
+  meetingFlowStageLabel,
+  type MeetingFlowStageKey
+} from '@/lib/meeting-flow';
 import { normalizePhone } from '@/lib/phone';
 import { buildProspectNotes, parseProspectNotes } from '@/lib/prospect-metadata';
 import { resolveAppointmentStartTime } from '@/services/booking';
@@ -940,13 +948,16 @@ export async function createProspectMeetingAction(formData: FormData) {
   const contactPhoneRaw = readText(formData, 'contactPhone');
   const meetingUrl = readText(formData, 'meetingUrl');
   const purpose = readText(formData, 'purpose');
+  const meetingStageRaw = readText(formData, 'meetingStage');
   const hostEmailRaw = readText(formData, 'hostEmail');
   const notes = readText(formData, 'notes');
+  const meetingStage: MeetingFlowStageKey = isMeetingFlowStageKey(meetingStageRaw) ? meetingStageRaw : defaultMeetingFlowStage();
+  const resolvedPurpose = purpose || meetingFlowDefaultPurpose(meetingStage);
   const bookingDraft = {
     contactName,
     contactPhone: contactPhoneRaw,
     meetingAt: meetingAtRaw,
-    purpose,
+    purpose: resolvedPurpose,
     meetingUrl,
     hostEmail: hostEmailRaw,
     notes
@@ -990,7 +1001,7 @@ export async function createProspectMeetingAction(formData: FormData) {
     );
   }
 
-  if (!purpose) {
+  if (!resolvedPurpose) {
     redirect(
       buildOurLeadsHref({
         prospectId,
@@ -1135,6 +1146,11 @@ export async function createProspectMeetingAction(formData: FormData) {
   if (existing.website) {
     noteParts.push(`Website: ${existing.website}`);
   }
+  const stageLabel = meetingFlowStageLabel(meetingStage);
+  const stagedNotes = composeMeetingFlowNotes({
+    stage: meetingStage,
+    notes: noteParts.filter(Boolean).join('\n')
+  });
 
   await db.$transaction(async (tx) => {
     await tx.prospect.update({
@@ -1194,26 +1210,26 @@ export async function createProspectMeetingAction(formData: FormData) {
       contactId: contact.id,
       startTime: appointmentTime,
       status: AppointmentStatus.BOOKED,
-      purpose,
+      purpose: resolvedPurpose,
       meetingUrl: parsedMeetingUrl.toString(),
       hostEmail: normalizedHostEmail,
       attendeeEmails: meetingDefaults.defaultAttendeeEmails,
       displayCompanyName: existing.name,
       sourceProspectId: prospectId,
-      notes: noteParts.filter(Boolean).join('\n')
+      notes: stagedNotes
     };
 
     if (existingAppointment) {
       await tx.appointment.update({
         where: { id: existingAppointment.id },
         data: {
-          purpose,
+          purpose: resolvedPurpose,
           meetingUrl: parsedMeetingUrl.toString(),
           hostEmail: normalizedHostEmail,
           attendeeEmails: meetingDefaults.defaultAttendeeEmails,
           displayCompanyName: existing.name,
           sourceProspectId: prospectId,
-          notes: noteParts.filter(Boolean).join('\n')
+          notes: stagedNotes
         }
       });
     } else {
@@ -1226,7 +1242,7 @@ export async function createProspectMeetingAction(formData: FormData) {
       data: {
         prospectId,
         outcome: 'Booked demo',
-        notes: `Meeting booked for ${appointmentTime.toLocaleString()}. ${purpose}`
+        notes: `${stageLabel} meeting booked for ${appointmentTime.toLocaleString()}. ${resolvedPurpose}`
       }
     });
 
@@ -1238,7 +1254,8 @@ export async function createProspectMeetingAction(formData: FormData) {
           prospectId,
           contactName: resolvedContactName,
           contactPhone: normalizedPhone,
-          purpose,
+          purpose: resolvedPurpose,
+          stage: meetingStage,
           meetingUrl: parsedMeetingUrl.toString(),
           hostEmail: normalizedHostEmail,
           attendeeEmails: meetingDefaults.defaultAttendeeEmails,

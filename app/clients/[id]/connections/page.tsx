@@ -2,7 +2,12 @@ import { notFound } from 'next/navigation';
 import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
 import { CopyableCodeBlock } from '@/app/clients/[id]/workflow/CopyableCodeBlock';
 import { CopyableUrlField } from '@/app/clients/[id]/workflow/CopyableUrlField';
-import { retryClientAutomationAction, saveClientWorkflowAction } from '@/app/clients/[id]/workflow/actions';
+import {
+  connectClientTelnyxAssistantAction,
+  resetClientAutomationAction,
+  retryClientAutomationAction,
+  saveClientWorkflowAction
+} from '@/app/clients/[id]/workflow/actions';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { emptyClientAutomationState, parseClientAutomationPayload } from '@/lib/client-automation';
 import { emptyClientCalendarSetupState, parseClientCalendarSetupPayload } from '@/lib/client-calendar-setup';
@@ -386,7 +391,16 @@ export default async function ClientConnectionsPage({
         : null);
   const platformConfigured = Boolean(bookingPlatformLabel || calendarState.externalPlatformUrl || bookingCredentialsSaved);
   const workflowReady = Boolean(automationState.workflowActive && automationState.workflowEditorUrl);
-  const telnyxReady = Boolean(workflowReady && automationState.workflowEditorUrl);
+  const mcpServerUrl = automationState.workflowMcpUrl;
+  const activeWorkflowUrl = mcpServerUrl || automationState.workflowWebhookUrl;
+  const activeWorkflowLabel =
+    automationState.triggerType === 'mcp'
+      ? 'MCP server URL'
+      : automationState.triggerType === 'webhook'
+        ? 'Webhook URL'
+        : 'Workflow URL';
+  const activeAssistantId = company.telnyxAssistantId || voiceState.assistantId;
+  const telnyxReady = Boolean(workflowReady && mcpServerUrl && activeAssistantId);
   const testReady = Boolean(calendarState.syncTestPassed && calendarState.launchApproved);
   const stage = connectionStage({
     platformConfigured,
@@ -414,6 +428,14 @@ export default async function ClientConnectionsPage({
               ? 'Connection setup saved.'
               : query.notice === 'automation_ready'
                 ? 'MCP workflow ready.'
+                : query.notice === 'automation_reset'
+                  ? 'Client workflow reset.'
+                  : query.notice === 'telnyx_connected'
+                    ? 'Telnyx connected.'
+                    : query.notice === 'telnyx_attention'
+                      ? 'Telnyx needs one more step.'
+                      : query.notice === 'telnyx_failed'
+                        ? 'Telnyx connection failed.'
                 : query.notice === 'automation_attention'
                   ? 'MCP workflow needs one more check.'
                   : 'Connection setup failed.'}
@@ -423,6 +445,14 @@ export default async function ClientConnectionsPage({
               ? 'The booking system was saved and the n8n workflow was updated.'
               : query.notice === 'automation_ready'
                 ? 'The client workflow is active. Connect Telnyx to the n8n MCP server URL, then run one test booking.'
+                : query.notice === 'automation_reset'
+                  ? 'The saved booking system stayed in place, and the client workflow was removed from n8n.'
+                  : query.notice === 'telnyx_connected'
+                    ? 'One-click Telnyx setup finished. Assistant and MCP server are now linked to this client.'
+                    : query.notice === 'telnyx_attention'
+                      ? voiceState.notes || 'Auto-connect paused because one prerequisite is missing.'
+                      : query.notice === 'telnyx_failed'
+                        ? voiceState.notes || 'Auto-connect failed. Review the message and retry.'
                 : query.notice === 'automation_attention'
                   ? automationState.lastError || 'Something still needs a manual check in n8n or Railway.'
                   : automationState.lastError || 'Provisioning failed. Review the error below and retry after fixing the blocker.'}
@@ -609,6 +639,11 @@ export default async function ClientConnectionsPage({
                 <button type="submit" className="button">
                   Save and launch
                 </button>
+                {automationState.workflowId ? (
+                  <button formAction={resetClientAutomationAction} type="submit" className="button-ghost button-secondary-compact">
+                    Reset client
+                  </button>
+                ) : null}
               </div>
             </div>
           </section>
@@ -632,17 +667,54 @@ export default async function ClientConnectionsPage({
               <span>{bookingToolName}</span>
               <span>{cancelToolName}</span>
             </div>
-            <div className="action-cluster">
-              <CopyableUrlField
-                id="connections-mcp-server-name"
-                label="Server name"
-                defaultValue={mcpServerName}
+              <div className="action-cluster">
+                <CopyableUrlField
+                  id="connections-mcp-server-name"
+                  label="Server name"
+                  defaultValue={mcpServerName}
                 fallbackCopyValue={mcpServerName}
                 copyButtonLabel="Copy"
                 readOnly
               />
+              <CopyableUrlField
+                id="connections-mcp-server-url"
+                label={activeWorkflowLabel}
+                defaultValue={activeWorkflowUrl ?? undefined}
+                fallbackCopyValue={activeWorkflowUrl ?? undefined}
+                placeholder="Launch the workflow first"
+                copyButtonLabel="Copy URL"
+                readOnly
+              />
             </div>
-            <div className="tiny-muted">The MCP server URL comes from the n8n MCP Server Trigger after launch.</div>
+            <div className="connections-inline-status">
+              <span>{activeAssistantId ? `Assistant: ${activeAssistantId}` : 'Assistant not linked yet'}</span>
+              {voiceState.mcpServerId ? <span>{`MCP server: ${voiceState.mcpServerId}`}</span> : null}
+            </div>
+            <div className="action-cluster">
+              <form action={connectClientTelnyxAssistantAction}>
+                <input type="hidden" name="companyId" value={company.id} />
+                <button
+                  type="submit"
+                  className="button-ghost button-secondary-compact"
+                  disabled={!mcpServerUrl}
+                  title={mcpServerUrl ? 'Create or link Telnyx assistant + MCP automatically' : 'Launch MCP workflow first'}
+                >
+                  Connect Telnyx automatically
+                </button>
+              </form>
+            </div>
+            <div className="tiny-muted">
+              {automationState.triggerType === 'mcp'
+                ? 'This is the workflow-specific MCP server URL to paste into the Telnyx assistant.'
+                : automationState.triggerType === 'webhook'
+                  ? 'This workflow is still exposing a webhook URL, not a workflow-specific MCP server yet.'
+                  : 'Launch the workflow first, then copy the workflow-specific MCP server URL from here.'}
+            </div>
+            <div className="tiny-muted">
+              One-click needs `TELNYX_API_KEY` and either `TELNYX_TEMPLATE_ASSISTANT_ID` or both `TELNYX_ASSISTANT_MODEL` +
+              `TELNYX_ASSISTANT_INSTRUCTIONS`.
+            </div>
+            {voiceState.notes ? <div className="tiny-muted">{voiceState.notes}</div> : null}
           </div>
         </section>
 
@@ -689,6 +761,24 @@ export default async function ClientConnectionsPage({
               readOnly
             />
             <CopyableCodeBlock label="Allowed MCP tools" value={mcpAllowedTools} copyButtonLabel="Copy JSON" />
+            <CopyableUrlField
+              id="connections-assistant-id"
+              label="Connected assistant ID"
+              defaultValue={activeAssistantId ?? undefined}
+              fallbackCopyValue={activeAssistantId ?? undefined}
+              placeholder="Connect Telnyx automatically first"
+              copyButtonLabel="Copy ID"
+              readOnly
+            />
+            <CopyableUrlField
+              id="connections-mcp-server-id"
+              label="Connected MCP server ID"
+              defaultValue={voiceState.mcpServerId ?? undefined}
+              fallbackCopyValue={voiceState.mcpServerId ?? undefined}
+              placeholder="Connect Telnyx automatically first"
+              copyButtonLabel="Copy ID"
+              readOnly
+            />
             <CopyableUrlField
               id="connections-availability-tool-url"
               label="Availability endpoint"

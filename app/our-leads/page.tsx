@@ -1204,7 +1204,7 @@ export default async function OurLeadsPage({
                               contactName={bookingDraftValues.contactName || selectedProspectView.ownerName || ''}
                               contactPhone={bookingDraftValues.contactPhone || selectedProspectView.phone || ''}
                               website={selectedProspectView.website || ''}
-                              purpose={bookingDraftValues.purpose || 'Discovery call'}
+                              purpose={bookingDraftValues.purpose || 'Demo Booked'}
                               notes={bookingDraftValues.notes || selectedProspectView.plainNotes || ''}
                               initialMeetingAt={bookingDraftValues.meetingAt || undefined}
                               initialMeetingUrl={bookingDraftValues.meetingUrl || undefined}

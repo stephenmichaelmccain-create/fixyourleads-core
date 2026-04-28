@@ -97,6 +97,13 @@ Optional if your editor or webhook domain differs from the main n8n domain:
 - N8N_WEBHOOK_BASE_URL
 - N8N_API_BASE_URL
 
+Optional for one-click Telnyx assistant + MCP connection from the Connections page:
+
+- TELNYX_TEMPLATE_ASSISTANT_ID (recommended, clones your working baseline assistant)
+- TELNYX_MCP_SERVER_TYPE (defaults to `http`)
+- TELNYX_ASSISTANT_MODEL (only needed if you are not cloning from a template assistant)
+- TELNYX_ASSISTANT_INSTRUCTIONS (only needed if you are not cloning from a template assistant)
+
 ## Local bootstrap
 Run `npm run env:bootstrap` from the repo root to generate `.env.local` from
 existing local secret files. It currently auto-loads:

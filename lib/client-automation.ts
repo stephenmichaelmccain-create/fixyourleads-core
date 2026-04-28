@@ -5,9 +5,12 @@ export type ClientAutomationStatus = 'NOT_CONFIGURED' | 'PENDING' | 'READY' | 'A
 export type ClientAutomationState = {
   provider: 'n8n' | null;
   status: ClientAutomationStatus;
+  triggerType: 'mcp' | 'webhook' | null;
   workflowId: string | null;
   workflowName: string | null;
   workflowEditorUrl: string | null;
+  workflowMcpPath: string | null;
+  workflowMcpUrl: string | null;
   workflowWebhookPath: string | null;
   workflowWebhookUrl: string | null;
   templateWorkflowId: string | null;
@@ -27,9 +30,12 @@ const STATUSES: ClientAutomationStatus[] = ['NOT_CONFIGURED', 'PENDING', 'READY'
 export const emptyClientAutomationState: ClientAutomationState = {
   provider: null,
   status: 'NOT_CONFIGURED',
+  triggerType: null,
   workflowId: null,
   workflowName: null,
   workflowEditorUrl: null,
+  workflowMcpPath: null,
+  workflowMcpUrl: null,
   workflowWebhookPath: null,
   workflowWebhookUrl: null,
   templateWorkflowId: null,
@@ -67,9 +73,12 @@ export function parseClientAutomationPayload(payload: unknown): ClientAutomation
   return {
     provider: provider === 'n8n' ? 'n8n' : null,
     status: STATUSES.includes(status as ClientAutomationStatus) ? (status as ClientAutomationStatus) : 'NOT_CONFIGURED',
+    triggerType: payloadText(record, 'triggerType') === 'mcp' ? 'mcp' : payloadText(record, 'triggerType') === 'webhook' ? 'webhook' : null,
     workflowId: payloadText(record, 'workflowId'),
     workflowName: payloadText(record, 'workflowName'),
     workflowEditorUrl: payloadText(record, 'workflowEditorUrl'),
+    workflowMcpPath: payloadText(record, 'workflowMcpPath'),
+    workflowMcpUrl: payloadText(record, 'workflowMcpUrl'),
     workflowWebhookPath: payloadText(record, 'workflowWebhookPath'),
     workflowWebhookUrl: payloadText(record, 'workflowWebhookUrl'),
     templateWorkflowId: payloadText(record, 'templateWorkflowId'),

@@ -7,7 +7,8 @@ import { db } from '@/lib/db';
 import { encryptJson } from '@/lib/encrypted-json';
 import { buildN8nEditorUrl } from '@/lib/n8n';
 import { emptyTelnyxSetupState, parseTelnyxSetupPayload } from '@/lib/client-telnyx-setup';
-import { provisionClientAutomation } from '@/services/automation';
+import { provisionClientAutomation, resetClientAutomation } from '@/services/automation';
+import { connectClientTelnyxAssistant } from '@/services/telnyx-provisioning';
 
 function optionalText(value: FormDataEntryValue | null) {
   const text = String(value || '').trim();
@@ -42,6 +43,20 @@ function workflowPath(companyId: string, notice?: string) {
 
   const search = params.toString();
   return search ? `/clients/${companyId}/connections?${search}` : `/clients/${companyId}/connections`;
+}
+
+function revalidateClientConnectionPaths(companyId: string) {
+  revalidatePath(`/clients/${companyId}`);
+  revalidatePath(`/clients/${companyId}/workflow`);
+  revalidatePath(`/clients/${companyId}/connections`);
+  revalidatePath(`/clients/${companyId}/live-log`);
+  revalidatePath(`/clients/${companyId}/crm`);
+  revalidatePath(`/clients/${companyId}/booking`);
+  revalidatePath(`/clients/${companyId}/calendar`);
+  revalidatePath(`/clients/${companyId}/operator`);
+  revalidatePath(`/events?companyId=${companyId}`);
+  revalidatePath(`/bookings?companyId=${companyId}`);
+  revalidatePath('/diagnostics/voice');
 }
 
 function appBaseUrl() {
@@ -303,17 +318,7 @@ export async function saveClientWorkflowAction(formData: FormData) {
 
   const provisionResult = await provisionClientAutomation(companyId, 'workflow_save');
 
-  revalidatePath(`/clients/${companyId}`);
-  revalidatePath(`/clients/${companyId}/workflow`);
-  revalidatePath(`/clients/${companyId}/connections`);
-  revalidatePath(`/clients/${companyId}/live-log`);
-  revalidatePath(`/clients/${companyId}/crm`);
-  revalidatePath(`/clients/${companyId}/booking`);
-  revalidatePath(`/clients/${companyId}/calendar`);
-  revalidatePath(`/clients/${companyId}/operator`);
-  revalidatePath(`/events?companyId=${companyId}`);
-  revalidatePath(`/bookings?companyId=${companyId}`);
-  revalidatePath('/diagnostics/voice');
+  revalidateClientConnectionPaths(companyId);
 
   if (provisionResult.status !== 'FAILED' && provisionResult.workflowId) {
     const editorUrl = buildN8nEditorUrl(provisionResult.workflowId);
@@ -335,11 +340,7 @@ export async function retryClientAutomationAction(formData: FormData) {
 
   const result = await provisionClientAutomation(companyId, 'manual_retry');
 
-  revalidatePath(`/clients/${companyId}`);
-  revalidatePath(`/clients/${companyId}/workflow`);
-  revalidatePath(`/clients/${companyId}/connections`);
-  revalidatePath(`/clients/${companyId}/live-log`);
-  revalidatePath('/diagnostics/voice');
+  revalidateClientConnectionPaths(companyId);
 
   const notice =
     result.status === 'READY'
@@ -347,6 +348,39 @@ export async function retryClientAutomationAction(formData: FormData) {
       : result.status === 'ACTION_REQUIRED'
         ? 'automation_attention'
         : 'automation_failed';
+
+  redirect(workflowPath(companyId, notice));
+}
+
+export async function resetClientAutomationAction(formData: FormData) {
+  const companyId = String(formData.get('companyId') || '').trim();
+
+  if (!companyId) {
+    throw new Error('company_id_required');
+  }
+
+  await resetClientAutomation(companyId);
+  revalidateClientConnectionPaths(companyId);
+  redirect(workflowPath(companyId, 'automation_reset'));
+}
+
+export async function connectClientTelnyxAssistantAction(formData: FormData) {
+  const companyId = String(formData.get('companyId') || '').trim();
+
+  if (!companyId) {
+    throw new Error('company_id_required');
+  }
+
+  const result = await connectClientTelnyxAssistant(companyId);
+
+  revalidateClientConnectionPaths(companyId);
+
+  const notice =
+    result.status === 'READY'
+      ? 'telnyx_connected'
+      : result.status === 'ACTION_REQUIRED'
+        ? 'telnyx_attention'
+        : 'telnyx_failed';
 
   redirect(workflowPath(companyId, notice));
 }

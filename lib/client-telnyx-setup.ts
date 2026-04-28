@@ -46,6 +46,13 @@ export type TelnyxSetupState = {
   monthlyVolume: string | null;
   complianceNotes: string | null;
   notes: string | null;
+  assistantId: string | null;
+  assistantName: string | null;
+  mcpServerId: string | null;
+  mcpServerName: string | null;
+  mcpServerType: string | null;
+  mcpServerUrl: string | null;
+  mcpAllowedTools: string[];
   updatedAt: string | null;
 };
 
@@ -96,6 +103,13 @@ export const emptyTelnyxSetupState: TelnyxSetupState = {
   monthlyVolume: null,
   complianceNotes: null,
   notes: null,
+  assistantId: null,
+  assistantName: null,
+  mcpServerId: null,
+  mcpServerName: null,
+  mcpServerType: null,
+  mcpServerUrl: null,
+  mcpAllowedTools: [],
   updatedAt: null
 };
 
@@ -121,6 +135,19 @@ function payloadAnyText(payload: TelnyxSetupPayload, key: string) {
 
   const trimmed = value.trim();
   return trimmed || null;
+}
+
+function payloadStringList(payload: TelnyxSetupPayload, key: string) {
+  const value = payload[key];
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item) => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 export function parseTelnyxSetupPayload(payload: unknown): TelnyxSetupState {
@@ -163,6 +190,13 @@ export function parseTelnyxSetupPayload(payload: unknown): TelnyxSetupState {
     monthlyVolume: payloadText(record, 'monthlyVolume'),
     complianceNotes: payloadText(record, 'complianceNotes'),
     notes: payloadText(record, 'notes'),
+    assistantId: payloadAnyText(record, 'assistantId'),
+    assistantName: payloadAnyText(record, 'assistantName'),
+    mcpServerId: payloadAnyText(record, 'mcpServerId'),
+    mcpServerName: payloadAnyText(record, 'mcpServerName'),
+    mcpServerType: payloadAnyText(record, 'mcpServerType'),
+    mcpServerUrl: payloadAnyText(record, 'mcpServerUrl'),
+    mcpAllowedTools: payloadStringList(record, 'mcpAllowedTools'),
     updatedAt: payloadText(record, 'updatedAt')
   };
 }

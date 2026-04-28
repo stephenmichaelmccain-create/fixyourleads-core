@@ -11,6 +11,12 @@ type N8nWorkflowNode = {
   [key: string]: unknown;
 };
 
+export type N8nWorkflowAccess = {
+  triggerType: 'mcp' | 'webhook' | null;
+  path: string | null;
+  url: string | null;
+};
+
 export type N8nWorkflow = {
   id?: string;
   name: string;
@@ -209,6 +215,23 @@ function deepReplacePlaceholders(value: unknown, replacements: Record<string, st
   return value;
 }
 
+function nodePath(node: N8nWorkflowNode) {
+  if (!node.parameters || typeof node.parameters !== 'object') {
+    return null;
+  }
+
+  const path = node.parameters.path;
+  return typeof path === 'string' && path.trim() ? path.trim() : null;
+}
+
+function isMcpTriggerNode(node: N8nWorkflowNode) {
+  return typeof node.type === 'string' && node.type.toLowerCase().includes('mcptrigger');
+}
+
+function isWebhookNode(node: N8nWorkflowNode) {
+  return typeof node.type === 'string' && node.type.toLowerCase().includes('webhook');
+}
+
 function sanitizeWorkflow(template: N8nWorkflow, workflowName: string, replacements: Record<string, string>, webhookPath: string) {
   const clone = structuredClone({
     name: workflowName,
@@ -227,11 +250,7 @@ function sanitizeWorkflow(template: N8nWorkflow, workflowName: string, replaceme
     if (nextNode.parameters && typeof nextNode.parameters === 'object') {
       nextNode.parameters = deepReplacePlaceholders(nextNode.parameters, replacements) as Record<string, unknown>;
 
-      if (
-        typeof nextNode.type === 'string' &&
-        nextNode.type.toLowerCase().includes('webhook') &&
-        typeof nextNode.parameters.path === 'string'
-      ) {
+      if ((isWebhookNode(nextNode) || isMcpTriggerNode(nextNode)) && typeof nextNode.parameters.path === 'string') {
         nextNode.parameters.path = webhookPath;
       }
     }
@@ -291,6 +310,50 @@ export function buildN8nWebhookUrl(webhookPath: string | null) {
   return `${webhookBaseUrl}/webhook/${webhookPath}`;
 }
 
+export function buildN8nMcpUrl(mcpPath: string | null) {
+  const webhookBaseUrl = readConfiguredWebhookBaseUrl();
+
+  if (!webhookBaseUrl || !mcpPath) {
+    return null;
+  }
+
+  return `${webhookBaseUrl}/mcp/${mcpPath}`;
+}
+
+export function extractN8nWorkflowAccess(workflow: Pick<N8nWorkflow, 'nodes'>): N8nWorkflowAccess {
+  const nodes = Array.isArray(workflow.nodes) ? workflow.nodes : [];
+
+  for (const node of nodes) {
+    const path = nodePath(node);
+
+    if (isMcpTriggerNode(node)) {
+      return {
+        triggerType: 'mcp',
+        path,
+        url: buildN8nMcpUrl(path)
+      };
+    }
+  }
+
+  for (const node of nodes) {
+    const path = nodePath(node);
+
+    if (isWebhookNode(node)) {
+      return {
+        triggerType: 'webhook',
+        path,
+        url: buildN8nWebhookUrl(path)
+      };
+    }
+  }
+
+  return {
+    triggerType: null,
+    path: null,
+    url: null
+  };
+}
+
 export async function getN8nWorkflow(workflowId: string) {
   return n8nRequest<N8nWorkflow>(`/workflows/${workflowId}`);
 }
@@ -312,6 +375,12 @@ export async function updateN8nWorkflow(workflowId: string, payload: Partial<N8n
 export async function activateN8nWorkflow(workflowId: string) {
   return n8nRequest<N8nWorkflow>(`/workflows/${workflowId}/activate`, {
     method: 'POST'
+  });
+}
+
+export async function deleteN8nWorkflow(workflowId: string) {
+  return n8nRequest<unknown>(`/workflows/${workflowId}`, {
+    method: 'DELETE'
   });
 }
 
@@ -346,11 +415,16 @@ export async function cloneN8nTemplateWorkflow(input: {
     activationError = error instanceof Error ? error.message : 'n8n_activation_failed';
   }
 
+  const access = extractN8nWorkflowAccess(workflow);
+
   return {
     workflow: activatedWorkflow,
     workflowId,
-    webhookPath,
-    webhookUrl: buildN8nWebhookUrl(webhookPath),
+    triggerType: access.triggerType,
+    mcpPath: access.triggerType === 'mcp' ? access.path : null,
+    mcpUrl: access.triggerType === 'mcp' ? access.url : null,
+    webhookPath: access.triggerType === 'webhook' ? access.path || webhookPath : null,
+    webhookUrl: access.triggerType === 'webhook' ? access.url || buildN8nWebhookUrl(webhookPath) : null,
     editorUrl: buildN8nEditorUrl(workflowId),
     activationError
   };

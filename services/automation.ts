@@ -5,10 +5,11 @@ import { emptyClientCalendarSetupState, parseClientCalendarSetupPayload } from '
 import { emptyTelnyxSetupState, parseTelnyxSetupPayload } from '@/lib/client-telnyx-setup';
 import {
   activateN8nWorkflow,
+  deleteN8nWorkflow,
   N8nRequestError,
   buildN8nEditorUrl,
-  buildN8nWebhookUrl,
   cloneN8nTemplateWorkflow,
+  extractN8nWorkflowAccess,
   getN8nWorkflow,
   n8nProvisioningConfig
 } from '@/lib/n8n';
@@ -81,6 +82,36 @@ function summarizeError(error: unknown) {
   return 'automation_provision_failed';
 }
 
+function readinessFromWorkflow(input: {
+  active: boolean;
+  triggerType: 'mcp' | 'webhook' | null;
+  activationError?: string | null;
+}) {
+  if (!input.active) {
+    return {
+      status: 'ACTION_REQUIRED' as const,
+      detail:
+        input.activationError || 'Workflow exists but is not active yet in n8n. Activate it and retry from Connections.',
+      lastError: input.activationError || 'n8n_workflow_inactive'
+    };
+  }
+
+  if (input.triggerType !== 'mcp') {
+    return {
+      status: 'ACTION_REQUIRED' as const,
+      detail:
+        'Workflow is active, but it is not MCP-based yet. Switch the template to an MCP Server Trigger workflow and launch again.',
+      lastError: 'n8n_workflow_not_mcp'
+    };
+  }
+
+  return {
+    status: 'READY' as const,
+    detail: 'Shared n8n MCP workflow provisioned and activated.',
+    lastError: null
+  };
+}
+
 function calledNumberFromState(input: {
   telnyxInboundNumber: string | null;
   additionalNumbers: Array<{ number: string }>;
@@ -109,9 +140,12 @@ function mergedAutomationPayload(input: {
   previous: ReturnType<typeof parseClientAutomationPayload>;
   source: ProvisionSource;
   status: 'PENDING' | 'READY' | 'ACTION_REQUIRED' | 'FAILED';
+  triggerType?: 'mcp' | 'webhook' | null;
   workflowId?: string | null;
   workflowName?: string | null;
   workflowEditorUrl?: string | null;
+  workflowMcpPath?: string | null;
+  workflowMcpUrl?: string | null;
   workflowWebhookPath?: string | null;
   workflowWebhookUrl?: string | null;
   workflowActive?: boolean;
@@ -127,9 +161,12 @@ function mergedAutomationPayload(input: {
     ...input.previous,
     provider: 'n8n',
     status: input.status,
+    triggerType: input.triggerType ?? input.previous.triggerType,
     workflowId: input.workflowId ?? input.previous.workflowId,
     workflowName: input.workflowName ?? input.previous.workflowName,
     workflowEditorUrl: input.workflowEditorUrl ?? input.previous.workflowEditorUrl,
+    workflowMcpPath: input.workflowMcpPath ?? input.previous.workflowMcpPath,
+    workflowMcpUrl: input.workflowMcpUrl ?? input.previous.workflowMcpUrl,
     workflowWebhookPath: input.workflowWebhookPath ?? input.previous.workflowWebhookPath,
     workflowWebhookUrl: input.workflowWebhookUrl ?? input.previous.workflowWebhookUrl,
     workflowActive: input.workflowActive ?? input.previous.workflowActive,
@@ -268,7 +305,7 @@ export async function provisionClientAutomation(companyId: string, source: Provi
   });
   const configUrl = automationConfigUrl(company.id);
   const bookingCreateUrl = internalBookingCreateUrl();
-  const readiness = n8nProvisioningConfig();
+  const provisioningReadiness = n8nProvisioningConfig();
 
   await recordAutomationState({
     companyId,
@@ -277,15 +314,15 @@ export async function provisionClientAutomation(companyId: string, source: Provi
       previous: previousState,
       source,
       status: 'PENDING',
-      templateWorkflowId: readiness.templateWorkflowId,
+      templateWorkflowId: provisioningReadiness.templateWorkflowId,
       configUrl,
       bookingCreateUrl,
       notes: 'Provisioning shared n8n client workflow.'
     })
   });
 
-  if (!readiness.isConfigured) {
-    const detail = `Missing ${readiness.missing.join(', ')} before n8n provisioning can run.`;
+  if (!provisioningReadiness.isConfigured) {
+    const detail = `Missing ${provisioningReadiness.missing.join(', ')} before n8n provisioning can run.`;
 
     await recordAutomationState({
       companyId,
@@ -294,7 +331,7 @@ export async function provisionClientAutomation(companyId: string, source: Provi
         previous: previousState,
         source,
         status: 'ACTION_REQUIRED',
-        templateWorkflowId: readiness.templateWorkflowId,
+        templateWorkflowId: provisioningReadiness.templateWorkflowId,
         configUrl,
         bookingCreateUrl,
         lastError: detail,
@@ -313,24 +350,24 @@ export async function provisionClientAutomation(companyId: string, source: Provi
     if (previousState.workflowId) {
       try {
         let existingWorkflow = await getN8nWorkflow(previousState.workflowId);
+        const access = extractN8nWorkflowAccess(existingWorkflow);
         let active = existingWorkflow.active === true;
-        let detail = 'Existing n8n workflow is active.';
         let activationError: string | null = null;
 
         if (!active) {
           try {
             existingWorkflow = await activateN8nWorkflow(previousState.workflowId);
             active = existingWorkflow.active === true;
-            detail = active
-              ? 'Existing n8n workflow was re-activated.'
-              : 'Existing n8n workflow still needs activation in n8n.';
           } catch (error) {
             activationError = summarizeError(error);
-            detail = `Existing n8n workflow exists but activation still needs attention: ${activationError}`;
           }
         }
 
-        const status = active ? 'READY' : 'ACTION_REQUIRED';
+        const workflowReadiness = readinessFromWorkflow({
+          active,
+          triggerType: access.triggerType,
+          activationError
+        });
 
         await recordAutomationState({
           companyId,
@@ -338,23 +375,27 @@ export async function provisionClientAutomation(companyId: string, source: Provi
           payload: mergedAutomationPayload({
             previous: previousState,
             source,
-            status,
+            status: workflowReadiness.status,
+            triggerType: access.triggerType,
             workflowId: previousState.workflowId,
             workflowName: existingWorkflow.name || previousState.workflowName || defaultWorkflowName(company.name),
             workflowEditorUrl: buildN8nEditorUrl(previousState.workflowId),
-            workflowWebhookUrl: previousState.workflowWebhookUrl || buildN8nWebhookUrl(previousState.workflowWebhookPath),
+            workflowMcpPath: access.triggerType === 'mcp' ? access.path : null,
+            workflowMcpUrl: access.triggerType === 'mcp' ? access.url : null,
+            workflowWebhookPath: access.triggerType === 'webhook' ? access.path : null,
+            workflowWebhookUrl: access.triggerType === 'webhook' ? access.url : null,
             workflowActive: active,
-            templateWorkflowId: readiness.templateWorkflowId,
+            templateWorkflowId: provisioningReadiness.templateWorkflowId,
             configUrl,
             bookingCreateUrl,
-            lastError: active ? null : activationError || detail,
-            notes: detail
+            lastError: workflowReadiness.lastError,
+            notes: workflowReadiness.detail
           })
         });
 
         return {
-          status,
-          detail,
+          status: workflowReadiness.status,
+          detail: workflowReadiness.detail,
           workflowId: previousState.workflowId
         };
       } catch (error) {
@@ -370,7 +411,7 @@ export async function provisionClientAutomation(companyId: string, source: Provi
       __FYL_APP_BASE_URL__: appBaseUrl() || '',
       __FYL_CONFIG_URL__: configUrl || '',
       __FYL_BOOKING_CREATE_URL__: bookingCreateUrl || '',
-      __FYL_AUTOMATION_SECRET__: readiness.automationSharedSecret || '',
+      __FYL_AUTOMATION_SECRET__: provisioningReadiness.automationSharedSecret || '',
       __FYL_INTERNAL_API_KEY__: String(process.env.INTERNAL_API_KEY || '').trim(),
       __FYL_CALLED_NUMBER__: calledNumber || '',
       __FYL_TELNYX_ASSISTANT_ID__: company.telnyxAssistantId || '',
@@ -390,10 +431,11 @@ export async function provisionClientAutomation(companyId: string, source: Provi
       replacements
     });
 
-    const status = created.activationError ? 'ACTION_REQUIRED' : 'READY';
-    const detail = created.activationError
-      ? `Workflow cloned, but activation still needs attention: ${created.activationError}`
-      : 'Shared n8n workflow provisioned and activated.';
+    const workflowReadiness = readinessFromWorkflow({
+      active: !created.activationError,
+      triggerType: created.triggerType,
+      activationError: created.activationError
+    });
 
     const currentState = await latestAutomationState(companyId);
 
@@ -403,24 +445,27 @@ export async function provisionClientAutomation(companyId: string, source: Provi
       payload: mergedAutomationPayload({
         previous: currentState,
         source,
-        status,
+        status: workflowReadiness.status,
+        triggerType: created.triggerType,
         workflowId: created.workflowId,
         workflowName: created.workflow.name || defaultWorkflowName(company.name),
         workflowEditorUrl: created.editorUrl,
+        workflowMcpPath: created.mcpPath,
+        workflowMcpUrl: created.mcpUrl,
         workflowWebhookPath: created.webhookPath,
         workflowWebhookUrl: created.webhookUrl,
         workflowActive: !created.activationError,
-        templateWorkflowId: readiness.templateWorkflowId,
+        templateWorkflowId: provisioningReadiness.templateWorkflowId,
         configUrl,
         bookingCreateUrl,
-        lastError: created.activationError,
-        notes: detail
+        lastError: workflowReadiness.lastError,
+        notes: workflowReadiness.detail
       })
     });
 
     return {
-      status,
-      detail,
+      status: workflowReadiness.status,
+      detail: workflowReadiness.detail,
       workflowId: created.workflowId
     };
   } catch (error) {
@@ -434,7 +479,7 @@ export async function provisionClientAutomation(companyId: string, source: Provi
         previous: currentState,
         source,
         status: 'FAILED',
-        templateWorkflowId: readiness.templateWorkflowId,
+        templateWorkflowId: provisioningReadiness.templateWorkflowId,
         configUrl,
         bookingCreateUrl,
         lastError: detail,
@@ -552,4 +597,34 @@ export async function automationClientConfig(companyId: string) {
       voiceWebhookSecret: configuredVoiceWebhookSecret()
     }
   };
+}
+
+export async function resetClientAutomation(companyId: string) {
+  const previousState = await latestAutomationState(companyId);
+
+  if (previousState.workflowId) {
+    try {
+      await deleteN8nWorkflow(previousState.workflowId);
+    } catch (error) {
+      if (!(error instanceof N8nRequestError) || error.statusCode !== 404) {
+        throw error;
+      }
+    }
+  }
+
+  await recordAutomationState({
+    companyId,
+    eventType: 'client_automation_updated',
+    payload: {
+      ...emptyClientAutomationState,
+      provider: 'n8n',
+      templateWorkflowId: previousState.templateWorkflowId,
+      configUrl: previousState.configUrl,
+      bookingCreateUrl: previousState.bookingCreateUrl,
+      source: 'manual_retry',
+      notes: previousState.workflowId ? 'Client workflow reset and deleted from n8n.' : 'Client automation state reset.',
+      lastAttemptAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  });
 }

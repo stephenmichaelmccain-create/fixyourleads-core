@@ -3,10 +3,12 @@ import Link from 'next/link';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import {
   addMeetingDefaultAttendeeAction,
+  completeMeetingAndScheduleNextAction,
   removeMeetingDefaultAttendeeAction,
   retryMeetingCalendarSyncAction
 } from '@/app/meetings/actions';
 import { db } from '@/lib/db';
+import { MEETING_FLOW_STAGES, meetingFlowStageLabel, parseMeetingFlowStage, stageFromQueryValue } from '@/lib/meeting-flow';
 import { getMeetingTeamDefaults } from '@/lib/meeting-team-defaults';
 import { extractMeetingLink, meetingLinkLabel } from '@/lib/meetings';
 import { normalizePhone } from '@/lib/phone';
@@ -19,6 +21,7 @@ export const dynamic = 'force-dynamic';
 type SearchParamShape = Promise<{
   notice?: string;
   detail?: string;
+  stage?: string;
 }>;
 
 const UPCOMING_STATUSES = [
@@ -147,6 +150,7 @@ export default async function MeetingsPage({
   const query = (await searchParams) || {};
   const now = new Date();
   const todayStart = startOfToday();
+  const selectedStage = stageFromQueryValue(query.stage);
 
   const appointments = await safeLoadDb(
     () =>
@@ -224,30 +228,40 @@ export default async function MeetingsPage({
 
   const rows = liveAppointments.map((appointment) => {
     const meetingLink = appointment.meetingUrl?.trim() || extractMeetingLink(appointment.notes);
+    const flowStage = parseMeetingFlowStage({
+      notes: appointment.notes,
+      purpose: appointment.purpose
+    });
 
     return {
       ...appointment,
       companyLabel: appointment.displayCompanyName?.trim() || appointment.company.name,
       contactPhone: normalizePhone(appointment.contact.phone),
-      meetingLink
+      meetingLink,
+      flowStage
     };
   });
+  const stageCounts = new Map(MEETING_FLOW_STAGES.map((stage) => [stage.key, 0]));
+  rows.forEach((row) => {
+    stageCounts.set(row.flowStage, (stageCounts.get(row.flowStage) || 0) + 1);
+  });
+  const filteredRows = rows.filter((row) => row.flowStage === selectedStage);
 
-  const meetingsToday = rows.filter((appointment) => appointment.startTime >= todayStart && appointment.startTime < addDays(todayStart, 1)).length;
-  const missingLinkCount = rows.filter((appointment) => !appointment.meetingLink).length;
-  const syncIssueCount = rows.filter((appointment) => appointment.externalSyncStatus === AppointmentExternalSyncStatus.FAILED).length;
-  const syncPendingCount = rows.filter((appointment) => appointment.externalSyncStatus === AppointmentExternalSyncStatus.PENDING).length;
+  const meetingsToday = filteredRows.filter((appointment) => appointment.startTime >= todayStart && appointment.startTime < addDays(todayStart, 1)).length;
+  const missingLinkCount = filteredRows.filter((appointment) => !appointment.meetingLink).length;
+  const syncIssueCount = filteredRows.filter((appointment) => appointment.externalSyncStatus === AppointmentExternalSyncStatus.FAILED).length;
+  const syncPendingCount = filteredRows.filter((appointment) => appointment.externalSyncStatus === AppointmentExternalSyncStatus.PENDING).length;
   const evidenceMissingCount = rows.filter(
     (appointment) => !appointment.callRecordingUrl?.trim() && !appointment.callTranscriptUrl?.trim() && !appointment.callTranscriptText?.trim()
   ).length;
-  const needsPrepCount = rows.filter(
+  const needsPrepCount = filteredRows.filter(
     (appointment) =>
       !appointment.meetingLink ||
       !appointment.notes?.trim() ||
       appointment.externalSyncStatus !== AppointmentExternalSyncStatus.SYNCED ||
       (!appointment.callRecordingUrl?.trim() && !appointment.callTranscriptUrl?.trim() && !appointment.callTranscriptText?.trim())
   ).length;
-  const nextMeeting = rows[0] || null;
+  const nextMeeting = filteredRows[0] || null;
 
   return (
     <LayoutShell
@@ -270,8 +284,14 @@ export default async function MeetingsPage({
                         ? 'Add a valid attendee email.'
                         : query.notice === 'calendar_sync_synced'
                   ? 'Calendar sync worked.'
-                  : query.notice === 'calendar_sync_retry_queued'
+                : query.notice === 'calendar_sync_retry_queued'
                     ? 'Calendar retry queued.'
+                    : query.notice === 'meeting_stage_advanced'
+                      ? 'Stage completed and next meeting scheduled.'
+                    : query.notice === 'meeting_stage_complete'
+                      ? 'Stage completed.'
+                      : query.notice === 'meeting_stage_failed'
+                        ? 'Meeting update needs attention.'
                     : 'Calendar sync still needs attention.'}
               </div>
               <div className={styles.noticeCopy}>
@@ -285,8 +305,14 @@ export default async function MeetingsPage({
                         ? 'Use a full email address like name@gmail.com.'
                         : query.notice === 'calendar_sync_synced'
                   ? 'The external calendar event is now linked to this meeting.'
-                  : query.notice === 'calendar_sync_retry_queued'
+                : query.notice === 'calendar_sync_retry_queued'
                     ? 'We saved the failure and queued another sync attempt in the background.'
+                    : query.notice === 'meeting_stage_advanced'
+                      ? 'The current meeting moved to completed and the next stage was scheduled.'
+                    : query.notice === 'meeting_stage_complete'
+                      ? 'This final-stage meeting was marked complete.'
+                      : query.notice === 'meeting_stage_failed'
+                        ? query.detail || 'We could not complete this meeting update yet.'
                     : query.detail || 'The meeting stayed booked internally, but the external calendar still needs a retry.'}
               </div>
             </section>
@@ -295,12 +321,11 @@ export default async function MeetingsPage({
           <div className={styles.hero}>
             <div>
               <div className={styles.heroTitleWrap}>
-                <h1 className={styles.heroTitle}>Upcoming meetings</h1>
+                <h1 className={styles.heroTitle}>{meetingFlowStageLabel(selectedStage)}</h1>
                 <span className={styles.heroBadge}>{meetingsToday} today</span>
               </div>
               <p className={styles.heroNote}>
-                Exactly what the meeting taker needs next. Lead callers can book from the Leads page, and this board will show the
-                saved join link here for the meeting team.
+                Run the client pipeline in order. `Book` on Leads drops meetings into Demo Booked, then each stage advances with one click.
               </p>
             </div>
 
@@ -374,6 +399,19 @@ export default async function MeetingsPage({
             </div>
           </div>
 
+          <section className={styles.stageTabs} aria-label="Meeting pipeline stages">
+            {MEETING_FLOW_STAGES.map((stage) => (
+              <Link
+                key={stage.key}
+                href={`/meetings?stage=${stage.key}`}
+                className={`${styles.stageTab} ${selectedStage === stage.key ? styles.stageTabActive : ''}`}
+              >
+                <span>{stage.label}</span>
+                <span className={styles.stageTabCount}>{stageCounts.get(stage.key) || 0}</span>
+              </Link>
+            ))}
+          </section>
+
           <section className={styles.tableShell} aria-label="Upcoming meetings">
             <div className={styles.tableHeader}>
               <div>Time</div>
@@ -383,7 +421,7 @@ export default async function MeetingsPage({
               <div>Actions</div>
             </div>
 
-            {rows.length === 0 ? (
+            {filteredRows.length === 0 ? (
               <div className={styles.emptyState}>
                 <div className={styles.emptyCard}>
                   <div className={styles.emptyTitle}>No upcoming appointments are booked right now.</div>
@@ -395,7 +433,7 @@ export default async function MeetingsPage({
             ) : (
               <>
                 <div className={styles.tableBody}>
-                  {rows.map((appointment) => {
+                  {filteredRows.map((appointment) => {
                     const contactName = appointment.contact.name?.trim() || 'Unnamed contact';
                     const meetingLabel = appointment.meetingLink ? meetingLinkLabel(appointment.meetingLink) : 'No link yet';
                     const noteCopy = appointment.notes?.trim() || '';
@@ -422,7 +460,7 @@ export default async function MeetingsPage({
                           <div className={styles.primaryText}>{appointment.companyLabel}</div>
                           <div className={styles.secondaryText}>
                             <span className={`${styles.statusDot} ${statusClassName(appointment.status)}`} aria-hidden="true" />{' '}
-                            {formatStatus(appointment.status)}
+                            {formatStatus(appointment.status)} · {meetingFlowStageLabel(appointment.flowStage)}
                           </div>
                         </div>
 
@@ -479,12 +517,20 @@ export default async function MeetingsPage({
                           {appointment.externalSyncStatus !== AppointmentExternalSyncStatus.SYNCED ? (
                             <form action={retryMeetingCalendarSyncAction}>
                               <input type="hidden" name="appointmentId" value={appointment.id} />
-                              <input type="hidden" name="returnTo" value="/meetings" />
+                              <input type="hidden" name="returnTo" value={`/meetings?stage=${selectedStage}`} />
                               <button type="submit" className={styles.actionButton}>
                                 Retry calendar sync
                               </button>
                             </form>
                           ) : null}
+                          <form action={completeMeetingAndScheduleNextAction}>
+                            <input type="hidden" name="appointmentId" value={appointment.id} />
+                            <input type="hidden" name="returnTo" value={`/meetings?stage=${selectedStage}`} />
+                            <input type="hidden" name="stage" value={selectedStage} />
+                            <button type="submit" className={styles.actionButton}>
+                              Complete + Schedule Next
+                            </button>
+                          </form>
                           {appointment.externalSyncError ? (
                             <div className={styles.syncErrorText}>{appointment.externalSyncError}</div>
                           ) : null}
@@ -498,7 +544,7 @@ export default async function MeetingsPage({
                 </div>
 
                 <div className={styles.mobileCards}>
-                  {rows.map((appointment) => {
+                  {filteredRows.map((appointment) => {
                     const contactName = appointment.contact.name?.trim() || 'Unnamed contact';
                     const meetingLabel = appointment.meetingLink ? meetingLinkLabel(appointment.meetingLink) : 'No link yet';
                     const noteCopy = appointment.notes?.trim() || '';
@@ -581,12 +627,20 @@ export default async function MeetingsPage({
                           {appointment.externalSyncStatus !== AppointmentExternalSyncStatus.SYNCED ? (
                             <form action={retryMeetingCalendarSyncAction} className={styles.actionForm}>
                               <input type="hidden" name="appointmentId" value={appointment.id} />
-                              <input type="hidden" name="returnTo" value="/meetings" />
+                              <input type="hidden" name="returnTo" value={`/meetings?stage=${selectedStage}`} />
                               <button type="submit" className={styles.actionButton}>
                                 Retry calendar sync
                               </button>
                             </form>
                           ) : null}
+                          <form action={completeMeetingAndScheduleNextAction} className={styles.actionForm}>
+                            <input type="hidden" name="appointmentId" value={appointment.id} />
+                            <input type="hidden" name="returnTo" value={`/meetings?stage=${selectedStage}`} />
+                            <input type="hidden" name="stage" value={selectedStage} />
+                            <button type="submit" className={styles.actionButton}>
+                              Complete + Schedule Next
+                            </button>
+                          </form>
                         </div>
                       </article>
                     );

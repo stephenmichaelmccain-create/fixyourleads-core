@@ -1,8 +1,17 @@
 "use server";
 
+import { AppointmentStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
+import {
+  composeMeetingFlowNotes,
+  meetingFlowDefaultPurpose,
+  meetingFlowNextStage,
+  meetingFlowStageLabel,
+  parseMeetingFlowStage,
+  stageFromQueryValue
+} from '@/lib/meeting-flow';
 import {
   getMeetingTeamDefaults,
   normalizeMeetingEmail,
@@ -19,11 +28,17 @@ function sanitizeReturnTo(value: string | null | undefined, fallback: string) {
     return fallback;
   }
 
-  if (value === '/meetings' || value.startsWith('/clients/')) {
+  if (value.startsWith('/meetings') || value.startsWith('/clients/')) {
     return value;
   }
 
   return fallback;
+}
+
+function addDays(date: Date, days: number) {
+  const value = new Date(date);
+  value.setDate(value.getDate() + days);
+  return value;
 }
 
 function redirectPathWithValues(path: string, values: Record<string, string | null | undefined>) {
@@ -137,6 +152,102 @@ export async function retryMeetingCalendarSyncAction(formData: FormData) {
     redirectPathWithValues(returnTo, {
       notice: retryQueued.queued ? 'calendar_sync_retry_queued' : 'calendar_sync_retry_failed',
       detail: result.error || 'calendar_sync_failed'
+    })
+  );
+}
+
+export async function completeMeetingAndScheduleNextAction(formData: FormData) {
+  const appointmentId = String(formData.get('appointmentId') || '').trim();
+  const stageQuery = stageFromQueryValue(String(formData.get('stage') || '').trim());
+  const returnTo = sanitizeReturnTo(String(formData.get('returnTo') || '').trim(), `/meetings?stage=${stageQuery}`);
+
+  if (!appointmentId) {
+    redirect(redirectPathWithValues(returnTo, { notice: 'meeting_stage_failed', detail: 'appointment_required' }));
+  }
+
+  const appointment = await db.appointment.findUnique({
+    where: { id: appointmentId },
+    select: {
+      id: true,
+      companyId: true,
+      contactId: true,
+      startTime: true,
+      purpose: true,
+      notes: true,
+      meetingUrl: true,
+      hostEmail: true,
+      attendeeEmails: true,
+      displayCompanyName: true,
+      sourceProspectId: true
+    }
+  });
+
+  if (!appointment) {
+    redirect(redirectPathWithValues(returnTo, { notice: 'meeting_stage_failed', detail: 'appointment_not_found' }));
+  }
+
+  const currentStage = parseMeetingFlowStage({
+    notes: appointment.notes,
+    purpose: appointment.purpose
+  });
+  const nextStage = meetingFlowNextStage(currentStage);
+  const completionTimestamp = new Date();
+
+  await db.$transaction(async (tx) => {
+    await tx.appointment.update({
+      where: { id: appointment.id },
+      data: {
+        status: AppointmentStatus.COMPLETED,
+        completedAt: completionTimestamp,
+        notes: composeMeetingFlowNotes({
+          stage: currentStage,
+          notes: appointment.notes
+        })
+      }
+    });
+
+    if (!nextStage) {
+      return;
+    }
+
+    const nextStartTime = addDays(appointment.startTime, nextStage.offsetDays);
+    const nextPurpose = meetingFlowDefaultPurpose(nextStage.key);
+    const nextNotes = composeMeetingFlowNotes({
+      stage: nextStage.key,
+      notes: appointment.notes,
+      extraLines: [`Auto-scheduled after ${meetingFlowStageLabel(currentStage)} was completed.`]
+    });
+
+    await tx.appointment.create({
+      data: {
+        companyId: appointment.companyId,
+        contactId: appointment.contactId,
+        startTime: nextStartTime,
+        status: AppointmentStatus.BOOKED,
+        purpose: nextPurpose,
+        meetingUrl: appointment.meetingUrl,
+        hostEmail: appointment.hostEmail,
+        attendeeEmails: appointment.attendeeEmails,
+        displayCompanyName: appointment.displayCompanyName,
+        sourceProspectId: appointment.sourceProspectId,
+        notes: nextNotes
+      }
+    });
+  });
+
+  revalidatePath('/meetings');
+  revalidatePath('/our-leads');
+  revalidatePath('/events');
+  revalidatePath(`/clients/${appointment.companyId}`);
+
+  if (!nextStage) {
+    redirect(redirectPathWithValues(returnTo, { notice: 'meeting_stage_complete' }));
+  }
+
+  redirect(
+    redirectPathWithValues('/meetings', {
+      stage: nextStage.key,
+      notice: 'meeting_stage_advanced'
     })
   );
 }
