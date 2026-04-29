@@ -22,6 +22,7 @@ import {
 import { normalizePhone } from '@/lib/phone';
 import { buildProspectNotes, parseProspectNotes } from '@/lib/prospect-metadata';
 import { resolveAppointmentStartTime } from '@/services/booking';
+import { suggestNextAppointmentSlot, syncAppointmentToExternalCalendar } from '@/services/calendar-sync';
 
 function readText(formData: FormData, key: string) {
   return String(formData.get(key) || '').trim();
@@ -1017,56 +1018,46 @@ export async function createProspectMeetingAction(formData: FormData) {
     );
   }
 
-  if (!meetingUrl) {
-    redirect(
-      buildOurLeadsHref({
-        prospectId,
-        q,
-        view,
-        status,
-        city,
-        nextActionDue,
-        bookMeeting: '1',
-        meetingError: 'meetingUrl_required',
-        bookingDraft
-      })
-    );
-  }
+  let normalizedMeetingUrl: string | null = null;
 
-  let parsedMeetingUrl: URL;
+  if (meetingUrl) {
+    let parsedMeetingUrl: URL;
 
-  try {
-    parsedMeetingUrl = new URL(meetingUrl);
-  } catch {
-    redirect(
-      buildOurLeadsHref({
-        prospectId,
-        q,
-        view,
-        status,
-        city,
-        nextActionDue,
-        bookMeeting: '1',
-        meetingError: 'meetingUrl_invalid',
-        bookingDraft
-      })
-    );
-  }
+    try {
+      parsedMeetingUrl = new URL(meetingUrl);
+    } catch {
+      redirect(
+        buildOurLeadsHref({
+          prospectId,
+          q,
+          view,
+          status,
+          city,
+          nextActionDue,
+          bookMeeting: '1',
+          meetingError: 'meetingUrl_invalid',
+          bookingDraft
+        })
+      );
+    }
 
-  if (!['http:', 'https:'].includes(parsedMeetingUrl.protocol)) {
-    redirect(
-      buildOurLeadsHref({
-        prospectId,
-        q,
-        view,
-        status,
-        city,
-        nextActionDue,
-        bookMeeting: '1',
-        meetingError: 'meetingUrl_invalid',
-        bookingDraft
-      })
-    );
+    if (!['http:', 'https:'].includes(parsedMeetingUrl.protocol)) {
+      redirect(
+        buildOurLeadsHref({
+          prospectId,
+          q,
+          view,
+          status,
+          city,
+          nextActionDue,
+          bookMeeting: '1',
+          meetingError: 'meetingUrl_invalid',
+          bookingDraft
+        })
+      );
+    }
+
+    normalizedMeetingUrl = parsedMeetingUrl.toString();
   }
 
   let appointmentTime: Date;
@@ -1152,6 +1143,8 @@ export async function createProspectMeetingAction(formData: FormData) {
     notes: noteParts.filter(Boolean).join('\n')
   });
 
+  let bookedAppointmentId = '';
+
   await db.$transaction(async (tx) => {
     await tx.prospect.update({
       where: { id: prospectId },
@@ -1211,7 +1204,7 @@ export async function createProspectMeetingAction(formData: FormData) {
       startTime: appointmentTime,
       status: AppointmentStatus.BOOKED,
       purpose: resolvedPurpose,
-      meetingUrl: parsedMeetingUrl.toString(),
+      meetingUrl: normalizedMeetingUrl,
       hostEmail: normalizedHostEmail,
       attendeeEmails: meetingDefaults.defaultAttendeeEmails,
       displayCompanyName: existing.name,
@@ -1224,7 +1217,7 @@ export async function createProspectMeetingAction(formData: FormData) {
         where: { id: existingAppointment.id },
         data: {
           purpose: resolvedPurpose,
-          meetingUrl: parsedMeetingUrl.toString(),
+          meetingUrl: normalizedMeetingUrl,
           hostEmail: normalizedHostEmail,
           attendeeEmails: meetingDefaults.defaultAttendeeEmails,
           displayCompanyName: existing.name,
@@ -1232,10 +1225,12 @@ export async function createProspectMeetingAction(formData: FormData) {
           notes: stagedNotes
         }
       });
+      bookedAppointmentId = existingAppointment.id;
     } else {
-      await tx.appointment.create({
+      const createdAppointment = await tx.appointment.create({
         data: appointmentPayload
       });
+      bookedAppointmentId = createdAppointment.id;
     }
 
     await tx.callLog.create({
@@ -1256,7 +1251,7 @@ export async function createProspectMeetingAction(formData: FormData) {
           contactPhone: normalizedPhone,
           purpose: resolvedPurpose,
           stage: meetingStage,
-          meetingUrl: parsedMeetingUrl.toString(),
+          meetingUrl: normalizedMeetingUrl,
           hostEmail: normalizedHostEmail,
           attendeeEmails: meetingDefaults.defaultAttendeeEmails,
           startTime: appointmentTime.toISOString(),
@@ -1266,6 +1261,10 @@ export async function createProspectMeetingAction(formData: FormData) {
       }
     });
   });
+
+  if (bookedAppointmentId) {
+    await syncAppointmentToExternalCalendar(bookedAppointmentId, 'lead_book_meeting');
+  }
 
   revalidateLeadSurfaces();
   redirect(
@@ -1279,6 +1278,31 @@ export async function createProspectMeetingAction(formData: FormData) {
       updated: 'meeting_booked'
     })
   );
+}
+
+export async function createProspectMeetingAutoAction(formData: FormData) {
+  const autoSlot = await suggestNextAppointmentSlot(INTERNAL_COMPANY_ID, {
+    lookaheadDays: 14,
+    minLeadMinutes: 90
+  });
+
+  const clone = new FormData();
+
+  for (const [key, value] of formData.entries()) {
+    clone.set(key, value);
+  }
+
+  clone.set('meetingAt', autoSlot.startTime.toISOString());
+
+  if (!String(clone.get('purpose') || '').trim()) {
+    clone.set('purpose', 'Demo Booked');
+  }
+
+  if (!String(clone.get('meetingUrl') || '').trim()) {
+    clone.set('meetingUrl', '');
+  }
+
+  return createProspectMeetingAction(clone);
 }
 
 export async function scheduleProspectCallbackAction(formData: FormData) {

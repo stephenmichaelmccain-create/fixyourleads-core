@@ -52,6 +52,14 @@ type CalendarSyncFailureContext = {
   error: string;
 };
 
+export type SuggestedAppointmentSlot = {
+  startTime: Date;
+  timezone: string;
+  durationMinutes: number;
+  provider: string | null;
+  source: 'calendar' | 'fallback';
+};
+
 function normalizeProviderName(value?: string | null) {
   return String(value || '').trim().toLowerCase();
 }
@@ -293,7 +301,9 @@ async function createGoogleCalendarEvent(input: {
   attendeeEmails: string[];
 }) {
   const endTime = new Date(input.startTime.getTime() + input.durationMinutes * 60_000);
-  const response = await fetch(`${GOOGLE_CALENDAR_API_BASE}/calendars/${encodeURIComponent(input.calendarId)}/events`, {
+  const response = await fetch(
+    `${GOOGLE_CALENDAR_API_BASE}/calendars/${encodeURIComponent(input.calendarId)}/events?conferenceDataVersion=1`,
+    {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${input.accessToken}`,
@@ -310,19 +320,31 @@ async function createGoogleCalendarEvent(input: {
       end: {
         dateTime: endTime.toISOString(),
         timeZone: input.timezone
+      },
+      conferenceData: {
+        createRequest: {
+          requestId: `fyl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          conferenceSolutionKey: {
+            type: 'hangoutsMeet'
+          }
+        }
       }
     })
-  });
+  }
+  );
 
   const payload = (await response.json().catch(() => null)) as
-    | { id?: string; error?: { message?: string } }
+    | { id?: string; htmlLink?: string; hangoutLink?: string; error?: { message?: string } }
     | null;
 
   if (!response.ok || !payload?.id) {
     throw new Error(payload?.error?.message || 'google_calendar_event_create_failed');
   }
 
-  return payload.id;
+  return {
+    id: payload.id,
+    meetingUrl: clean(payload.hangoutLink) || clean(payload.htmlLink)
+  };
 }
 
 function calendarSyncAlertRecipient(notificationEmail?: string | null) {
@@ -386,6 +408,7 @@ export async function syncAppointmentToExternalCalendar(
       contactId: true,
       startTime: true,
       hostEmail: true,
+      meetingUrl: true,
       attendeeEmails: true,
       notes: true,
       externalSyncAttempts: true,
@@ -457,7 +480,7 @@ export async function syncAppointmentToExternalCalendar(
 
   try {
     const accessToken = await resolveGoogleAccessToken(setup.credentialsEncrypted);
-    const externalEventId = await createGoogleCalendarEvent({
+    const createdEvent = await createGoogleCalendarEvent({
       accessToken,
       calendarId: target.calendarId,
       timezone: target.timezone,
@@ -481,7 +504,8 @@ export async function syncAppointmentToExternalCalendar(
       where: { id: appointment.id },
       data: {
         externalCalendarProvider: target.provider,
-        externalCalendarEventId: externalEventId,
+        externalCalendarEventId: createdEvent.id,
+        meetingUrl: appointment.meetingUrl || createdEvent.meetingUrl || appointment.meetingUrl,
         externalSyncStatus: AppointmentExternalSyncStatus.SYNCED,
         externalSyncError: null,
         externalSyncedAt: new Date()
@@ -497,7 +521,8 @@ export async function syncAppointmentToExternalCalendar(
           contactId: appointment.contactId,
           provider: target.provider,
           source,
-          externalEventId,
+          externalEventId: createdEvent.id,
+          meetingUrl: createdEvent.meetingUrl || null,
           attempt: attemptNumber,
           calendarId: target.calendarId
         }
@@ -508,7 +533,7 @@ export async function syncAppointmentToExternalCalendar(
       success: true,
       provider: target.provider,
       status: AppointmentExternalSyncStatus.SYNCED,
-      externalEventId,
+      externalEventId: createdEvent.id,
       retryable: false
     };
   } catch (error) {
@@ -547,4 +572,129 @@ export async function syncAppointmentToExternalCalendar(
       retryable: isRetryableCalendarSyncError(message)
     };
   }
+}
+
+function roundUpToStep(date: Date, stepMinutes: number) {
+  const stepMs = stepMinutes * 60_000;
+  const value = date.getTime();
+  const rounded = Math.ceil(value / stepMs) * stepMs;
+  return new Date(rounded);
+}
+
+function overlapsBusyWindow(start: Date, end: Date, busyWindows: Array<{ start: Date; end: Date }>) {
+  for (const window of busyWindows) {
+    if (start < window.end && end > window.start) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function fallbackSuggestedSlot() {
+  const base = new Date();
+  base.setDate(base.getDate() + 1);
+  base.setHours(10, 0, 0, 0);
+  return base;
+}
+
+export async function suggestNextAppointmentSlot(
+  companyId: string,
+  input?: { lookaheadDays?: number; minLeadMinutes?: number }
+): Promise<SuggestedAppointmentSlot> {
+  const setup = await latestCalendarSetup(companyId);
+  const target = resolveCalendarSyncTarget(setup.state);
+  const lookaheadDays = Math.max(input?.lookaheadDays || 14, 1);
+  const minLeadMinutes = Math.max(input?.minLeadMinutes || 90, 0);
+
+  if (!target.ok) {
+    return {
+      startTime: fallbackSuggestedSlot(),
+      timezone: defaultTimezone(),
+      durationMinutes: 60,
+      provider: target.provider,
+      source: 'fallback'
+    };
+  }
+
+  try {
+    const accessToken = await resolveGoogleAccessToken(setup.credentialsEncrypted);
+    const now = new Date();
+    const windowStart = new Date(now.getTime() + minLeadMinutes * 60_000);
+    const windowEnd = new Date(windowStart.getTime() + lookaheadDays * 24 * 60 * 60_000);
+
+    const freeBusyResponse = await fetch(`${GOOGLE_CALENDAR_API_BASE}/freeBusy`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        timeMin: windowStart.toISOString(),
+        timeMax: windowEnd.toISOString(),
+        timeZone: target.timezone,
+        items: [{ id: target.calendarId }]
+      })
+    });
+
+    const freeBusyPayload = (await freeBusyResponse.json().catch(() => null)) as
+      | {
+          calendars?: Record<
+            string,
+            {
+              busy?: Array<{ start?: string; end?: string }>;
+            }
+          >;
+          error?: { message?: string };
+        }
+      | null;
+
+    if (!freeBusyResponse.ok) {
+      throw new Error(freeBusyPayload?.error?.message || 'google_calendar_freebusy_failed');
+    }
+
+    const busyRaw = freeBusyPayload?.calendars?.[target.calendarId]?.busy || [];
+    const busyWindows = busyRaw
+      .map((item) => {
+        const start = item?.start ? new Date(item.start) : null;
+        const end = item?.end ? new Date(item.end) : null;
+
+        if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+          return null;
+        }
+
+        return { start, end };
+      })
+      .filter((item): item is { start: Date; end: Date } => Boolean(item))
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    const durationMs = target.durationMinutes * 60_000;
+    let candidate = roundUpToStep(windowStart, 30);
+
+    while (candidate.getTime() + durationMs <= windowEnd.getTime()) {
+      const end = new Date(candidate.getTime() + durationMs);
+
+      if (!overlapsBusyWindow(candidate, end, busyWindows)) {
+        return {
+          startTime: candidate,
+          timezone: target.timezone,
+          durationMinutes: target.durationMinutes,
+          provider: target.provider,
+          source: 'calendar'
+        };
+      }
+
+      candidate = new Date(candidate.getTime() + 30 * 60_000);
+    }
+  } catch {
+    // Fallback to deterministic slot when calendar availability cannot be queried.
+  }
+
+  return {
+    startTime: fallbackSuggestedSlot(),
+    timezone: target.timezone,
+    durationMinutes: target.durationMinutes,
+    provider: target.provider,
+    source: 'fallback'
+  };
 }

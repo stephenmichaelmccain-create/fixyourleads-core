@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { createProspectMeetingAction } from './actions';
+import { createProspectMeetingAction, createProspectMeetingAutoAction } from './actions';
 
 type LeadBookMeetingDialogProps = {
   initialOpen?: boolean;
@@ -48,7 +48,6 @@ function bookingErrorCopy(value?: string) {
   if (value === 'phone_required') return 'A valid phone number is required before you can book the meeting.';
   if (value === 'meetingAt_required') return 'Pick the meeting date and time.';
   if (value === 'purpose_required') return 'Add the meeting purpose so the meeting taker has context.';
-  if (value === 'meetingUrl_required') return 'Paste the Google Meet or other meeting link.';
   if (value === 'meetingUrl_invalid') return 'Meeting link must be a valid URL.';
   if (value === 'host_invalid') return 'Pick a host from the default attendee list or leave it set to none.';
   if (value === 'startTime_in_past') return 'Meeting time has to be in the future.';
@@ -279,8 +278,7 @@ export function LeadBookMeetingDialog({
                 name="meetingUrl"
                 className="text-input"
                 defaultValue={initialMeetingUrl}
-                placeholder="https://meet.google.com/..."
-                required
+                placeholder="Optional. Leave empty to auto-generate from calendar sync."
               />
             </div>
 
@@ -303,10 +301,13 @@ export function LeadBookMeetingDialog({
             </div>
 
             <div className="text-muted">
-              Saving this books the meeting, moves the lead into the booked bucket, and sends it to the Meetings board with the join link.
+              One-click auto-book finds the next available slot from your calendar and creates the meeting. Save meeting still works for manual overrides.
             </div>
 
             <div className="inline-actions">
+              <button className="button" type="submit" formAction={createProspectMeetingAutoAction}>
+                Auto-book next slot
+              </button>
               <button className="button-secondary button-secondary-strong" type="submit">
                 Save meeting
               </button>
