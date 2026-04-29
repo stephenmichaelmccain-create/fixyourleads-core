@@ -697,12 +697,63 @@ select {
   color-scheme: dark;
 }
 
+.text-input-with-action {
+  position: relative;
+}
+
+.text-input-with-action .text-input {
+  padding-right: 56px;
+}
+
+.text-input-action-button {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  transform: translateY(-50%);
+  cursor: pointer;
+  transition: background 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.text-input-action-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.text-input-action-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.22);
+}
+
+.text-input-action-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .text-input[type='date']::-webkit-calendar-picker-indicator,
 .text-input[type='datetime-local']::-webkit-calendar-picker-indicator,
 .text-input[type='time']::-webkit-calendar-picker-indicator {
   cursor: pointer;
   opacity: 0.9;
   filter: invert(0.92) sepia(0.12) saturate(520%) hue-rotate(205deg) brightness(1.08);
+}
+
+.lead-booking-datetime-input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .text-input:focus,

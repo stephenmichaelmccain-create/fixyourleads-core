@@ -84,6 +84,25 @@ export function LeadBookMeetingDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const meetingAtInputRef = useRef<HTMLInputElement>(null);
 
+  function openMeetingDatePicker() {
+    const input = meetingAtInputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+    if (!input) {
+      return;
+    }
+
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+        return;
+      }
+    } catch {
+      // Fall back to focus/click for browsers that block showPicker.
+    }
+
+    input.focus();
+    input.click();
+  }
+
   function clearDialogParams() {
     const url = new URL(window.location.href);
     url.searchParams.delete('bookMeeting');
@@ -229,17 +248,35 @@ export function LeadBookMeetingDialog({
               <label className="key-value-label" htmlFor="lead-booking-meeting-at">
                 Meeting date and time
               </label>
-              <input
-                ref={meetingAtInputRef}
-                id="lead-booking-meeting-at"
-                type="datetime-local"
-                name="meetingAt"
-                className="text-input"
-                defaultValue={initialMeetingAt || defaultMeetingInputValue()}
-                min={minMeetingInputValue()}
-                step={60}
-                required
-              />
+              <div className="text-input-with-action">
+                <input
+                  ref={meetingAtInputRef}
+                  id="lead-booking-meeting-at"
+                  type="datetime-local"
+                  name="meetingAt"
+                  className="text-input lead-booking-datetime-input"
+                  defaultValue={initialMeetingAt || defaultMeetingInputValue()}
+                  min={minMeetingInputValue()}
+                  step={60}
+                  required
+                />
+                <button
+                  type="button"
+                  className="text-input-action-button"
+                  aria-label="Open date and time picker"
+                  onClick={openMeetingDatePicker}
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <rect x="4" y="5" width="16" height="15" rx="2" />
+                    <path d="M8 3v4" />
+                    <path d="M16 3v4" />
+                    <path d="M4 9h16" />
+                    <path d="M8 13h3" />
+                    <path d="M13 13h3" />
+                    <path d="M8 17h3" />
+                  </svg>
+                </button>
+              </div>
               {suggestedMeetingHint ? <div className="text-muted">{suggestedMeetingHint}</div> : null}
               {suggestedMeetingQuickSlots.length > 0 ? (
                 <div className="inline-actions">
