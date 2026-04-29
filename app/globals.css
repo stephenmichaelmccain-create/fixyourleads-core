@@ -4180,27 +4180,6 @@ select {
   font-weight: 700;
 }
 
-.connections-advanced {
-  display: grid;
-  gap: 12px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.connections-advanced[open] {
-  gap: 14px;
-}
-
-.connections-advanced > summary {
-  color: var(--fyl-muted);
-}
-
-.connections-advanced-grid {
-  display: grid;
-  gap: 14px;
-  margin-top: 14px;
-}
-
 .status-dot {
   display: inline-block;
   width: 10px;

@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
 import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
-import { CopyableCodeBlock } from '@/app/clients/[id]/workflow/CopyableCodeBlock';
 import { CopyableUrlField } from '@/app/clients/[id]/workflow/CopyableUrlField';
 import {
   connectClientTelnyxAssistantAction,
@@ -61,164 +60,6 @@ function automationStatusPresentation(status: string) {
   };
 }
 
-function buildTelnyxBodyParameterSchema(input: {
-  companyId: string;
-  businessName: string;
-  calledNumber: string | null;
-  telnyxAssistantId: string | null;
-}) {
-  return JSON.stringify(
-    {
-      type: 'object',
-      properties: {
-        phone: {
-          type: 'string',
-          description: 'Caller phone number in E.164 format'
-        },
-        startTime: {
-          type: 'string',
-          description: 'Appointment start time in ISO 8601 format'
-        },
-        companyId: {
-          type: 'string',
-          description: 'Fix Your Leads client workspace ID',
-          default: input.companyId
-        },
-        calledNumber: {
-          type: 'string',
-          description: 'Client voice line used for routing',
-          default: input.calledNumber || '+13035550199'
-        },
-        telnyxAssistantId: {
-          type: 'string',
-          description: 'Optional Telnyx assistant ID for routing',
-          default: input.telnyxAssistantId || ''
-        },
-        fullName: {
-          type: 'string',
-          description: 'Caller full name'
-        },
-        email: {
-          type: 'string',
-          description: 'Caller email address'
-        },
-        purpose: {
-          type: 'string',
-          description: 'Reason for the booking'
-        },
-        notes: {
-          type: 'string',
-          description: 'Booking notes for the team'
-        },
-        meetingUrl: {
-          type: 'string',
-          description: 'Optional meeting link'
-        },
-        displayCompanyName: {
-          type: 'string',
-          description: 'Calendar-facing business name',
-          default: input.businessName
-        }
-      },
-      required: ['phone', 'startTime'],
-      additionalProperties: true
-    },
-    null,
-    2
-  );
-}
-
-function buildAvailabilityBodyParameterSchema(input: {
-  companyId: string;
-  calledNumber: string | null;
-  telnyxAssistantId: string | null;
-}) {
-  return JSON.stringify(
-    {
-      type: 'object',
-      properties: {
-        startTime: {
-          type: 'string',
-          description: 'Requested appointment time in ISO 8601 format'
-        },
-        durationMinutes: {
-          type: 'number',
-          description: 'Optional appointment length in minutes',
-          default: 60
-        },
-        companyId: {
-          type: 'string',
-          description: 'Fix Your Leads client workspace ID',
-          default: input.companyId
-        },
-        calledNumber: {
-          type: 'string',
-          description: 'Client voice line used for routing',
-          default: input.calledNumber || '+13035550199'
-        },
-        telnyxAssistantId: {
-          type: 'string',
-          description: 'Optional Telnyx assistant ID for routing',
-          default: input.telnyxAssistantId || ''
-        }
-      },
-      required: ['startTime'],
-      additionalProperties: true
-    },
-    null,
-    2
-  );
-}
-
-function buildCancelBodyParameterSchema(input: {
-  companyId: string;
-  calledNumber: string | null;
-  telnyxAssistantId: string | null;
-}) {
-  return JSON.stringify(
-    {
-      type: 'object',
-      properties: {
-        appointmentId: {
-          type: 'string',
-          description: 'Known appointment ID if the caller has one'
-        },
-        phone: {
-          type: 'string',
-          description: 'Caller phone number in E.164 format'
-        },
-        startTime: {
-          type: 'string',
-          description: 'Optional appointment start time if the caller is canceling a specific slot'
-        },
-        reason: {
-          type: 'string',
-          description: 'Optional cancellation reason'
-        },
-        companyId: {
-          type: 'string',
-          description: 'Fix Your Leads client workspace ID',
-          default: input.companyId
-        },
-        calledNumber: {
-          type: 'string',
-          description: 'Client voice line used for routing',
-          default: input.calledNumber || '+13035550199'
-        },
-        telnyxAssistantId: {
-          type: 'string',
-          description: 'Optional Telnyx assistant ID for routing',
-          default: input.telnyxAssistantId || ''
-        }
-      },
-      required: ['phone'],
-      additionalProperties: true
-    },
-    null,
-    2
-  );
-}
-
 function stepTone(isReady: boolean) {
   return isReady ? 'status-chip status-chip-confirmed' : 'status-chip status-chip-muted';
 }
@@ -250,8 +91,8 @@ function connectionStage(input: {
   if (input.workflowReady) {
     return {
       label: 'Test booking needed',
-      title: 'MCP workflow ready.',
-      detail: 'Connect the Telnyx assistant to the n8n MCP server URL, then run one real booking test.',
+      title: 'Workflow ready for live booking.',
+      detail: 'Connect the Telnyx assistant to the workflow-specific MCP URL, then run one real booking test.',
       toneClass: 'status-chip status-chip-muted',
       dot: 'warn'
     };
@@ -261,7 +102,7 @@ function connectionStage(input: {
     return {
       label: 'Ready to launch',
       title: 'Booking system saved.',
-      detail: 'Launch the n8n MCP workflow, then connect the assistant in Telnyx.',
+      detail: 'Launch the n8n workflow next, then connect the Telnyx assistant to the workflow-specific MCP URL.',
       toneClass: 'status-chip status-chip-muted',
       dot: 'warn'
     };
@@ -353,35 +194,10 @@ export default async function ClientConnectionsPage({
 
   const appBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/$/, '') || null;
   const directVoiceWebhookTarget = voiceState.webhookUrl || (appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/appointments` : '');
-  const availabilityToolUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/check-availability` : '';
-  const cancelToolUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/voice/cancel` : '';
-  const voiceWebhookSecret =
-    process.env.VOICE_BOOKING_WEBHOOK_SECRET?.trim() ||
-    process.env.VOICE_DEMO_WEBHOOK_SECRET?.trim() ||
-    process.env.INTERNAL_API_KEY?.trim() ||
-    '';
-  const availabilityBodyParameterSchema = buildAvailabilityBodyParameterSchema({
-    companyId: company.id,
-    calledNumber: voiceState.phoneNumber,
-    telnyxAssistantId: company.telnyxAssistantId
-  });
-  const telnyxBodyParameterSchema = buildTelnyxBodyParameterSchema({
-    companyId: company.id,
-    businessName: company.name,
-    calledNumber: voiceState.phoneNumber,
-    telnyxAssistantId: company.telnyxAssistantId
-  });
-  const cancelBodyParameterSchema = buildCancelBodyParameterSchema({
-    companyId: company.id,
-    calledNumber: voiceState.phoneNumber,
-    telnyxAssistantId: company.telnyxAssistantId
-  });
   const mcpServerName = `${company.name} voice mcp`;
   const availabilityToolName = 'check_availability';
   const bookingToolName = 'book_appointment';
   const cancelToolName = 'cancel_appointment';
-  const telnyxHeaderName = 'X-Voice-Webhook-Secret';
-  const mcpAllowedTools = JSON.stringify([availabilityToolName, bookingToolName, cancelToolName], null, 2);
   const bookingPlatformLabel =
     calendarState.externalPlatformName ||
     (calendarState.connectionMode === 'google_calendar'
@@ -402,6 +218,7 @@ export default async function ClientConnectionsPage({
   const activeAssistantId = company.telnyxAssistantId || voiceState.assistantId;
   const telnyxReady = Boolean(workflowReady && mcpServerUrl && activeAssistantId);
   const testReady = Boolean(calendarState.syncTestPassed && calendarState.launchApproved);
+  const workflowNeedsAttention = automationState.status === 'ACTION_REQUIRED' || automationState.status === 'FAILED';
   const stage = connectionStage({
     platformConfigured,
     workflowReady,
@@ -484,18 +301,21 @@ export default async function ClientConnectionsPage({
             <div className="connections-step-body">
               <div className="connections-step-head">
                 <div>
-                  <h4 className="section-title">Choose system</h4>
-                  <div className="tiny-muted">Where availability, booking, and cancellation actually happen.</div>
+                  <h4 className="section-title">Choose booking system</h4>
+                  <div className="tiny-muted">Pick the live calendar or booking platform this assistant should write into.</div>
                 </div>
                 <span className={stepTone(platformConfigured)}>
                   <span className={`status-dot ${platformConfigured ? 'ok' : 'warn'}`} />
                   {platformConfigured ? 'Saved' : 'Needed'}
                 </span>
               </div>
+              <div className="tiny-muted">
+                This should be the real system of record for availability, booking, cancellation, and confirmation emails.
+              </div>
               <div className="workspace-filter-row">
                 <div className="field-stack">
                   <label className="key-value-label" htmlFor="connections-booking-platform">
-                    Primary platform
+                    Live booking platform
                   </label>
                   <input
                     id="connections-booking-platform"
@@ -547,7 +367,7 @@ export default async function ClientConnectionsPage({
               <div className="workspace-filter-row">
                 <div className="field-stack">
                   <label className="key-value-label" htmlFor="connections-booking-key">
-                    API key or token
+                    API key or access token
                   </label>
                   <input
                     id="connections-booking-key"
@@ -559,7 +379,7 @@ export default async function ClientConnectionsPage({
                 </div>
                 <div className="field-stack">
                   <label className="key-value-label" htmlFor="connections-booking-secret">
-                    Secret or second key
+                    Secret or second credential
                   </label>
                   <input
                     id="connections-booking-secret"
@@ -570,8 +390,11 @@ export default async function ClientConnectionsPage({
                   />
                 </div>
               </div>
+              <div className="tiny-muted">
+                Only add credentials here if this client needs them for live booking writeback.
+              </div>
               <details className="connections-secondary">
-                <summary className="details-summary">Secondary system</summary>
+                <summary className="details-summary">Secondary system (optional)</summary>
                 <div className="workspace-filter-row">
                   <div className="field-stack">
                     <label className="key-value-label" htmlFor="connections-secondary-platform">
@@ -620,7 +443,7 @@ export default async function ClientConnectionsPage({
               <div className="connections-step-head">
                 <div>
                   <h4 className="section-title">Launch n8n MCP</h4>
-                  <div className="tiny-muted">Creates or updates this client's workflow from Fix Your Leads.</div>
+                  <div className="tiny-muted">Create or refresh the client workflow that exposes the booking tools to Telnyx.</div>
                 </div>
                 <span className={stepTone(workflowReady)}>
                   <span className={`status-dot ${workflowReady ? 'ok' : 'warn'}`} />
@@ -639,11 +462,19 @@ export default async function ClientConnectionsPage({
                 <button type="submit" className="button">
                   Save and launch
                 </button>
+                {workflowNeedsAttention ? (
+                  <button formAction={retryClientAutomationAction} type="submit" className="button-ghost button-secondary-compact">
+                    Retry launch
+                  </button>
+                ) : null}
                 {automationState.workflowId ? (
                   <button formAction={resetClientAutomationAction} type="submit" className="button-ghost button-secondary-compact">
                     Reset client
                   </button>
                 ) : null}
+              </div>
+              <div className="tiny-muted">
+                This step should leave you with one workflow-specific MCP URL for this client, not the instance-wide n8n MCP server.
               </div>
             </div>
           </section>
@@ -652,11 +483,11 @@ export default async function ClientConnectionsPage({
         <section className="connections-step">
           <div className="connections-step-number">3</div>
           <div className="connections-step-body">
-            <div className="connections-step-head">
-              <div>
-                <h4 className="section-title">Connect Telnyx</h4>
-                <div className="tiny-muted">Add one MCP server to the Telnyx assistant. The tools stay the same for every client.</div>
-              </div>
+              <div className="connections-step-head">
+                <div>
+                  <h4 className="section-title">Connect Telnyx</h4>
+                  <div className="tiny-muted">Point the Telnyx assistant at the workflow-specific MCP URL for this client.</div>
+                </div>
               <span className={stepTone(telnyxReady)}>
                 <span className={`status-dot ${telnyxReady ? 'ok' : 'warn'}`} />
                 {telnyxReady ? 'Ready' : 'After launch'}
@@ -667,11 +498,11 @@ export default async function ClientConnectionsPage({
               <span>{bookingToolName}</span>
               <span>{cancelToolName}</span>
             </div>
-              <div className="action-cluster">
-                <CopyableUrlField
-                  id="connections-mcp-server-name"
-                  label="Server name"
-                  defaultValue={mcpServerName}
+            <div className="action-cluster">
+              <CopyableUrlField
+                id="connections-mcp-server-name"
+                label="Server name"
+                defaultValue={mcpServerName}
                 fallbackCopyValue={mcpServerName}
                 copyButtonLabel="Copy"
                 readOnly
@@ -705,14 +536,14 @@ export default async function ClientConnectionsPage({
             </div>
             <div className="tiny-muted">
               {automationState.triggerType === 'mcp'
-                ? 'This is the workflow-specific MCP server URL to paste into the Telnyx assistant.'
+                ? 'Use this workflow-specific MCP server URL in the Telnyx assistant.'
                 : automationState.triggerType === 'webhook'
-                  ? 'This workflow is still exposing a webhook URL, not a workflow-specific MCP server yet.'
+                  ? 'This workflow is still exposing a webhook URL. Re-launch it until it returns a workflow-specific MCP server URL.'
                   : 'Launch the workflow first, then copy the workflow-specific MCP server URL from here.'}
             </div>
             <div className="tiny-muted">
-              One-click needs `TELNYX_API_KEY` and either `TELNYX_TEMPLATE_ASSISTANT_ID` or both `TELNYX_ASSISTANT_MODEL` +
-              `TELNYX_ASSISTANT_INSTRUCTIONS`.
+              One-click auto-connect needs `TELNYX_API_KEY` and either `TELNYX_TEMPLATE_ASSISTANT_ID` or both
+              `TELNYX_ASSISTANT_MODEL` + `TELNYX_ASSISTANT_INSTRUCTIONS`.
             </div>
             {voiceState.notes ? <div className="tiny-muted">{voiceState.notes}</div> : null}
           </div>
@@ -721,11 +552,11 @@ export default async function ClientConnectionsPage({
         <section className="connections-step">
           <div className="connections-step-number">4</div>
           <div className="connections-step-body">
-            <div className="connections-step-head">
-              <div>
-                <h4 className="section-title">Test booking</h4>
-                <div className="tiny-muted">One real call should check a slot, book it, and cancel or reschedule cleanly.</div>
-              </div>
+              <div className="connections-step-head">
+                <div>
+                  <h4 className="section-title">Test booking</h4>
+                  <div className="tiny-muted">Run one real call and confirm availability lookup, booking writeback, and a clean cancel or reschedule path.</div>
+                </div>
               <span className={stepTone(testReady)}>
                 <span className={`status-dot ${testReady ? 'ok' : 'warn'}`} />
                 {testReady ? 'Passed' : 'Needed'}
@@ -745,85 +576,11 @@ export default async function ClientConnectionsPage({
                 launch approved
               </span>
             </div>
+            <div className="tiny-muted">
+              Keep this step as the final gate before calling the setup live.
+            </div>
           </div>
         </section>
-
-        <details className="connections-advanced">
-          <summary className="details-summary">Advanced setup details</summary>
-          <div className="connections-advanced-grid">
-            <CopyableUrlField
-              id="connections-mcp-shared-secret"
-              label="Fix Your Leads shared secret"
-              defaultValue={voiceWebhookSecret}
-              placeholder="Set VOICE_BOOKING_WEBHOOK_SECRET or INTERNAL_API_KEY in Railway"
-              fallbackCopyValue={voiceWebhookSecret}
-              copyButtonLabel="Copy secret"
-              readOnly
-            />
-            <CopyableCodeBlock label="Allowed MCP tools" value={mcpAllowedTools} copyButtonLabel="Copy JSON" />
-            <CopyableUrlField
-              id="connections-assistant-id"
-              label="Connected assistant ID"
-              defaultValue={activeAssistantId ?? undefined}
-              fallbackCopyValue={activeAssistantId ?? undefined}
-              placeholder="Connect Telnyx automatically first"
-              copyButtonLabel="Copy ID"
-              readOnly
-            />
-            <CopyableUrlField
-              id="connections-mcp-server-id"
-              label="Connected MCP server ID"
-              defaultValue={voiceState.mcpServerId ?? undefined}
-              fallbackCopyValue={voiceState.mcpServerId ?? undefined}
-              placeholder="Connect Telnyx automatically first"
-              copyButtonLabel="Copy ID"
-              readOnly
-            />
-            <CopyableUrlField
-              id="connections-availability-tool-url"
-              label="Availability endpoint"
-              defaultValue={availabilityToolUrl}
-              fallbackCopyValue={availabilityToolUrl}
-              copyButtonLabel="Copy URL"
-              readOnly
-            />
-            <CopyableCodeBlock label="Availability schema" value={availabilityBodyParameterSchema} copyButtonLabel="Copy JSON" />
-            <CopyableUrlField
-              id="connections-booking-writeback"
-              label="Booking writeback URL"
-              defaultValue={automationState.bookingCreateUrl ?? undefined}
-              fallbackCopyValue={automationState.bookingCreateUrl ?? undefined}
-              copyButtonLabel="Copy URL"
-              readOnly
-            />
-            <CopyableCodeBlock label="Booking schema" value={telnyxBodyParameterSchema} copyButtonLabel="Copy JSON" />
-            <CopyableUrlField
-              id="connections-cancel-tool-url"
-              label="Cancel endpoint"
-              defaultValue={cancelToolUrl}
-              fallbackCopyValue={cancelToolUrl}
-              copyButtonLabel="Copy URL"
-              readOnly
-            />
-            <CopyableCodeBlock label="Cancel schema" value={cancelBodyParameterSchema} copyButtonLabel="Copy JSON" />
-            <CopyableUrlField
-              id="connections-config-url"
-              label="Client config endpoint"
-              defaultValue={automationState.configUrl ?? undefined}
-              fallbackCopyValue={automationState.configUrl ?? undefined}
-              copyButtonLabel="Copy URL"
-              readOnly
-            />
-            <CopyableUrlField
-              id="connections-header-name"
-              label="Fix Your Leads auth header"
-              defaultValue={telnyxHeaderName}
-              fallbackCopyValue={telnyxHeaderName}
-              copyButtonLabel="Copy"
-              readOnly
-            />
-          </div>
-        </details>
 
         {automationState.lastError ? (
           <div className="panel panel-dark panel-stack">
