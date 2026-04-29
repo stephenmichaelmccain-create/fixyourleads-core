@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 import { getMeetingTeamDefaults, INTERNAL_COMPANY_ID } from '@/lib/meeting-team-defaults';
 import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoadDb } from '@/lib/ui-data';
-import { suggestNextAppointmentSlot } from '@/services/calendar-sync';
+import { suggestUpcomingAppointmentSlots } from '@/services/calendar-sync';
 import { LeadBookMeetingDialog } from './LeadBookMeetingDialog';
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
 import { LeadNotesComposer } from './LeadNotesComposer';
@@ -673,18 +673,25 @@ export default async function OurLeadsPage({
   const meetingTeamDefaults = await safeLoadDb(() => getMeetingTeamDefaults(), {
     defaultAttendeeEmails: []
   });
-  const suggestedMeetingSlot = await safeLoadDb(
+  const suggestedMeetingSlots = await safeLoadDb(
     () =>
-      suggestNextAppointmentSlot(INTERNAL_COMPANY_ID, {
+      suggestUpcomingAppointmentSlots(INTERNAL_COMPANY_ID, {
         lookaheadDays: 14,
-        minLeadMinutes: 90
+        minLeadMinutes: 90,
+        maxResults: 4
       }),
-    null
+    []
   );
+  const suggestedMeetingQuickSlots = suggestedMeetingSlots.map((slot) => ({
+    value: formatDateTimeInput(slot.startTime),
+    label: formatDateTime(slot.startTime),
+    source: slot.source
+  }));
+  const firstSuggestedMeetingSlot = suggestedMeetingSlots[0] || null;
   const suggestedMeetingAtValue =
-    bookingDraftValues.meetingAt || (suggestedMeetingSlot ? formatDateTimeInput(suggestedMeetingSlot.startTime) : '');
-  const suggestedMeetingSlotHint = suggestedMeetingSlot
-    ? `${suggestedMeetingSlot.source === 'calendar' ? 'Live calendar slot' : 'Fallback slot'} · ${formatDateTime(suggestedMeetingSlot.startTime)}`
+    bookingDraftValues.meetingAt || (firstSuggestedMeetingSlot ? formatDateTimeInput(firstSuggestedMeetingSlot.startTime) : '');
+  const suggestedMeetingSlotHint = firstSuggestedMeetingSlot
+    ? `${firstSuggestedMeetingSlot.source === 'calendar' ? 'Live calendar slot' : 'Fallback slot'} · ${formatDateTime(firstSuggestedMeetingSlot.startTime)}`
     : '';
   const duplicateLeadHref = selectedProspectId ? `${buildPageHref({ prospectId: selectedProspectId })}#selected-lead` : '/leads';
   const duplicateCompanyHref = duplicateCompanyId ? `/clients/${duplicateCompanyId}` : '/clients';
@@ -1222,6 +1229,7 @@ export default async function OurLeadsPage({
                               notes={bookingDraftValues.notes || selectedProspectView.plainNotes || ''}
                               initialMeetingAt={suggestedMeetingAtValue || undefined}
                               suggestedMeetingHint={suggestedMeetingSlotHint || undefined}
+                              suggestedMeetingQuickSlots={suggestedMeetingQuickSlots}
                               initialMeetingUrl={bookingDraftValues.meetingUrl || undefined}
                               defaultAttendeeEmails={meetingTeamDefaults.defaultAttendeeEmails}
                               initialHostEmail={bookingDraftValues.hostEmail || undefined}

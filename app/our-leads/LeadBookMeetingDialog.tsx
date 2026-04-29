@@ -21,6 +21,7 @@ type LeadBookMeetingDialogProps = {
   notes: string;
   initialMeetingAt?: string;
   suggestedMeetingHint?: string;
+  suggestedMeetingQuickSlots?: Array<{ value: string; label: string; source: 'calendar' | 'fallback' }>;
   initialMeetingUrl?: string;
   defaultAttendeeEmails: string[];
   initialHostEmail?: string;
@@ -74,12 +75,14 @@ export function LeadBookMeetingDialog({
   notes,
   initialMeetingAt,
   suggestedMeetingHint,
+  suggestedMeetingQuickSlots = [],
   initialMeetingUrl,
   defaultAttendeeEmails,
   initialHostEmail,
   meetingError
 }: LeadBookMeetingDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const meetingAtInputRef = useRef<HTMLInputElement>(null);
 
   function clearDialogParams() {
     const url = new URL(window.location.href);
@@ -227,6 +230,7 @@ export function LeadBookMeetingDialog({
                 Meeting date and time
               </label>
               <input
+                ref={meetingAtInputRef}
                 id="lead-booking-meeting-at"
                 type="datetime-local"
                 name="meetingAt"
@@ -237,6 +241,26 @@ export function LeadBookMeetingDialog({
                 required
               />
               {suggestedMeetingHint ? <div className="text-muted">{suggestedMeetingHint}</div> : null}
+              {suggestedMeetingQuickSlots.length > 0 ? (
+                <div className="inline-actions">
+                  {suggestedMeetingQuickSlots.map((slot) => (
+                    <button
+                      key={slot.value}
+                      type="button"
+                      className="button-secondary"
+                      onClick={() => {
+                        if (!meetingAtInputRef.current) {
+                          return;
+                        }
+
+                        meetingAtInputRef.current.value = slot.value;
+                      }}
+                    >
+                      {slot.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className="field-stack">

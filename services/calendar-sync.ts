@@ -598,23 +598,107 @@ function fallbackSuggestedSlot() {
   return base;
 }
 
-export async function suggestNextAppointmentSlot(
+async function fetchBusyWindows(input: {
+  accessToken: string;
+  calendarId: string;
+  timezone: string;
+  windowStart: Date;
+  windowEnd: Date;
+}) {
+  const freeBusyResponse = await fetch(`${GOOGLE_CALENDAR_API_BASE}/freeBusy`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${input.accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      timeMin: input.windowStart.toISOString(),
+      timeMax: input.windowEnd.toISOString(),
+      timeZone: input.timezone,
+      items: [{ id: input.calendarId }]
+    })
+  });
+
+  const freeBusyPayload = (await freeBusyResponse.json().catch(() => null)) as
+    | {
+        calendars?: Record<
+          string,
+          {
+            busy?: Array<{ start?: string; end?: string }>;
+          }
+        >;
+        error?: { message?: string };
+      }
+    | null;
+
+  if (!freeBusyResponse.ok) {
+    throw new Error(freeBusyPayload?.error?.message || 'google_calendar_freebusy_failed');
+  }
+
+  const busyRaw = freeBusyPayload?.calendars?.[input.calendarId]?.busy || [];
+  return busyRaw
+    .map((item) => {
+      const start = item?.start ? new Date(item.start) : null;
+      const end = item?.end ? new Date(item.end) : null;
+
+      if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        return null;
+      }
+
+      return { start, end };
+    })
+    .filter((item): item is { start: Date; end: Date } => Boolean(item))
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
+}
+
+function collectOpenSlots(input: {
+  windowStart: Date;
+  windowEnd: Date;
+  durationMinutes: number;
+  stepMinutes: number;
+  maxResults: number;
+  busyWindows: Array<{ start: Date; end: Date }>;
+}) {
+  const results: Date[] = [];
+  const durationMs = input.durationMinutes * 60_000;
+  let candidate = roundUpToStep(input.windowStart, input.stepMinutes);
+
+  while (candidate.getTime() + durationMs <= input.windowEnd.getTime() && results.length < input.maxResults) {
+    const end = new Date(candidate.getTime() + durationMs);
+
+    if (!overlapsBusyWindow(candidate, end, input.busyWindows)) {
+      results.push(new Date(candidate));
+    }
+
+    candidate = new Date(candidate.getTime() + input.stepMinutes * 60_000);
+  }
+
+  return results;
+}
+
+export async function suggestUpcomingAppointmentSlots(
   companyId: string,
-  input?: { lookaheadDays?: number; minLeadMinutes?: number }
-): Promise<SuggestedAppointmentSlot> {
+  input?: { lookaheadDays?: number; minLeadMinutes?: number; maxResults?: number; stepMinutes?: number }
+): Promise<SuggestedAppointmentSlot[]> {
   const setup = await latestCalendarSetup(companyId);
   const target = resolveCalendarSyncTarget(setup.state);
   const lookaheadDays = Math.max(input?.lookaheadDays || 14, 1);
   const minLeadMinutes = Math.max(input?.minLeadMinutes || 90, 0);
+  const maxResults = Math.max(Math.min(input?.maxResults || 5, 10), 1);
+  const stepMinutes = Math.max(input?.stepMinutes || 30, 5);
 
-  if (!target.ok) {
-    return {
+  const fallbackSlots: SuggestedAppointmentSlot[] = [
+    {
       startTime: fallbackSuggestedSlot(),
-      timezone: defaultTimezone(),
-      durationMinutes: 60,
+      timezone: target.ok ? target.timezone : defaultTimezone(),
+      durationMinutes: target.ok ? target.durationMinutes : 60,
       provider: target.provider,
       source: 'fallback'
-    };
+    }
+  ];
+
+  if (!target.ok) {
+    return fallbackSlots;
   }
 
   try {
@@ -622,79 +706,48 @@ export async function suggestNextAppointmentSlot(
     const now = new Date();
     const windowStart = new Date(now.getTime() + minLeadMinutes * 60_000);
     const windowEnd = new Date(windowStart.getTime() + lookaheadDays * 24 * 60 * 60_000);
-
-    const freeBusyResponse = await fetch(`${GOOGLE_CALENDAR_API_BASE}/freeBusy`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        timeMin: windowStart.toISOString(),
-        timeMax: windowEnd.toISOString(),
-        timeZone: target.timezone,
-        items: [{ id: target.calendarId }]
-      })
+    const busyWindows = await fetchBusyWindows({
+      accessToken,
+      calendarId: target.calendarId,
+      timezone: target.timezone,
+      windowStart,
+      windowEnd
     });
 
-    const freeBusyPayload = (await freeBusyResponse.json().catch(() => null)) as
-      | {
-          calendars?: Record<
-            string,
-            {
-              busy?: Array<{ start?: string; end?: string }>;
-            }
-          >;
-          error?: { message?: string };
-        }
-      | null;
+    const openSlots = collectOpenSlots({
+      windowStart,
+      windowEnd,
+      durationMinutes: target.durationMinutes,
+      stepMinutes,
+      maxResults,
+      busyWindows
+    });
 
-    if (!freeBusyResponse.ok) {
-      throw new Error(freeBusyPayload?.error?.message || 'google_calendar_freebusy_failed');
-    }
-
-    const busyRaw = freeBusyPayload?.calendars?.[target.calendarId]?.busy || [];
-    const busyWindows = busyRaw
-      .map((item) => {
-        const start = item?.start ? new Date(item.start) : null;
-        const end = item?.end ? new Date(item.end) : null;
-
-        if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-          return null;
-        }
-
-        return { start, end };
-      })
-      .filter((item): item is { start: Date; end: Date } => Boolean(item))
-      .sort((a, b) => a.start.getTime() - b.start.getTime());
-
-    const durationMs = target.durationMinutes * 60_000;
-    let candidate = roundUpToStep(windowStart, 30);
-
-    while (candidate.getTime() + durationMs <= windowEnd.getTime()) {
-      const end = new Date(candidate.getTime() + durationMs);
-
-      if (!overlapsBusyWindow(candidate, end, busyWindows)) {
-        return {
-          startTime: candidate,
-          timezone: target.timezone,
-          durationMinutes: target.durationMinutes,
-          provider: target.provider,
-          source: 'calendar'
-        };
-      }
-
-      candidate = new Date(candidate.getTime() + 30 * 60_000);
+    if (openSlots.length > 0) {
+      return openSlots.map((startTime) => ({
+        startTime,
+        timezone: target.timezone,
+        durationMinutes: target.durationMinutes,
+        provider: target.provider,
+        source: 'calendar'
+      }));
     }
   } catch {
-    // Fallback to deterministic slot when calendar availability cannot be queried.
+    // Fallback to deterministic slots when calendar availability cannot be queried.
   }
 
-  return {
-    startTime: fallbackSuggestedSlot(),
-    timezone: target.timezone,
-    durationMinutes: target.durationMinutes,
-    provider: target.provider,
-    source: 'fallback'
-  };
+  return fallbackSlots;
+}
+
+export async function suggestNextAppointmentSlot(
+  companyId: string,
+  input?: { lookaheadDays?: number; minLeadMinutes?: number }
+): Promise<SuggestedAppointmentSlot> {
+  const suggestions = await suggestUpcomingAppointmentSlots(companyId, {
+    lookaheadDays: input?.lookaheadDays,
+    minLeadMinutes: input?.minLeadMinutes,
+    maxResults: 1
+  });
+
+  return suggestions[0];
 }
