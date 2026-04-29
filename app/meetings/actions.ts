@@ -41,6 +41,21 @@ function addDays(date: Date, days: number) {
   return value;
 }
 
+function parseLocalDateTime(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
 function redirectPathWithValues(path: string, values: Record<string, string | null | undefined>) {
   const url = new URL(path, 'http://localhost');
 
@@ -160,6 +175,7 @@ export async function completeMeetingAndScheduleNextAction(formData: FormData) {
   const appointmentId = String(formData.get('appointmentId') || '').trim();
   const stageQuery = stageFromQueryValue(String(formData.get('stage') || '').trim());
   const returnTo = sanitizeReturnTo(String(formData.get('returnTo') || '').trim(), `/meetings?stage=${stageQuery}`);
+  const nextStartTimeRaw = String(formData.get('nextStartTime') || '').trim();
 
   if (!appointmentId) {
     redirect(redirectPathWithValues(returnTo, { notice: 'meeting_stage_failed', detail: 'appointment_required' }));
@@ -192,6 +208,17 @@ export async function completeMeetingAndScheduleNextAction(formData: FormData) {
   });
   const nextStage = meetingFlowNextStage(currentStage);
   const completionTimestamp = new Date();
+  const selectedNextStartTime = parseLocalDateTime(nextStartTimeRaw);
+
+  if (nextStage && nextStartTimeRaw && !selectedNextStartTime) {
+    redirect(redirectPathWithValues(returnTo, { notice: 'meeting_stage_failed', detail: 'invalid_next_start_time' }));
+  }
+
+  if (nextStage && selectedNextStartTime && selectedNextStartTime.getTime() <= completionTimestamp.getTime()) {
+    redirect(redirectPathWithValues(returnTo, { notice: 'meeting_stage_failed', detail: 'next_start_time_in_past' }));
+  }
+
+  let nextAppointmentId: string | null = null;
 
   await db.$transaction(async (tx) => {
     await tx.appointment.update({
@@ -210,7 +237,7 @@ export async function completeMeetingAndScheduleNextAction(formData: FormData) {
       return;
     }
 
-    const nextStartTime = addDays(appointment.startTime, nextStage.offsetDays);
+    const nextStartTime = selectedNextStartTime || addDays(appointment.startTime, nextStage.offsetDays);
     const nextPurpose = meetingFlowDefaultPurpose(nextStage.key);
     const nextNotes = composeMeetingFlowNotes({
       stage: nextStage.key,
@@ -218,7 +245,7 @@ export async function completeMeetingAndScheduleNextAction(formData: FormData) {
       extraLines: [`Auto-scheduled after ${meetingFlowStageLabel(currentStage)} was completed.`]
     });
 
-    await tx.appointment.create({
+    const createdNext = await tx.appointment.create({
       data: {
         companyId: appointment.companyId,
         contactId: appointment.contactId,
@@ -233,7 +260,12 @@ export async function completeMeetingAndScheduleNextAction(formData: FormData) {
         notes: nextNotes
       }
     });
+    nextAppointmentId = createdNext.id;
   });
+
+  if (nextAppointmentId) {
+    await syncAppointmentToExternalCalendar(nextAppointmentId, 'meeting_stage_advance');
+  }
 
   revalidatePath('/meetings');
   revalidatePath('/our-leads');
