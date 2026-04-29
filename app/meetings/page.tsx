@@ -324,9 +324,6 @@ export default async function MeetingsPage({
                 <h1 className={styles.heroTitle}>{meetingFlowStageLabel(selectedStage)}</h1>
                 <span className={styles.heroBadge}>{meetingsToday} today</span>
               </div>
-              <p className={styles.heroNote}>
-                Run the client pipeline in order. `Book` on Leads drops meetings into Demo Booked, then each stage advances with one click.
-              </p>
             </div>
 
             <div className={styles.heroStats}>

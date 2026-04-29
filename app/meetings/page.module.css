@@ -81,13 +81,6 @@
   font-weight: 700;
 }
 
-.heroNote {
-  margin: 10px 0 0;
-  max-width: 720px;
-  color: rgba(231, 227, 255, 0.78);
-  line-height: 1.5;
-}
-
 .heroStats {
   display: grid;
   grid-template-columns: repeat(3, minmax(170px, 1fr));
