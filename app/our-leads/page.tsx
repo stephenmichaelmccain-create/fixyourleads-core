@@ -2,9 +2,10 @@ import { ProspectStatus } from '@prisma/client';
 import Link from 'next/link';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
-import { getMeetingTeamDefaults } from '@/lib/meeting-team-defaults';
+import { getMeetingTeamDefaults, INTERNAL_COMPANY_ID } from '@/lib/meeting-team-defaults';
 import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoadDb } from '@/lib/ui-data';
+import { suggestNextAppointmentSlot } from '@/services/calendar-sync';
 import { LeadBookMeetingDialog } from './LeadBookMeetingDialog';
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
 import { LeadNotesComposer } from './LeadNotesComposer';
@@ -672,6 +673,19 @@ export default async function OurLeadsPage({
   const meetingTeamDefaults = await safeLoadDb(() => getMeetingTeamDefaults(), {
     defaultAttendeeEmails: []
   });
+  const suggestedMeetingSlot = await safeLoadDb(
+    () =>
+      suggestNextAppointmentSlot(INTERNAL_COMPANY_ID, {
+        lookaheadDays: 14,
+        minLeadMinutes: 90
+      }),
+    null
+  );
+  const suggestedMeetingAtValue =
+    bookingDraftValues.meetingAt || (suggestedMeetingSlot ? formatDateTimeInput(suggestedMeetingSlot.startTime) : '');
+  const suggestedMeetingSlotHint = suggestedMeetingSlot
+    ? `${suggestedMeetingSlot.source === 'calendar' ? 'Live calendar slot' : 'Fallback slot'} · ${formatDateTime(suggestedMeetingSlot.startTime)}`
+    : '';
   const duplicateLeadHref = selectedProspectId ? `${buildPageHref({ prospectId: selectedProspectId })}#selected-lead` : '/leads';
   const duplicateCompanyHref = duplicateCompanyId ? `/clients/${duplicateCompanyId}` : '/clients';
   const errorMessage =
@@ -1206,7 +1220,8 @@ export default async function OurLeadsPage({
                               website={selectedProspectView.website || ''}
                               purpose={bookingDraftValues.purpose || 'Demo Booked'}
                               notes={bookingDraftValues.notes || selectedProspectView.plainNotes || ''}
-                              initialMeetingAt={bookingDraftValues.meetingAt || undefined}
+                              initialMeetingAt={suggestedMeetingAtValue || undefined}
+                              suggestedMeetingHint={suggestedMeetingSlotHint || undefined}
                               initialMeetingUrl={bookingDraftValues.meetingUrl || undefined}
                               defaultAttendeeEmails={meetingTeamDefaults.defaultAttendeeEmails}
                               initialHostEmail={bookingDraftValues.hostEmail || undefined}

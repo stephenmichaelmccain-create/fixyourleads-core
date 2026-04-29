@@ -20,6 +20,7 @@ type LeadBookMeetingDialogProps = {
   purpose: string;
   notes: string;
   initialMeetingAt?: string;
+  suggestedMeetingHint?: string;
   initialMeetingUrl?: string;
   defaultAttendeeEmails: string[];
   initialHostEmail?: string;
@@ -72,6 +73,7 @@ export function LeadBookMeetingDialog({
   purpose,
   notes,
   initialMeetingAt,
+  suggestedMeetingHint,
   initialMeetingUrl,
   defaultAttendeeEmails,
   initialHostEmail,
@@ -234,6 +236,7 @@ export function LeadBookMeetingDialog({
                 step={900}
                 required
               />
+              {suggestedMeetingHint ? <div className="text-muted">{suggestedMeetingHint}</div> : null}
             </div>
 
             <div className="field-stack">
