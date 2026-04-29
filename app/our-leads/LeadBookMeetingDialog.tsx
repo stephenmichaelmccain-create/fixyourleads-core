@@ -237,7 +237,7 @@ export function LeadBookMeetingDialog({
                 className="text-input"
                 defaultValue={initialMeetingAt || defaultMeetingInputValue()}
                 min={minMeetingInputValue()}
-                step={900}
+                step={60}
                 required
               />
               {suggestedMeetingHint ? <div className="text-muted">{suggestedMeetingHint}</div> : null}

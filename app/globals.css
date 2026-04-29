@@ -691,6 +691,20 @@ select {
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
+.text-input[type='date'],
+.text-input[type='datetime-local'],
+.text-input[type='time'] {
+  color-scheme: dark;
+}
+
+.text-input[type='date']::-webkit-calendar-picker-indicator,
+.text-input[type='datetime-local']::-webkit-calendar-picker-indicator,
+.text-input[type='time']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.9;
+  filter: invert(0.92) sepia(0.12) saturate(520%) hue-rotate(205deg) brightness(1.08);
+}
+
 .text-input:focus,
 .text-area:focus,
 .select-input:focus {

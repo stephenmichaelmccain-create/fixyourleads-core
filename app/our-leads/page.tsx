@@ -1202,53 +1202,52 @@ export default async function OurLeadsPage({
                   <section className="panel lead-command-panel">
                     <div className="lead-command-strip">
                       {(() => {
-                        const bookedCommand = leadOutcomeCommands.find((command) => command.value === 'booked');
-                        const nonBookedOutcomeCommands = leadOutcomeCommands.filter((command) => command.value !== 'booked');
                         const outcomeFormId = `lead-outcome-form-${selectedProspectView.id}`;
 
                         return (
                           <>
                             <div className="lead-command-group lead-command-group-outcomes">
-                              {bookedCommand ? (
-                                <LeadBookMeetingDialog
-                                  key={bookedCommand.value}
-                                  initialOpen={shouldOpenBookMeeting}
-                                  prospectId={selectedProspectView.id}
-                                  nextProspectId={nextQueueProspectId}
-                                  q={searchQuery}
-                                  view={selectedView}
-                                  status={selectedStatus}
-                                  city={selectedCity}
-                                  nextActionDue={selectedDue}
-                                  companyName={selectedProspectView.name}
-                                  contactName={bookingDraftValues.contactName || selectedProspectView.ownerName || ''}
-                                  contactPhone={bookingDraftValues.contactPhone || selectedProspectView.phone || ''}
-                                  website={selectedProspectView.website || ''}
-                                  purpose={bookingDraftValues.purpose || 'Demo Booked'}
-                                  notes={bookingDraftValues.notes || selectedProspectView.plainNotes || ''}
-                                  initialMeetingAt={suggestedMeetingAtValue || undefined}
-                                  suggestedMeetingHint={suggestedMeetingSlotHint || undefined}
-                                  suggestedMeetingQuickSlots={suggestedMeetingQuickSlots}
-                                  initialMeetingUrl={bookingDraftValues.meetingUrl || undefined}
-                                  defaultAttendeeEmails={meetingTeamDefaults.defaultAttendeeEmails}
-                                  initialHostEmail={bookingDraftValues.hostEmail || undefined}
-                                  meetingError={meetingError || undefined}
-                                />
-                              ) : null}
-                              {nonBookedOutcomeCommands.map((command) => (
-                                <button
-                                  key={command.value}
-                                  type="submit"
-                                  className="lead-command-button"
-                                  data-tone={command.tone}
-                                  name="outcome"
-                                  value={command.value}
-                                  form={outcomeFormId}
-                                >
-                                  <span className="lead-command-icon">{leadCommandIcon(command.icon)}</span>
-                                  <span className="lead-command-label">{command.label}</span>
-                                </button>
-                              ))}
+                              {leadOutcomeCommands.map((command) =>
+                                command.value === 'booked' ? (
+                                  <LeadBookMeetingDialog
+                                    key={command.value}
+                                    initialOpen={shouldOpenBookMeeting}
+                                    prospectId={selectedProspectView.id}
+                                    nextProspectId={nextQueueProspectId}
+                                    q={searchQuery}
+                                    view={selectedView}
+                                    status={selectedStatus}
+                                    city={selectedCity}
+                                    nextActionDue={selectedDue}
+                                    companyName={selectedProspectView.name}
+                                    contactName={bookingDraftValues.contactName || selectedProspectView.ownerName || ''}
+                                    contactPhone={bookingDraftValues.contactPhone || selectedProspectView.phone || ''}
+                                    website={selectedProspectView.website || ''}
+                                    purpose={bookingDraftValues.purpose || 'Demo Booked'}
+                                    notes={bookingDraftValues.notes || selectedProspectView.plainNotes || ''}
+                                    initialMeetingAt={suggestedMeetingAtValue || undefined}
+                                    suggestedMeetingHint={suggestedMeetingSlotHint || undefined}
+                                    suggestedMeetingQuickSlots={suggestedMeetingQuickSlots}
+                                    initialMeetingUrl={bookingDraftValues.meetingUrl || undefined}
+                                    defaultAttendeeEmails={meetingTeamDefaults.defaultAttendeeEmails}
+                                    initialHostEmail={bookingDraftValues.hostEmail || undefined}
+                                    meetingError={meetingError || undefined}
+                                  />
+                                ) : (
+                                  <button
+                                    key={command.value}
+                                    type="submit"
+                                    className="lead-command-button"
+                                    data-tone={command.tone}
+                                    name="outcome"
+                                    value={command.value}
+                                    form={outcomeFormId}
+                                  >
+                                    <span className="lead-command-icon">{leadCommandIcon(command.icon)}</span>
+                                    <span className="lead-command-label">{command.label}</span>
+                                  </button>
+                                )
+                              )}
                             </div>
                             <form id={outcomeFormId} action={updateProspectOutcomeAction} hidden>
                               <input type="hidden" name="prospectId" value={selectedProspectView.id} />
