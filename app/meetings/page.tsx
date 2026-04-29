@@ -8,6 +8,7 @@ import {
   retryMeetingCalendarSyncAction
 } from '@/app/meetings/actions';
 import { ManualMeetingDialog } from '@/app/meetings/ManualMeetingDialog';
+import { ScheduleNextStageDialog } from '@/app/meetings/ScheduleNextStageDialog';
 import { db } from '@/lib/db';
 import { MEETING_FLOW_STAGES, meetingFlowNextStage, meetingFlowStageLabel, parseMeetingFlowStage, stageFromQueryValue } from '@/lib/meeting-flow';
 import { getMeetingTeamDefaults } from '@/lib/meeting-team-defaults';
@@ -512,6 +513,10 @@ export default async function MeetingsPage({
                     const transcriptSnippet = appointment.callTranscriptText?.trim() || '';
                     const nextStage = meetingFlowNextStage(appointment.flowStage);
                     const syncErrorLabel = syncErrorCopy(appointment.externalSyncError);
+                    const scheduleReturnTo = `/meetings?stage=${selectedStage}`;
+                    const suggestedNextStartIso = nextStage
+                      ? addDays(appointment.startTime, nextStage.offsetDays).toISOString()
+                      : '';
 
                     return (
                       <article key={appointment.id} className={styles.row}>
@@ -597,18 +602,17 @@ export default async function MeetingsPage({
                             </form>
                           ) : null}
                           {nextStage ? (
-                            <form action={completeMeetingAndScheduleNextAction}>
-                              <input type="hidden" name="appointmentId" value={appointment.id} />
-                              <input type="hidden" name="returnTo" value={`/meetings?stage=${selectedStage}`} />
-                              <input type="hidden" name="stage" value={selectedStage} />
-                              <button type="submit" className={styles.actionButton}>
-                                Schedule {meetingFlowStageLabel(nextStage.key)}
-                              </button>
-                            </form>
+                            <ScheduleNextStageDialog
+                              appointmentId={appointment.id}
+                              currentStage={selectedStage}
+                              nextStageLabel={meetingFlowStageLabel(nextStage.key)}
+                              returnTo={scheduleReturnTo}
+                              suggestedStartIso={suggestedNextStartIso}
+                            />
                           ) : (
                             <form action={completeMeetingAndScheduleNextAction}>
                               <input type="hidden" name="appointmentId" value={appointment.id} />
-                              <input type="hidden" name="returnTo" value={`/meetings?stage=${selectedStage}`} />
+                              <input type="hidden" name="returnTo" value={scheduleReturnTo} />
                               <input type="hidden" name="stage" value={selectedStage} />
                               <button type="submit" className={styles.actionButton}>
                                 Complete Stage
@@ -635,6 +639,10 @@ export default async function MeetingsPage({
                     const transcriptSnippet = appointment.callTranscriptText?.trim() || '';
                     const nextStage = meetingFlowNextStage(appointment.flowStage);
                     const syncErrorLabel = syncErrorCopy(appointment.externalSyncError);
+                    const scheduleReturnTo = `/meetings?stage=${selectedStage}`;
+                    const suggestedNextStartIso = nextStage
+                      ? addDays(appointment.startTime, nextStage.offsetDays).toISOString()
+                      : '';
 
                     return (
                       <article key={`${appointment.id}-mobile`} className={styles.mobileCard}>
@@ -719,18 +727,17 @@ export default async function MeetingsPage({
                             </form>
                           ) : null}
                           {nextStage ? (
-                            <form action={completeMeetingAndScheduleNextAction} className={styles.actionForm}>
-                              <input type="hidden" name="appointmentId" value={appointment.id} />
-                              <input type="hidden" name="returnTo" value={`/meetings?stage=${selectedStage}`} />
-                              <input type="hidden" name="stage" value={selectedStage} />
-                              <button type="submit" className={styles.actionButton}>
-                                Schedule {meetingFlowStageLabel(nextStage.key)}
-                              </button>
-                            </form>
+                            <ScheduleNextStageDialog
+                              appointmentId={appointment.id}
+                              currentStage={selectedStage}
+                              nextStageLabel={meetingFlowStageLabel(nextStage.key)}
+                              returnTo={scheduleReturnTo}
+                              suggestedStartIso={suggestedNextStartIso}
+                            />
                           ) : (
                             <form action={completeMeetingAndScheduleNextAction} className={styles.actionForm}>
                               <input type="hidden" name="appointmentId" value={appointment.id} />
-                              <input type="hidden" name="returnTo" value={`/meetings?stage=${selectedStage}`} />
+                              <input type="hidden" name="returnTo" value={scheduleReturnTo} />
                               <input type="hidden" name="stage" value={selectedStage} />
                               <button type="submit" className={styles.actionButton}>
                                 Complete Stage

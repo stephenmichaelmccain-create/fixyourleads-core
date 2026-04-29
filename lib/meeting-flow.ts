@@ -2,6 +2,7 @@ export type MeetingFlowStageKey =
   | 'demo_booked'
   | 'setup_call'
   | 'onboarding_signup'
+  | 'followup_call'
   | 'checkin_3day'
   | 'review_2week';
 
@@ -34,6 +35,13 @@ export const MEETING_FLOW_STAGES: MeetingFlowStageDefinition[] = [
     key: 'onboarding_signup',
     label: 'Onboarding Signup',
     defaultPurpose: 'Onboarding Signup',
+    nextKey: 'followup_call',
+    nextOffsetDays: 1
+  },
+  {
+    key: 'followup_call',
+    label: 'Follow Up Call',
+    defaultPurpose: 'Follow Up Call',
     nextKey: 'checkin_3day',
     nextOffsetDays: 3
   },
@@ -131,6 +139,10 @@ export function parseMeetingFlowStage(input: { notes?: string | null; purpose?: 
 
   if (purpose.includes('3-5 day') || purpose.includes('3 day') || purpose.includes('5 day') || purpose.includes('check-in')) {
     return 'checkin_3day';
+  }
+
+  if (purpose.includes('follow up') || purpose.includes('follow-up')) {
+    return 'followup_call';
   }
 
   if (purpose.includes('onboard')) {
