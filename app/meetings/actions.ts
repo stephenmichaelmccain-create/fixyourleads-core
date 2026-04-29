@@ -6,22 +6,29 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import {
   composeMeetingFlowNotes,
+  defaultMeetingFlowStage,
+  isMeetingFlowStageKey,
   meetingFlowDefaultPurpose,
   meetingFlowNextStage,
   meetingFlowStageLabel,
   parseMeetingFlowStage,
-  stageFromQueryValue
+  stageFromQueryValue,
+  type MeetingFlowStageKey
 } from '@/lib/meeting-flow';
 import {
+  INTERNAL_COMPANY_ID,
+  ensureInternalCompany,
   getMeetingTeamDefaults,
   normalizeMeetingEmail,
   saveMeetingTeamDefaults
 } from '@/lib/meeting-team-defaults';
+import { normalizePhone } from '@/lib/phone';
 import {
   enqueueAppointmentCalendarSyncRetry,
   notifyCalendarSyncFailure,
   syncAppointmentToExternalCalendar
 } from '@/services/calendar-sync';
+import { resolveAppointmentStartTime } from '@/services/booking';
 
 function sanitizeReturnTo(value: string | null | undefined, fallback: string) {
   if (!value || !value.startsWith('/') || value.startsWith('//')) {
@@ -69,6 +76,10 @@ function redirectPathWithValues(path: string, values: Record<string, string | nu
   return search ? `${url.pathname}?${search}` : url.pathname;
 }
 
+function redirectMeetingsManualBooking(values: Record<string, string | null | undefined>) {
+  redirect(redirectPathWithValues('/meetings', values));
+}
+
 export async function addMeetingDefaultAttendeeAction(formData: FormData) {
   const email = normalizeMeetingEmail(String(formData.get('email') || ''));
 
@@ -97,6 +108,221 @@ export async function removeMeetingDefaultAttendeeAction(formData: FormData) {
   await saveMeetingTeamDefaults(existing.defaultAttendeeEmails.filter((value) => value !== email));
   revalidatePath('/meetings');
   redirect('/meetings?notice=meeting_default_attendee_removed');
+}
+
+export async function createManualMeetingAppointmentAction(formData: FormData) {
+  const companyName = String(formData.get('companyName') || '').trim();
+  const contactName = String(formData.get('contactName') || '').trim();
+  const contactPhoneRaw = String(formData.get('contactPhone') || '').trim();
+  const contactEmail = String(formData.get('contactEmail') || '').trim();
+  const meetingAtRaw = String(formData.get('meetingAt') || '').trim();
+  const purposeRaw = String(formData.get('purpose') || '').trim();
+  const meetingUrl = String(formData.get('meetingUrl') || '').trim();
+  const hostEmailRaw = String(formData.get('hostEmail') || '').trim();
+  const notes = String(formData.get('notes') || '').trim();
+  const stageRaw = String(formData.get('meetingStage') || '').trim();
+  const meetingStage: MeetingFlowStageKey = isMeetingFlowStageKey(stageRaw) ? stageRaw : defaultMeetingFlowStage();
+  const purpose = purposeRaw || meetingFlowDefaultPurpose(meetingStage);
+  const draftValues = {
+    stage: meetingStage,
+    manualBook: '1',
+    manualBookingCompanyName: companyName,
+    manualBookingContactName: contactName,
+    manualBookingContactPhone: contactPhoneRaw,
+    manualBookingContactEmail: contactEmail,
+    manualBookingMeetingAt: meetingAtRaw,
+    manualBookingPurpose: purpose,
+    manualBookingMeetingUrl: meetingUrl,
+    manualBookingHostEmail: hostEmailRaw,
+    manualBookingNotes: notes
+  };
+
+  if (!companyName) {
+    redirectMeetingsManualBooking({
+      ...draftValues,
+      meetingError: 'company_required'
+    });
+  }
+
+  const normalizedPhone = normalizePhone(contactPhoneRaw);
+  if (!normalizedPhone) {
+    redirectMeetingsManualBooking({
+      ...draftValues,
+      meetingError: 'phone_required'
+    });
+  }
+
+  if (!meetingAtRaw) {
+    redirectMeetingsManualBooking({
+      ...draftValues,
+      meetingError: 'meetingAt_required'
+    });
+  }
+
+  if (!purpose) {
+    redirectMeetingsManualBooking({
+      ...draftValues,
+      meetingError: 'purpose_required'
+    });
+  }
+
+  let normalizedMeetingUrl: string | null = null;
+  if (meetingUrl) {
+    let parsedMeetingUrl: URL | null = null;
+    try {
+      parsedMeetingUrl = new URL(meetingUrl);
+    } catch {
+      redirectMeetingsManualBooking({
+        ...draftValues,
+        meetingError: 'meetingUrl_invalid'
+      });
+    }
+
+    if (!parsedMeetingUrl || !['http:', 'https:'].includes(parsedMeetingUrl.protocol)) {
+      redirectMeetingsManualBooking({
+        ...draftValues,
+        meetingError: 'meetingUrl_invalid'
+      });
+    }
+
+    normalizedMeetingUrl = parsedMeetingUrl ? parsedMeetingUrl.toString() : null;
+  }
+
+  let appointmentTime: Date;
+  try {
+    appointmentTime = resolveAppointmentStartTime(new Date(meetingAtRaw));
+  } catch (error) {
+    redirectMeetingsManualBooking({
+      ...draftValues,
+      meetingError: error instanceof Error ? error.message : 'meetingAt_invalid'
+    });
+  }
+
+  await ensureInternalCompany();
+  const meetingDefaults = await getMeetingTeamDefaults(INTERNAL_COMPANY_ID);
+  const normalizedHostEmail = normalizeMeetingEmail(hostEmailRaw);
+
+  if (hostEmailRaw && !normalizedHostEmail) {
+    redirectMeetingsManualBooking({
+      ...draftValues,
+      meetingError: 'host_invalid'
+    });
+  }
+
+  if (normalizedHostEmail && !meetingDefaults.defaultAttendeeEmails.includes(normalizedHostEmail)) {
+    redirectMeetingsManualBooking({
+      ...draftValues,
+      meetingError: 'host_invalid'
+    });
+  }
+
+  const stagedNotes = composeMeetingFlowNotes({
+    stage: meetingStage,
+    notes
+  });
+
+  let appointmentId = '';
+
+  await db.$transaction(async (tx) => {
+    const contact = await tx.contact.upsert({
+      where: {
+        companyId_phone: {
+          companyId: INTERNAL_COMPANY_ID,
+          phone: normalizedPhone
+        }
+      },
+      update: {
+        name: contactName || undefined,
+        email: contactEmail || null
+      },
+      create: {
+        companyId: INTERNAL_COMPANY_ID,
+        name: contactName || null,
+        phone: normalizedPhone,
+        email: contactEmail || null
+      }
+    });
+
+    await tx.conversation.upsert({
+      where: {
+        companyId_contactId: {
+          companyId: INTERNAL_COMPANY_ID,
+          contactId: contact.id
+        }
+      },
+      update: {},
+      create: {
+        companyId: INTERNAL_COMPANY_ID,
+        contactId: contact.id
+      }
+    });
+
+    const existingAppointment = await tx.appointment.findFirst({
+      where: {
+        companyId: INTERNAL_COMPANY_ID,
+        contactId: contact.id,
+        startTime: appointmentTime
+      },
+      select: { id: true }
+    });
+
+    const payload = {
+      companyId: INTERNAL_COMPANY_ID,
+      contactId: contact.id,
+      startTime: appointmentTime,
+      status: AppointmentStatus.BOOKED,
+      purpose,
+      meetingUrl: normalizedMeetingUrl,
+      hostEmail: normalizedHostEmail,
+      attendeeEmails: meetingDefaults.defaultAttendeeEmails,
+      displayCompanyName: companyName,
+      notes: stagedNotes
+    };
+
+    if (existingAppointment) {
+      await tx.appointment.update({
+        where: { id: existingAppointment.id },
+        data: payload
+      });
+      appointmentId = existingAppointment.id;
+    } else {
+      const createdAppointment = await tx.appointment.create({
+        data: payload
+      });
+      appointmentId = createdAppointment.id;
+    }
+
+    await tx.eventLog.create({
+      data: {
+        companyId: INTERNAL_COMPANY_ID,
+        eventType: 'meeting_manual_booked',
+        payload: {
+          appointmentId,
+          stage: meetingStage,
+          displayCompanyName: companyName,
+          contactName: contactName || null,
+          contactPhone: normalizedPhone,
+          contactEmail: contactEmail || null,
+          purpose,
+          meetingUrl: normalizedMeetingUrl,
+          hostEmail: normalizedHostEmail,
+          attendeeEmails: meetingDefaults.defaultAttendeeEmails,
+          startTime: appointmentTime.toISOString()
+        }
+      }
+    });
+  });
+
+  if (appointmentId) {
+    await syncAppointmentToExternalCalendar(appointmentId, 'manual_meeting_book');
+  }
+
+  revalidatePath('/meetings');
+  revalidatePath('/events');
+  redirectMeetingsManualBooking({
+    stage: meetingStage,
+    notice: 'meeting_manual_booked'
+  });
 }
 
 export async function retryMeetingCalendarSyncAction(formData: FormData) {

@@ -7,6 +7,7 @@ import {
   removeMeetingDefaultAttendeeAction,
   retryMeetingCalendarSyncAction
 } from '@/app/meetings/actions';
+import { ManualMeetingDialog } from '@/app/meetings/ManualMeetingDialog';
 import { db } from '@/lib/db';
 import { MEETING_FLOW_STAGES, meetingFlowNextStage, meetingFlowStageLabel, parseMeetingFlowStage, stageFromQueryValue } from '@/lib/meeting-flow';
 import { getMeetingTeamDefaults } from '@/lib/meeting-team-defaults';
@@ -22,6 +23,17 @@ type SearchParamShape = Promise<{
   notice?: string;
   detail?: string;
   stage?: string;
+  manualBook?: string;
+  meetingError?: string;
+  manualBookingCompanyName?: string;
+  manualBookingContactName?: string;
+  manualBookingContactPhone?: string;
+  manualBookingContactEmail?: string;
+  manualBookingMeetingAt?: string;
+  manualBookingPurpose?: string;
+  manualBookingMeetingUrl?: string;
+  manualBookingHostEmail?: string;
+  manualBookingNotes?: string;
 }>;
 
 const UPCOMING_STATUSES = [
@@ -169,6 +181,7 @@ export default async function MeetingsPage({
   const now = new Date();
   const todayStart = startOfToday();
   const selectedStage = stageFromQueryValue(query.stage);
+  const manualBookingOpen = query.manualBook === '1';
 
   const appointments = await safeLoadDb(
     () =>
@@ -300,15 +313,17 @@ export default async function MeetingsPage({
                       ? 'That attendee is already on the default list.'
                       : query.notice === 'meeting_default_attendee_invalid'
                         ? 'Add a valid attendee email.'
-                        : query.notice === 'calendar_sync_synced'
+                : query.notice === 'calendar_sync_synced'
                   ? 'Calendar sync worked.'
                 : query.notice === 'calendar_sync_retry_queued'
                     ? 'Calendar retry queued.'
                     : query.notice === 'meeting_stage_advanced'
                       ? 'Stage completed and next meeting scheduled.'
-                    : query.notice === 'meeting_stage_complete'
-                      ? 'Stage completed.'
-                      : query.notice === 'meeting_stage_failed'
+                      : query.notice === 'meeting_manual_booked'
+                        ? 'Appointment booked.'
+                      : query.notice === 'meeting_stage_complete'
+                        ? 'Stage completed.'
+                        : query.notice === 'meeting_stage_failed'
                         ? 'Meeting update needs attention.'
                     : 'Calendar sync still needs attention.'}
               </div>
@@ -317,6 +332,8 @@ export default async function MeetingsPage({
                   ? 'New lead-booked meetings will now auto-add that email.'
                   : query.notice === 'meeting_default_attendee_removed'
                     ? 'Future lead-booked meetings will stop auto-adding that email.'
+                    : query.notice === 'meeting_manual_booked'
+                      ? 'The appointment is now on the meetings board with the person details you entered from scratch.'
                     : query.notice === 'meeting_default_attendee_exists'
                       ? 'Use the current auto-added people list below to remove or review it.'
                       : query.notice === 'meeting_default_attendee_invalid'
@@ -346,6 +363,23 @@ export default async function MeetingsPage({
                 <h1 className={styles.heroTitle}>{meetingFlowStageLabel(selectedStage)}</h1>
                 <span className={styles.heroBadge}>{meetingsToday} today</span>
               </div>
+                <div className={styles.heroActions}>
+                  <ManualMeetingDialog
+                    defaultAttendeeEmails={meetingTeamDefaults.defaultAttendeeEmails}
+                    initialCompanyName={query.manualBookingCompanyName}
+                    initialContactName={query.manualBookingContactName}
+                    initialContactPhone={query.manualBookingContactPhone}
+                    initialContactEmail={query.manualBookingContactEmail}
+                    initialMeetingAt={query.manualBookingMeetingAt}
+                    initialPurpose={query.manualBookingPurpose || meetingFlowStageLabel(selectedStage)}
+                    initialMeetingUrl={query.manualBookingMeetingUrl}
+                    initialHostEmail={query.manualBookingHostEmail}
+                    initialNotes={query.manualBookingNotes}
+                    initialOpen={manualBookingOpen}
+                    meetingError={query.meetingError}
+                    meetingStage={selectedStage}
+                  />
+                </div>
             </div>
 
             <div className={styles.heroStats}>
@@ -447,6 +481,23 @@ export default async function MeetingsPage({
                   <div className={styles.emptyCopy}>
                     Once new calls are booked, this board will show time, contact details, notes, and the join link in one place.
                   </div>
+                    <div className={styles.emptyActions}>
+                      <ManualMeetingDialog
+                        defaultAttendeeEmails={meetingTeamDefaults.defaultAttendeeEmails}
+                        initialCompanyName={query.manualBookingCompanyName}
+                        initialContactName={query.manualBookingContactName}
+                        initialContactPhone={query.manualBookingContactPhone}
+                        initialContactEmail={query.manualBookingContactEmail}
+                        initialMeetingAt={query.manualBookingMeetingAt}
+                        initialPurpose={query.manualBookingPurpose || meetingFlowStageLabel(selectedStage)}
+                        initialMeetingUrl={query.manualBookingMeetingUrl}
+                        initialHostEmail={query.manualBookingHostEmail}
+                        initialNotes={query.manualBookingNotes}
+                        initialOpen={false}
+                        meetingError={undefined}
+                        meetingStage={selectedStage}
+                      />
+                    </div>
                 </div>
               </div>
             ) : (

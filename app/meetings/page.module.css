@@ -61,6 +61,13 @@
   flex-wrap: wrap;
 }
 
+.heroActions {
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .heroTitle {
   margin: 0;
   font-size: clamp(2rem, 4vw, 2.7rem);
@@ -439,6 +446,13 @@
   margin-top: 10px;
   color: rgba(231, 227, 255, 0.68);
   line-height: 1.5;
+}
+
+.emptyActions {
+  margin-top: 18px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .footerNote {
