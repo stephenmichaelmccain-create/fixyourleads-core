@@ -418,56 +418,6 @@
   display: inline-flex;
 }
 
-.scheduleDetails {
-  display: grid;
-  gap: 10px;
-}
-
-.scheduleDetails summary {
-  list-style: none;
-}
-
-.scheduleDetails summary::-webkit-details-marker {
-  display: none;
-}
-
-.scheduleForm {
-  display: grid;
-  gap: 8px;
-  padding: 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(126, 103, 255, 0.16);
-  background: rgba(19, 16, 43, 0.65);
-}
-
-.scheduleLabel {
-  display: grid;
-  gap: 6px;
-  color: rgba(231, 227, 255, 0.84);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.scheduleInput {
-  min-height: 38px;
-  padding: 0 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(126, 103, 255, 0.2);
-  background: rgba(20, 18, 47, 0.78);
-  color: #f4f2ff;
-}
-
-.scheduleSubmit {
-  min-height: 38px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(126, 103, 255, 0.26);
-  background: rgba(111, 76, 255, 0.18);
-  color: #d9d0ff;
-  font-weight: 700;
-  cursor: pointer;
-}
-
 .emptyState {
   padding: 36px 24px 32px;
   border-top: 1px solid rgba(126, 103, 255, 0.12);

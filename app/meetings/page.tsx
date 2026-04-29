@@ -98,11 +98,6 @@ function formatStatus(status: AppointmentStatus) {
   return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
-function formatDateTimeInputValue(value: Date) {
-  const local = new Date(value.getTime() - value.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
-}
-
 function syncErrorCopy(value?: string | null) {
   const code = String(value || '').trim();
 
@@ -465,8 +460,6 @@ export default async function MeetingsPage({
                     const syncLabel = formatSyncStatus(appointment.externalSyncStatus);
                     const transcriptSnippet = appointment.callTranscriptText?.trim() || '';
                     const nextStage = meetingFlowNextStage(appointment.flowStage);
-                    const suggestedNextTime = nextStage ? addDays(appointment.startTime, nextStage.offsetDays) : null;
-                    const scheduleInputDefault = suggestedNextTime ? formatDateTimeInputValue(suggestedNextTime) : '';
                     const syncErrorLabel = syncErrorCopy(appointment.externalSyncError);
 
                     return (
@@ -553,27 +546,14 @@ export default async function MeetingsPage({
                             </form>
                           ) : null}
                           {nextStage ? (
-                            <details className={styles.scheduleDetails}>
-                              <summary className={styles.actionButton}>Complete + Schedule Next</summary>
-                              <form action={completeMeetingAndScheduleNextAction} className={styles.scheduleForm}>
-                                <input type="hidden" name="appointmentId" value={appointment.id} />
-                                <input type="hidden" name="returnTo" value={`/meetings?stage=${selectedStage}`} />
-                                <input type="hidden" name="stage" value={selectedStage} />
-                                <label className={styles.scheduleLabel}>
-                                  Next {meetingFlowStageLabel(nextStage.key)} time
-                                  <input
-                                    type="datetime-local"
-                                    name="nextStartTime"
-                                    className={styles.scheduleInput}
-                                    defaultValue={scheduleInputDefault}
-                                    required
-                                  />
-                                </label>
-                                <button type="submit" className={styles.scheduleSubmit}>
-                                  Save Next Meeting
-                                </button>
-                              </form>
-                            </details>
+                            <form action={completeMeetingAndScheduleNextAction}>
+                              <input type="hidden" name="appointmentId" value={appointment.id} />
+                              <input type="hidden" name="returnTo" value={`/meetings?stage=${selectedStage}`} />
+                              <input type="hidden" name="stage" value={selectedStage} />
+                              <button type="submit" className={styles.actionButton}>
+                                Schedule {meetingFlowStageLabel(nextStage.key)}
+                              </button>
+                            </form>
                           ) : (
                             <form action={completeMeetingAndScheduleNextAction}>
                               <input type="hidden" name="appointmentId" value={appointment.id} />
@@ -603,8 +583,6 @@ export default async function MeetingsPage({
                     const syncLabel = formatSyncStatus(appointment.externalSyncStatus);
                     const transcriptSnippet = appointment.callTranscriptText?.trim() || '';
                     const nextStage = meetingFlowNextStage(appointment.flowStage);
-                    const suggestedNextTime = nextStage ? addDays(appointment.startTime, nextStage.offsetDays) : null;
-                    const scheduleInputDefault = suggestedNextTime ? formatDateTimeInputValue(suggestedNextTime) : '';
                     const syncErrorLabel = syncErrorCopy(appointment.externalSyncError);
 
                     return (
@@ -690,27 +668,14 @@ export default async function MeetingsPage({
                             </form>
                           ) : null}
                           {nextStage ? (
-                            <details className={styles.scheduleDetails}>
-                              <summary className={styles.actionButton}>Complete + Schedule Next</summary>
-                              <form action={completeMeetingAndScheduleNextAction} className={styles.scheduleForm}>
-                                <input type="hidden" name="appointmentId" value={appointment.id} />
-                                <input type="hidden" name="returnTo" value={`/meetings?stage=${selectedStage}`} />
-                                <input type="hidden" name="stage" value={selectedStage} />
-                                <label className={styles.scheduleLabel}>
-                                  Next {meetingFlowStageLabel(nextStage.key)} time
-                                  <input
-                                    type="datetime-local"
-                                    name="nextStartTime"
-                                    className={styles.scheduleInput}
-                                    defaultValue={scheduleInputDefault}
-                                    required
-                                  />
-                                </label>
-                                <button type="submit" className={styles.scheduleSubmit}>
-                                  Save Next Meeting
-                                </button>
-                              </form>
-                            </details>
+                            <form action={completeMeetingAndScheduleNextAction} className={styles.actionForm}>
+                              <input type="hidden" name="appointmentId" value={appointment.id} />
+                              <input type="hidden" name="returnTo" value={`/meetings?stage=${selectedStage}`} />
+                              <input type="hidden" name="stage" value={selectedStage} />
+                              <button type="submit" className={styles.actionButton}>
+                                Schedule {meetingFlowStageLabel(nextStage.key)}
+                              </button>
+                            </form>
                           ) : (
                             <form action={completeMeetingAndScheduleNextAction} className={styles.actionForm}>
                               <input type="hidden" name="appointmentId" value={appointment.id} />
