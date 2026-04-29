@@ -2001,8 +2001,22 @@ select {
 }
 
 .lead-follow-up-input {
+  position: relative;
   min-height: 46px;
   padding-inline: 14px;
+  padding-left: 52px;
+}
+
+.lead-follow-up-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  left: 14px;
+  right: auto;
+  margin: 0;
+  width: 22px;
+  height: 22px;
+  opacity: 1;
+  cursor: pointer;
+  filter: invert(1) brightness(2.2) contrast(1.1);
 }
 
 .lead-notes-actions {
