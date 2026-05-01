@@ -99,10 +99,19 @@ function parseFallback(value: unknown) {
 
 function parseTesting(value: unknown) {
   const data = asJsonRecord(value);
+  const voiceQualityRubric = toRecordArray(data.voiceQualityRubric).map((entry) => ({
+    dimension: typeof entry.dimension === 'string' ? entry.dimension : '',
+    target: typeof entry.target === 'string' ? entry.target : '',
+    scoreGuide: typeof entry.scoreGuide === 'string' ? entry.scoreGuide : ''
+  }));
   return {
     launchChecklist: toStringArray(data.launchChecklist),
     diagnosticLayers: toStringArray(data.diagnosticLayers),
-    revisionProtocol: toStringArray(data.revisionProtocol)
+    revisionProtocol: toStringArray(data.revisionProtocol),
+    instructionLayerChecks: toStringArray(data.instructionLayerChecks),
+    pipelineChecks: toStringArray(data.pipelineChecks),
+    voiceQualityRubric,
+    edgeCaseDrills: toStringArray(data.edgeCaseDrills)
   };
 }
 
@@ -570,12 +579,18 @@ export default async function ClientAssistantBuilderPage({
                 <div className="tiny-muted">
                   Launch checks: {testing.launchChecklist.length} · Diagnostic layers: {testing.diagnosticLayers.length}
                 </div>
+                <div className="tiny-muted">
+                  Instruction layers: {testing.instructionLayerChecks.length} · Pipeline checks: {testing.pipelineChecks.length}
+                </div>
+                <div className="tiny-muted">
+                  Voice quality rubric: {testing.voiceQualityRubric.length} · Edge-case drills: {testing.edgeCaseDrills.length}
+                </div>
                 {validationChecks.length > 0 && (
                   <>
                     <div className="metric-label">Validation gate</div>
                     {validationChecks.map((check) => (
                       <div key={check.key} className="tiny-muted">
-                        {check.passed ? 'PASS' : 'FAIL'} · {check.key}
+                        {check.passed ? 'PASS' : 'FAIL'} · {check.key}{check.passed ? '' : ` — ${check.detail}`}
                       </div>
                     ))}
                   </>

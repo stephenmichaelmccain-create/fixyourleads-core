@@ -47,6 +47,14 @@ type ArtifactDraft = {
     launchChecklist: string[];
     diagnosticLayers: string[];
     revisionProtocol: string[];
+    instructionLayerChecks: string[];
+    pipelineChecks: string[];
+    voiceQualityRubric: Array<{
+      dimension: string;
+      target: string;
+      scoreGuide: string;
+    }>;
+    edgeCaseDrills: string[];
   };
 };
 
@@ -60,7 +68,10 @@ type ValidationCheck = {
     | 'post_call_schema_valid'
     | 'action_ladder_present'
     | 'system_prompt_architecture'
-    | 'voice_quality_coverage';
+    | 'voice_quality_coverage'
+    | 'pipeline_layer_coverage'
+    | 'required_branches_coverage'
+    | 'latency_design_coverage';
   passed: boolean;
   detail: string;
 };
@@ -80,6 +91,22 @@ const DEFAULT_DIAGNOSTIC_LAYERS = [
 ];
 
 const DEFAULT_VOICE_QUALITY_DIMENSIONS = ['clarity', 'naturalness', 'responsiveness', 'control', 'goal-orientation', 'recovery'];
+
+const REQUIRED_BRANCH_KEYWORDS = [
+  'emergency',
+  'out-of-area',
+  'disqualified',
+  'needs human review',
+  'callback',
+  'ready-to-book',
+  'pricing-only',
+  'tool failure',
+  'frustration',
+  'human-identity',
+  'removal',
+  'out-of-scope',
+  'poor connection'
+];
 
 const DEFAULT_BASE_SKILL_CONTENT = {
   role: 'Fix Your Leads booking operator',
@@ -118,7 +145,10 @@ const DEFAULT_VALIDATION_RULES = {
     'post_call_schema_valid',
     'action_ladder_present',
     'system_prompt_architecture',
-    'voice_quality_coverage'
+    'voice_quality_coverage',
+    'pipeline_layer_coverage',
+    'required_branches_coverage',
+    'latency_design_coverage'
   ],
   minimumSchemaFields: ['call_id', 'caller', 'lead', 'outcome', 'data_verified', 'flags']
 };
@@ -440,9 +470,29 @@ function buildFallbackDraft(company: { name: string; website: string | null }, o
           handling: ['Politely close with low-risk language.', 'Avoid detailed disqualification reasoning.', 'Log disqualification reason internally.']
         },
         {
+          name: 'Out-of-area / out-of-service',
+          trigger: 'Lead is outside approved service area or unsupported service line.',
+          handling: ['Acknowledge constraint briefly.', 'Offer approved redirect or human follow-up if available.']
+        },
+        {
+          name: 'Qualified but needs human review',
+          trigger: 'Lead qualifies but risk/policy requires manual review.',
+          handling: ['Explain quick handoff.', 'Capture best callback path and reason for review.']
+        },
+        {
           name: 'Callback requested',
           trigger: 'Caller asks for later follow-up.',
           handling: ['Confirm best callback number and time window.', 'Create follow-up action with owner and deadline.']
+        },
+        {
+          name: 'Ready-to-book shortcut',
+          trigger: 'Caller is ready to schedule immediately.',
+          handling: ['Minimize extra qualification friction.', 'Move directly to availability and confirmation flow.']
+        },
+        {
+          name: 'Pricing-only request',
+          trigger: 'Caller asks for exact price or coverage details.',
+          handling: ['Use approved pricing boundary language only.', 'Escalate to human pricing owner when exact quote is needed.']
         },
         {
           name: 'Tool failure recovery',
@@ -460,9 +510,14 @@ function buildFallbackDraft(company: { name: string; website: string | null }, o
           handling: ['State AI identity honestly.', 'Offer to continue or transfer to person.']
         },
         {
-          name: 'Removal / DNC request',
+          name: 'Refusal / removal request',
           trigger: 'Caller asks to be removed or not contacted.',
           handling: ['Confirm request in plain language.', 'Stop outreach flow.', 'Log suppression flag immediately.']
+        },
+        {
+          name: 'Poor connection or dropped call',
+          trigger: 'Audio quality blocks confirmation or caller drops mid-flow.',
+          handling: ['Repeat once with simpler phrasing.', 'Switch to callback/follow-up path with verified contact.']
         },
         {
           name: 'Out-of-scope request',
@@ -533,6 +588,43 @@ function buildFallbackDraft(company: { name: string; website: string | null }, o
         'Diagnose failure with nine-layer model and stop at first explanatory layer.',
         'Apply smallest possible change set (prompt, flow, tool rule, or evaluation).',
         'Run regression checks for identity honesty, tool-truthfulness, and DNC handling.'
+      ],
+      instructionLayerChecks: [
+        'System prompt is stable and does not hardcode per-call facts.',
+        'Developer instructions define tool and formatting discipline.',
+        'Task prompt captures campaign/call-intent specifics.',
+        'Runtime context injects fresh caller facts each call.',
+        'Tools define action capabilities and write preconditions.',
+        'Memory retains prior turn facts without re-asking.'
+      ],
+      pipelineChecks: [
+        'Audio capture quality is acceptable for key entities.',
+        'Endpointing avoids early cut-off and dead-air lag.',
+        'Transcription quality handles names, dates, and numbers.',
+        'Prompt assembly includes required context and tools.',
+        'Model output follows scope and conversion intent.',
+        'Tool execution success/failure is surfaced honestly.',
+        'TTS pronunciation and pacing are caller-comprehensible.',
+        'Playback starts quickly and supports interruption.',
+        'Turn-taking closes loop cleanly after each action.'
+      ],
+      voiceQualityRubric: DEFAULT_VOICE_QUALITY_DIMENSIONS.map((dimension) => ({
+        dimension,
+        target: `Maintain strong ${dimension} in production calls.`,
+        scoreGuide: '1=poor, 3=acceptable, 5=excellent'
+      })),
+      edgeCaseDrills: [
+        'Confused lead',
+        'Angry lead',
+        'Incomplete information',
+        'Pricing request',
+        'Human-handoff request',
+        'Unqualified lead',
+        'Ready-to-book lead',
+        'Regulated advice request',
+        'Tool failure',
+        'Poor connection',
+        'Do-not-call request'
       ]
     }
   };
@@ -558,13 +650,17 @@ function buildGenerationPrompt(input: {
     'Required top-level keys: systemPrompt, callFlow, qualificationLogic, fallbackRules, postCallOutputSchema, testingChecklist.',
     'Treat this as a full real-time voice system, not a text chatbot prompt. Build for spoken clarity, turn-taking, and latency perception.',
     'Call flow must include six happy-path phases: Open, Establish purpose, Collect information, Qualify or check, Convert, Wrap up.',
-    'Call flow must include named branches for emergency escalation, disqualification, callbacks, tool failures, frustration, human-identity questions, removals, and out-of-scope requests.',
+    'Call flow must include named branches for: emergency escalation, out-of-area/out-of-service, disqualified lead, qualified but needs human review, callback requested, ready-to-book shortcut, pricing-only request, tool failure recovery, caller frustration, human-identity question, refusal/removal request, out-of-scope request, poor connection.',
     'Call flow must include action ladder in this order: ask, verify, confirm, act, wait, escalate.',
     'System prompt must follow a master-prompt shell style with sections for ROLE, GOAL, PRIORITIES, HARD RULES, BOUNDARIES, TONE, DEVELOPER INSTRUCTIONS, TASK PROMPT, RUNTIME CONTEXT, TOOLS, MEMORY, FALLBACK, ESCALATION, POST-CALL OUTPUT, EXAMPLES.',
     'Hard-rule constraints (must be explicit): AI identity honesty, no fake tool success, no regulated advice, verify high-stakes data before write actions, immediate DNC/removal handling.',
     'Design for voice-specific quality dimensions: clarity, naturalness, responsiveness, control, goal-orientation, recovery.',
     'Post-call output must be a strict JSON schema object with required top-level fields: call_id, caller, lead, outcome, data_verified, flags.',
     'Testing checklist must include launch checklist and nine diagnostic layers for revision triage.',
+    'Testing checklist must include instructionLayerChecks for: system prompt, developer instructions, task prompt, runtime context, tools, memory.',
+    'Testing checklist must include pipelineChecks for the end-to-end voice pipeline.',
+    'Testing checklist must include voiceQualityRubric entries for: clarity, naturalness, responsiveness, control, goal-orientation, recovery.',
+    'Testing checklist must include edgeCaseDrills for common operational failures and conversion edge cases.',
     'Testing checklist must include checks for the six voice quality dimensions and at least one latency-perception check.',
     'Use short spoken turns and avoid wall-of-sound responses.'
   ].join('\n');
@@ -708,9 +804,33 @@ async function generateWithOpenAI(model: string, prompt: string) {
                 properties: {
                   launchChecklist: { type: 'array', items: { type: 'string' } },
                   diagnosticLayers: { type: 'array', items: { type: 'string' } },
-                  revisionProtocol: { type: 'array', items: { type: 'string' } }
+                  revisionProtocol: { type: 'array', items: { type: 'string' } },
+                  instructionLayerChecks: { type: 'array', items: { type: 'string' } },
+                  pipelineChecks: { type: 'array', items: { type: 'string' } },
+                  voiceQualityRubric: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: {
+                        dimension: { type: 'string' },
+                        target: { type: 'string' },
+                        scoreGuide: { type: 'string' }
+                      },
+                      required: ['dimension', 'target', 'scoreGuide']
+                    }
+                  },
+                  edgeCaseDrills: { type: 'array', items: { type: 'string' } }
                 },
-                required: ['launchChecklist', 'diagnosticLayers', 'revisionProtocol']
+                required: [
+                  'launchChecklist',
+                  'diagnosticLayers',
+                  'revisionProtocol',
+                  'instructionLayerChecks',
+                  'pipelineChecks',
+                  'voiceQualityRubric',
+                  'edgeCaseDrills'
+                ]
               }
             },
             required: [
@@ -771,6 +891,11 @@ function validatePostCallSchema(schema: Record<string, unknown>) {
 function includesPromptSections(prompt: string, sections: string[]) {
   const normalized = prompt.toLowerCase();
   return sections.every((section) => normalized.includes(section.toLowerCase()));
+}
+
+function hasRequiredBranchCoverage(branches: ArtifactDraft['callFlow']['namedBranches']) {
+  const names = branches.map((branch) => branch.name.toLowerCase());
+  return REQUIRED_BRANCH_KEYWORDS.every((keyword) => names.some((name) => name.includes(keyword)));
 }
 
 function normalizeCallFlow(input: Record<string, unknown>, fallback: ArtifactDraft['callFlow']) {
@@ -849,6 +974,21 @@ function normalizeFallbackRules(input: Record<string, unknown>, fallback: Artifa
   };
 }
 
+function normalizeVoiceQualityRubric(
+  value: unknown,
+  fallback: ArtifactDraft['testingChecklist']['voiceQualityRubric']
+): ArtifactDraft['testingChecklist']['voiceQualityRubric'] {
+  const parsed = asStringRecordArray(value)
+    .map((entry) => ({
+      dimension: ensureString(entry.dimension, ''),
+      target: ensureString(entry.target, ''),
+      scoreGuide: ensureString(entry.scoreGuide, '')
+    }))
+    .filter((entry) => entry.dimension && entry.target && entry.scoreGuide);
+
+  return parsed.length > 0 ? parsed : fallback;
+}
+
 function normalizeTestingChecklist(input: Record<string, unknown>, fallback: ArtifactDraft['testingChecklist']) {
   const legacyChecklist = asStringArray(input as unknown as string[]);
   return {
@@ -861,7 +1001,14 @@ function normalizeTestingChecklist(input: Record<string, unknown>, fallback: Art
     diagnosticLayers:
       asStringArray(input.diagnosticLayers).length > 0 ? asStringArray(input.diagnosticLayers) : fallback.diagnosticLayers,
     revisionProtocol:
-      asStringArray(input.revisionProtocol).length > 0 ? asStringArray(input.revisionProtocol) : fallback.revisionProtocol
+      asStringArray(input.revisionProtocol).length > 0 ? asStringArray(input.revisionProtocol) : fallback.revisionProtocol,
+    instructionLayerChecks:
+      asStringArray(input.instructionLayerChecks).length > 0
+        ? asStringArray(input.instructionLayerChecks)
+        : fallback.instructionLayerChecks,
+    pipelineChecks: asStringArray(input.pipelineChecks).length > 0 ? asStringArray(input.pipelineChecks) : fallback.pipelineChecks,
+    voiceQualityRubric: normalizeVoiceQualityRubric(input.voiceQualityRubric, fallback.voiceQualityRubric),
+    edgeCaseDrills: asStringArray(input.edgeCaseDrills).length > 0 ? asStringArray(input.edgeCaseDrills) : fallback.edgeCaseDrills
   };
 }
 
@@ -889,6 +1036,16 @@ export function validateArtifactDraft(draft: ArtifactDraft) {
     DEFAULT_VOICE_QUALITY_DIMENSIONS.every((dimension) =>
       draft.testingChecklist.launchChecklist.some((line) => line.toLowerCase().includes(dimension))
     ) || DEFAULT_VOICE_QUALITY_DIMENSIONS.every((dimension) => prompt.includes(dimension));
+  const pipelineCoverage = DEFAULT_DIAGNOSTIC_LAYERS.every((layer) =>
+    draft.testingChecklist.diagnosticLayers.some((entry) => entry.toLowerCase().includes(layer))
+  );
+  const branchCoverage = hasRequiredBranchCoverage(draft.callFlow.namedBranches);
+  const latencyCoverage =
+    ladderSteps.includes('wait') &&
+    (draft.testingChecklist.launchChecklist.some((line) => line.toLowerCase().includes('latency')) ||
+      draft.testingChecklist.launchChecklist.some((line) => line.toLowerCase().includes('dead-air')) ||
+      draft.testingChecklist.pipelineChecks.some((line) => line.toLowerCase().includes('endpointing')) ||
+      draft.testingChecklist.pipelineChecks.some((line) => line.toLowerCase().includes('playback')));
 
   checks.push({
     key: 'identity_honesty',
@@ -934,6 +1091,21 @@ export function validateArtifactDraft(draft: ArtifactDraft) {
     key: 'voice_quality_coverage',
     passed: qualityCoverage,
     detail: 'Draft must cover voice quality dimensions: clarity, naturalness, responsiveness, control, goal-orientation, recovery.'
+  });
+  checks.push({
+    key: 'pipeline_layer_coverage',
+    passed: pipelineCoverage,
+    detail: 'Testing checklist must cover all nine diagnostic layers for root-cause analysis.'
+  });
+  checks.push({
+    key: 'required_branches_coverage',
+    passed: branchCoverage,
+    detail: 'Call flow named branches must cover required production edge cases.'
+  });
+  checks.push({
+    key: 'latency_design_coverage',
+    passed: latencyCoverage,
+    detail: 'Draft must include latency/perceived-latency design coverage and wait/progress handling.'
   });
 
   return {
