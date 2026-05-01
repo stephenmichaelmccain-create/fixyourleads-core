@@ -7,6 +7,7 @@ let bookingQueueInstance: Queue | null = null;
 let workflowQueueInstance: Queue | null = null;
 let crmSyncQueueInstance: Queue | null = null;
 let calendarSyncQueueInstance: Queue | null = null;
+let assistantBuilderQueueInstance: Queue | null = null;
 
 export function getLeadQueue() {
   if (!leadQueueInstance) {
@@ -48,4 +49,11 @@ export function getCalendarSyncQueue() {
     calendarSyncQueueInstance = new Queue('calendar_sync_queue', { connection: getRedis() });
   }
   return calendarSyncQueueInstance;
+}
+
+export function getAssistantBuilderQueue() {
+  if (!assistantBuilderQueueInstance) {
+    assistantBuilderQueueInstance = new Queue('assistant_builder_queue', { connection: getRedis() });
+  }
+  return assistantBuilderQueueInstance;
 }

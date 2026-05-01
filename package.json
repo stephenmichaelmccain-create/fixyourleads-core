@@ -20,7 +20,8 @@
     "worker:message": "tsx workers/handle_incoming_message.ts",
     "worker:booking": "tsx workers/booking.ts",
     "worker:calendar-sync": "tsx workers/calendar-sync.ts",
-    "worker:workflow": "tsx workers/workflows.ts"
+    "worker:workflow": "tsx workers/workflows.ts",
+    "worker:assistant": "tsx workers/assistant-builder.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",

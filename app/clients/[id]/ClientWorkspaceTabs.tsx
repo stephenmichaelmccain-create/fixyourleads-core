@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 type ClientWorkspaceTabsProps = {
   companyId: string;
-  active: 'live-log' | 'profile' | 'connections';
+  active: 'live-log' | 'profile' | 'connections' | 'assistant-builder';
 };
 
 export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsProps) {
@@ -26,6 +26,12 @@ export function ClientWorkspaceTabs({ companyId, active }: ClientWorkspaceTabsPr
           href={`/clients/${companyId}/connections`}
         >
           Connections
+        </Link>
+        <Link
+          className={`workspace-tab-link ${active === 'assistant-builder' ? 'is-active' : ''}`}
+          href={`/clients/${companyId}/assistant-builder`}
+        >
+          Assistant Builder
         </Link>
       </div>
     </section>

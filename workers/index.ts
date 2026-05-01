@@ -4,6 +4,7 @@ import './booking';
 import './workflows';
 import './crm-sync';
 import './calendar-sync';
+import './assistant-builder';
 import { startWorkerHeartbeat } from '@/lib/worker-heartbeat';
 
 console.log('FixYourLeads workers online');

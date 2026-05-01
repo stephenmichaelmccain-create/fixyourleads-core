@@ -91,6 +91,28 @@ enum CrmSyncStatus {
   SKIPPED
 }
 
+enum AssistantBuildStatus {
+  QUEUED
+  RUNNING
+  NEEDS_REVIEW
+  FAILED
+  APPROVED
+  PUBLISHED
+}
+
+enum AssistantArtifactStatus {
+  NEEDS_REVIEW
+  APPROVED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AssistantMetricWindow {
+  LIFETIME
+  LAST_7_DAYS
+  LAST_30_DAYS
+}
+
 model Company {
   id                      String                   @id @default(cuid())
   name                    String
@@ -120,6 +142,10 @@ model Company {
   events                  EventLog[]
   keys                    IdempotencyKey[]
   crmSyncLogs             CrmSyncLog[]
+  assistantOverrideVersions ClientAssistantOverrideVersion[]
+  assistantBuildRuns      AssistantBuildRun[]
+  assistantArtifactVersions AssistantArtifactVersion[]
+  assistantMetricSnapshots AssistantArtifactMetricSnapshot[]
 }
 
 model Contact {
@@ -371,4 +397,108 @@ model UnroutedTelnyxEvent {
   @@index([createdAt])
   @@index([reason, createdAt])
   @@index([eventType, createdAt])
+}
+
+model GlobalAssistantSkillVersion {
+  id               String                   @id @default(cuid())
+  version          Int                      @unique
+  name             String                   @default("Base Skill")
+  content          Json
+  validationRules  Json
+  createdBy        String?
+  createdAt        DateTime                 @default(now())
+  buildRuns        AssistantBuildRun[]
+  artifactVersions AssistantArtifactVersion[]
+
+  @@index([createdAt])
+}
+
+model ClientAssistantOverrideVersion {
+  id               String                   @id @default(cuid())
+  companyId        String
+  version          Int
+  overridePayload  Json
+  notes            String?
+  createdBy        String?
+  createdAt        DateTime                 @default(now())
+  company          Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  buildRuns        AssistantBuildRun[]
+  artifactVersions AssistantArtifactVersion[]
+
+  @@unique([companyId, version])
+  @@index([companyId, createdAt])
+}
+
+model AssistantBuildRun {
+  id                      String                         @id @default(cuid())
+  companyId               String
+  baseSkillVersionId      String
+  clientOverrideVersionId String?
+  status                  AssistantBuildStatus           @default(QUEUED)
+  requestedBy             String?
+  model                   String
+  inputPayload            Json
+  outputPayload           Json?
+  validationPayload       Json?
+  errorMessage            String?
+  queuedAt                DateTime                       @default(now())
+  startedAt               DateTime?
+  completedAt             DateTime?
+  company                 Company                        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  baseSkillVersion        GlobalAssistantSkillVersion    @relation(fields: [baseSkillVersionId], references: [id], onDelete: Restrict)
+  clientOverrideVersion   ClientAssistantOverrideVersion? @relation(fields: [clientOverrideVersionId], references: [id], onDelete: SetNull)
+  artifactVersions        AssistantArtifactVersion[]
+
+  @@index([companyId, queuedAt])
+  @@index([status, queuedAt])
+}
+
+model AssistantArtifactVersion {
+  id                      String                         @id @default(cuid())
+  companyId               String
+  buildRunId              String
+  baseSkillVersionId      String
+  clientOverrideVersionId String?
+  version                 Int
+  status                  AssistantArtifactStatus        @default(NEEDS_REVIEW)
+  systemPrompt            String
+  callFlow                Json
+  qualificationLogic      Json
+  fallbackRules           Json
+  postCallOutputSchema    Json
+  testingChecklist        Json
+  validationPayload       Json
+  publishedAt             DateTime?
+  publishedBy             String?
+  approvedAt              DateTime?
+  approvedBy              String?
+  createdAt               DateTime                       @default(now())
+  company                 Company                        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  buildRun                AssistantBuildRun              @relation(fields: [buildRunId], references: [id], onDelete: Cascade)
+  baseSkillVersion        GlobalAssistantSkillVersion    @relation(fields: [baseSkillVersionId], references: [id], onDelete: Restrict)
+  clientOverrideVersion   ClientAssistantOverrideVersion? @relation(fields: [clientOverrideVersionId], references: [id], onDelete: SetNull)
+  metricsSnapshots        AssistantArtifactMetricSnapshot[]
+
+  @@unique([companyId, version])
+  @@index([companyId, createdAt])
+}
+
+model AssistantArtifactMetricSnapshot {
+  id                      String               @id @default(cuid())
+  companyId               String
+  artifactVersionId       String
+  window                  AssistantMetricWindow @default(LIFETIME)
+  bookingRate             Float?
+  qualificationAccuracy   Float?
+  escalationRate          Float?
+  latencyPerceptionScore  Float?
+  complianceFlags         Int?
+  sampleSize              Int?
+  notes                   String?
+  capturedAt              DateTime             @default(now())
+  company                 Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  artifactVersion         AssistantArtifactVersion @relation(fields: [artifactVersionId], references: [id], onDelete: Cascade)
+
+  @@index([artifactVersionId, capturedAt])
+  @@index([companyId, capturedAt])
 }

@@ -1,7 +1,7 @@
 import { AppointmentExternalSyncStatus } from '@prisma/client';
 import { db } from '@/lib/db';
 import { notificationReadiness } from '@/lib/notifications';
-import { getBookingQueue, getCalendarSyncQueue, getLeadQueue, getMessageQueue, getWorkflowQueue } from '@/lib/queue';
+import { getAssistantBuilderQueue, getBookingQueue, getCalendarSyncQueue, getLeadQueue, getMessageQueue, getWorkflowQueue } from '@/lib/queue';
 import { getRedis } from '@/lib/redis';
 import { checkN8nConnectivity } from '@/lib/n8n';
 import { envPresence, missingRequiredEnvVars } from '@/lib/runtime-safe';
@@ -275,7 +275,7 @@ async function checkQueue(
 
 async function getQueueHealth(redisUrlSet: boolean): Promise<QueueHealth[]> {
   if (!redisUrlSet) {
-    return ['lead_queue', 'message_queue', 'booking_queue', 'workflow_queue', 'calendar_sync_queue'].map((name) => ({
+    return ['lead_queue', 'message_queue', 'booking_queue', 'workflow_queue', 'calendar_sync_queue', 'assistant_builder_queue'].map((name) => ({
       name,
       status: 'missing_config',
       detail: 'REDIS_URL is required to read queue stats'
@@ -287,7 +287,8 @@ async function getQueueHealth(redisUrlSet: boolean): Promise<QueueHealth[]> {
     checkQueue('message_queue', getMessageQueue),
     checkQueue('booking_queue', getBookingQueue),
     checkQueue('workflow_queue', getWorkflowQueue),
-    checkQueue('calendar_sync_queue', getCalendarSyncQueue)
+    checkQueue('calendar_sync_queue', getCalendarSyncQueue),
+    checkQueue('assistant_builder_queue', getAssistantBuilderQueue)
   ]);
 }
 

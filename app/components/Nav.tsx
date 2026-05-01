@@ -48,6 +48,10 @@ function normalizeCurrent(current?: NavProps['current']): NavKey | undefined {
     return 'clients';
   }
 
+  if (current === 'meetings') {
+    return 'meetings';
+  }
+
   return current;
 }
 
