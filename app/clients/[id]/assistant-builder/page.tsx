@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { saveAssistantPromptNotesAction } from '@/app/clients/[id]/assistant-builder/actions';
+import { pullLatestSignupContextAction, saveAssistantPromptNotesAction } from '@/app/clients/[id]/assistant-builder/actions';
 import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
@@ -34,6 +34,12 @@ function asJsonRecord(value: unknown) {
 function noticeMessage(notice: string) {
   if (notice === 'notes_saved') {
     return 'Prompt notes saved.';
+  }
+  if (notice === 'signup_context_pulled') {
+    return 'Latest signup context pulled from Postgres and saved into notes history.';
+  }
+  if (notice === 'signup_context_missing') {
+    return 'No signup event found for this client yet.';
   }
   return null;
 }
@@ -82,6 +88,25 @@ export default async function ClientAssistantBuilderPage({
     []
   );
 
+  const latestSignupEvent = await safeLoad(
+    () =>
+      db.eventLog.findFirst({
+        where: {
+          companyId: id,
+          eventType: {
+            in: ['client_signup_received', 'client_onboarding_received', 'client_signup_approved']
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          eventType: true,
+          createdAt: true
+        }
+      }),
+    null
+  );
+
   const latestNotes = (() => {
     const first = noteEvents[0];
     if (!first) {
@@ -119,10 +144,22 @@ export default async function ClientAssistantBuilderPage({
             <div className="metric-label">Prompt notes</div>
             <h3 className="section-title">Assistant Prompt Workspace</h3>
             <div className="record-subtitle">
-              Use this page as an internal notes pad for prompts, call flow drafts, and skill-run inputs.
+              Use this page as an internal notes pad for prompts, call flow drafts, and skill-run inputs. You can also pull the latest signup context from Postgres.
             </div>
           </div>
         </div>
+
+        <form action={pullLatestSignupContextAction} className="workspace-action-rail">
+          <input type="hidden" name="companyId" value={company.id} />
+          <button className="button-ghost" type="submit">
+            Pull Latest Signup Context
+          </button>
+          <span className="tiny-muted">
+            {latestSignupEvent
+              ? `${latestSignupEvent.eventType} · ${formatCompactDateTime(latestSignupEvent.createdAt)}`
+              : 'No signup event found yet'}
+          </span>
+        </form>
 
         <form action={saveAssistantPromptNotesAction} className="panel-stack client-profile-form">
           <input type="hidden" name="companyId" value={company.id} />

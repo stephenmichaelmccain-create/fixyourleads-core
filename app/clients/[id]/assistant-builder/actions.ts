@@ -31,6 +31,14 @@ function optionalText(value: FormDataEntryValue | null) {
   return text || null;
 }
 
+function payloadText(payload: unknown, key: string) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return '';
+  }
+  const value = (payload as Record<string, unknown>)[key];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function splitLines(value: string | null) {
   if (!value) {
     return [];
@@ -210,4 +218,95 @@ export async function saveAssistantPromptNotesAction(formData: FormData) {
 
   revalidateBuilder(companyId);
   redirect(builderPath(companyId, { notice: 'notes_saved' }));
+}
+
+export async function pullLatestSignupContextAction(formData: FormData) {
+  const companyId = String(formData.get('companyId') || '').trim();
+  if (!companyId) {
+    throw new Error('company_id_required');
+  }
+
+  const [company, latestSignupEvent] = await Promise.all([
+    db.company.findUnique({
+      where: { id: companyId },
+      select: {
+        id: true,
+        name: true,
+        website: true,
+        primaryContactName: true,
+        primaryContactEmail: true,
+        primaryContactPhone: true,
+        notificationEmail: true,
+        notificationPhone: true
+      }
+    }),
+    db.eventLog.findFirst({
+      where: {
+        companyId,
+        eventType: {
+          in: ['client_signup_received', 'client_onboarding_received', 'client_signup_approved']
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        eventType: true,
+        payload: true,
+        createdAt: true
+      }
+    })
+  ]);
+
+  if (!company) {
+    throw new Error('company_not_found');
+  }
+
+  if (!latestSignupEvent) {
+    revalidateBuilder(companyId);
+    redirect(builderPath(companyId, { notice: 'signup_context_missing' }));
+  }
+
+  const payload = latestSignupEvent.payload;
+  const contextNotes = [
+    `# Startup Sequence Prefill`,
+    ``,
+    `Source event: ${latestSignupEvent.eventType} (${latestSignupEvent.id})`,
+    `Captured at: ${latestSignupEvent.createdAt.toISOString()}`,
+    ``,
+    `## Step 1 - Business + Call Context`,
+    `Business name: ${payloadText(payload, 'clinicName') || company.name || '[NEEDS_INPUT]'}`,
+    `Industry: [NEEDS_INPUT]`,
+    `Service area: [NEEDS_INPUT]`,
+    `Call direction: [NEEDS_INPUT]`,
+    `Exact call type: [NEEDS_INPUT]`,
+    ``,
+    `## Signup Contact Snapshot`,
+    `Contact name: ${payloadText(payload, 'contactName') || company.primaryContactName || '[NEEDS_INPUT]'}`,
+    `Notification email: ${payloadText(payload, 'notificationEmail') || company.notificationEmail || company.primaryContactEmail || '[NEEDS_INPUT]'}`,
+    `Phone: ${payloadText(payload, 'phone') || company.notificationPhone || company.primaryContactPhone || '[NEEDS_INPUT]'}`,
+    `Website: ${payloadText(payload, 'website') || company.website || '[NEEDS_INPUT]'}`,
+    `Signup source: ${payloadText(payload, 'source') || '[NEEDS_INPUT]'}`,
+    `Source external ID: ${payloadText(payload, 'sourceExternalId') || '[NEEDS_INPUT]'}`,
+    ``,
+    `## Next Intake Steps`,
+    `- Fill missing Step 1 values`,
+    `- Continue with Step 2: Outcomes + Scope`,
+    `- Continue with Step 3: Tools + System Actions`
+  ].join('\n');
+
+  await db.eventLog.create({
+    data: {
+      companyId,
+      eventType: 'assistant_prompt_notes_saved',
+      payload: {
+        notes: contextNotes,
+        savedBy: 'operator',
+        source: 'assistant_builder_signup_context_pull',
+        signupEventId: latestSignupEvent.id
+      }
+    }
+  });
+
+  revalidateBuilder(companyId);
+  redirect(builderPath(companyId, { notice: 'signup_context_pulled' }));
 }
