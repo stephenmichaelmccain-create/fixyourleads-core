@@ -3,6 +3,7 @@
 import { AssistantMetricWindow } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { db } from '@/lib/db';
 import {
   approveAssistantArtifact,
   createClientOverrideVersion,
@@ -185,4 +186,28 @@ export async function saveAssistantMetricSnapshotAction(formData: FormData) {
 
   revalidateBuilder(companyId);
   redirect(builderPath(companyId, { notice: 'metric_saved' }));
+}
+
+export async function saveAssistantPromptNotesAction(formData: FormData) {
+  const companyId = String(formData.get('companyId') || '').trim();
+  if (!companyId) {
+    throw new Error('company_id_required');
+  }
+
+  const notes = optionalText(formData.get('notes')) || '';
+
+  await db.eventLog.create({
+    data: {
+      companyId,
+      eventType: 'assistant_prompt_notes_saved',
+      payload: {
+        notes,
+        savedBy: 'operator',
+        source: 'assistant_builder_notes_page'
+      }
+    }
+  });
+
+  revalidateBuilder(companyId);
+  redirect(builderPath(companyId, { notice: 'notes_saved' }));
 }
