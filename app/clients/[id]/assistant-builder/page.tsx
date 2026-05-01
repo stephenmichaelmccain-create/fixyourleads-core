@@ -47,6 +47,65 @@ function toStringArray(value: unknown) {
   return value.filter((item): item is string => typeof item === 'string');
 }
 
+function toRecordArray(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item));
+}
+
+function parseCallFlow(value: unknown) {
+  const data = asJsonRecord(value);
+  const happyPathPhases = toRecordArray(data.happyPathPhases).map((phase) => ({
+    phase: typeof phase.phase === 'string' ? phase.phase : '',
+    objective: typeof phase.objective === 'string' ? phase.objective : '',
+    keySteps: toStringArray(phase.keySteps)
+  }));
+  const namedBranches = toRecordArray(data.namedBranches).map((branch) => ({
+    name: typeof branch.name === 'string' ? branch.name : '',
+    trigger: typeof branch.trigger === 'string' ? branch.trigger : '',
+    handling: toStringArray(branch.handling)
+  }));
+  const actionLadder = toRecordArray(data.actionLadder).map((step) => ({
+    step: typeof step.step === 'string' ? step.step : '',
+    rule: typeof step.rule === 'string' ? step.rule : ''
+  }));
+  return { happyPathPhases, namedBranches, actionLadder };
+}
+
+function parseQualification(value: unknown) {
+  const data = asJsonRecord(value);
+  return {
+    requiredFields: toStringArray(data.requiredFields),
+    collectionOrder: toStringArray(data.collectionOrder),
+    verificationRules: toStringArray(data.verificationRules),
+    qualificationCriteria: toStringArray(data.qualificationCriteria),
+    disqualificationHandling: toStringArray(data.disqualificationHandling),
+    outcomes: toStringArray(data.outcomes)
+  };
+}
+
+function parseFallback(value: unknown) {
+  const data = asJsonRecord(value);
+  return {
+    escalationTriggers: toStringArray(data.escalationTriggers),
+    escalationContacts: toStringArray(data.escalationContacts),
+    dncRemoval: toStringArray(data.dncRemoval),
+    toolFailures: toStringArray(data.toolFailures),
+    regulatedQuestions: toStringArray(data.regulatedQuestions),
+    humanRequests: toStringArray(data.humanRequests)
+  };
+}
+
+function parseTesting(value: unknown) {
+  const data = asJsonRecord(value);
+  return {
+    launchChecklist: toStringArray(data.launchChecklist),
+    diagnosticLayers: toStringArray(data.diagnosticLayers),
+    revisionProtocol: toStringArray(data.revisionProtocol)
+  };
+}
+
 function noticeMessage(notice: string, runId: string | undefined) {
   if (notice === 'override_saved') {
     return 'Client override saved as a new version.';
@@ -170,6 +229,7 @@ export default async function ClientAssistantBuilderPage({
             callFlow: true,
             qualificationLogic: true,
             fallbackRules: true,
+            postCallOutputSchema: true,
             testingChecklist: true,
             publishedAt: true,
             approvedAt: true,
@@ -442,7 +502,15 @@ export default async function ClientAssistantBuilderPage({
 
         <div className="record-grid">
           {artifacts.length === 0 && <article className="record-card text-muted">No artifacts generated yet.</article>}
-          {artifacts.map((artifact) => (
+          {artifacts.map((artifact) => {
+            const callFlow = parseCallFlow(artifact.callFlow);
+            const qualification = parseQualification(artifact.qualificationLogic);
+            const fallback = parseFallback(artifact.fallbackRules);
+            const testing = parseTesting(artifact.testingChecklist);
+            const postCallSchema = asJsonRecord(artifact.postCallOutputSchema);
+            const postCallSchemaFields = Object.keys(asJsonRecord(postCallSchema.properties));
+
+            return (
             <article key={artifact.id} className="record-card">
               <div className="inline-row">
                 <span className={`status-chip ${statusChipClass(artifact.status)}`}>
@@ -458,10 +526,38 @@ export default async function ClientAssistantBuilderPage({
               <div className="tiny-muted">Published {formatCompactDateTime(artifact.publishedAt)}</div>
 
               <div className="panel-stack">
-                <div className="metric-label">System prompt</div>
+                <div className="metric-label">1) System prompt</div>
                 <div className="text-muted">{artifact.systemPrompt.slice(0, 220)}{artifact.systemPrompt.length > 220 ? '...' : ''}</div>
-                <div className="metric-label">Call flow steps</div>
-                <div className="text-muted">{toStringArray(artifact.callFlow).join(' | ') || '—'}</div>
+                <div className="metric-label">2) Call flow</div>
+                <div className="tiny-muted">
+                  Phases: {callFlow.happyPathPhases.map((phase) => phase.phase).filter(Boolean).join(' | ') || '—'}
+                </div>
+                <div className="tiny-muted">
+                  Action ladder: {callFlow.actionLadder.map((step) => step.step).filter(Boolean).join(' -> ') || '—'}
+                </div>
+                <div className="tiny-muted">
+                  Branches: {callFlow.namedBranches.map((branch) => branch.name).filter(Boolean).join(' | ') || '—'}
+                </div>
+                <div className="metric-label">3) Qualification logic</div>
+                <div className="tiny-muted">
+                  Required fields: {qualification.requiredFields.join(', ') || '—'}
+                </div>
+                <div className="tiny-muted">
+                  Criteria: {qualification.qualificationCriteria.join(' | ') || '—'}
+                </div>
+                <div className="metric-label">4) Fallback + escalation</div>
+                <div className="tiny-muted">
+                  Escalation triggers: {fallback.escalationTriggers.join(' | ') || '—'}
+                </div>
+                <div className="tiny-muted">
+                  DNC handling: {fallback.dncRemoval.join(' | ') || '—'}
+                </div>
+                <div className="metric-label">5) Post-call output schema</div>
+                <div className="tiny-muted">Schema fields: {postCallSchemaFields.join(', ') || '—'}</div>
+                <div className="metric-label">6) Testing + revision rubric</div>
+                <div className="tiny-muted">
+                  Launch checks: {testing.launchChecklist.length} · Diagnostic layers: {testing.diagnosticLayers.length}
+                </div>
               </div>
 
               {(artifact.status === AssistantArtifactStatus.NEEDS_REVIEW || artifact.status === AssistantArtifactStatus.APPROVED) && (
@@ -499,7 +595,8 @@ export default async function ClientAssistantBuilderPage({
                 </div>
               )}
             </article>
-          ))}
+            );
+          })}
         </div>
       </section>
 

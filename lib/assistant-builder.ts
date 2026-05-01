@@ -6,11 +6,48 @@ const DEFAULT_MODEL = 'gpt-5.4-mini';
 
 type ArtifactDraft = {
   systemPrompt: string;
-  callFlow: string[];
-  qualificationLogic: string[];
-  fallbackRules: string[];
+  callFlow: {
+    happyPathPhases: Array<{
+      phase: string;
+      objective: string;
+      keySteps: string[];
+    }>;
+    namedBranches: Array<{
+      name: string;
+      trigger: string;
+      handling: string[];
+    }>;
+    actionLadder: Array<{
+      step: 'ask' | 'verify' | 'confirm' | 'act' | 'wait' | 'escalate';
+      rule: string;
+    }>;
+  };
+  qualificationLogic: {
+    requiredFields: string[];
+    collectionOrder: string[];
+    verificationRules: string[];
+    qualificationCriteria: string[];
+    disqualificationHandling: string[];
+    outcomes: string[];
+  };
+  fallbackRules: {
+    uncertainty: string[];
+    missingInformation: string[];
+    toolFailures: string[];
+    frustration: string[];
+    regulatedQuestions: string[];
+    humanRequests: string[];
+    dncRemoval: string[];
+    poorConnection: string[];
+    escalationTriggers: string[];
+    escalationContacts: string[];
+  };
   postCallOutputSchema: Record<string, unknown>;
-  testingChecklist: string[];
+  testingChecklist: {
+    launchChecklist: string[];
+    diagnosticLayers: string[];
+    revisionProtocol: string[];
+  };
 };
 
 type ValidationCheck = {
@@ -20,13 +57,29 @@ type ValidationCheck = {
     | 'regulated_advice_boundaries'
     | 'high_stakes_verification'
     | 'dnc_handling'
-    | 'post_call_schema_valid';
+    | 'post_call_schema_valid'
+    | 'action_ladder_present';
   passed: boolean;
   detail: string;
 };
 
+const ACTION_LADDER_STEPS = ['ask', 'verify', 'confirm', 'act', 'wait', 'escalate'] as const;
+
+const DEFAULT_DIAGNOSTIC_LAYERS = [
+  'transcription',
+  'prompt',
+  'runtime context',
+  'tool use',
+  'model behavior',
+  'voice output',
+  'latency',
+  'conversation design',
+  'evaluation process'
+];
+
 const DEFAULT_BASE_SKILL_CONTENT = {
   role: 'Fix Your Leads booking operator',
+  workflow: 'Telnyx AI voice booking operator',
   goals: [
     'Help qualified leads schedule appointments quickly.',
     'Avoid misleading claims and protect the customer from risky guidance.',
@@ -44,7 +97,8 @@ const DEFAULT_BASE_SKILL_CONTENT = {
     'Never claim tool actions succeeded without confirmation.',
     'Do not provide regulated advice.',
     'Verify all high-stakes data before any write action.',
-    'Honor do-not-contact requests immediately.'
+    'Honor do-not-contact requests immediately.',
+    'Use the explicit action ladder: ask, verify, confirm, act, wait, escalate.'
   ]
 };
 
@@ -55,9 +109,10 @@ const DEFAULT_VALIDATION_RULES = {
     'regulated_advice_boundaries',
     'high_stakes_verification',
     'dnc_handling',
-    'post_call_schema_valid'
+    'post_call_schema_valid',
+    'action_ladder_present'
   ],
-  minimumSchemaFields: ['callOutcome', 'leadQualified', 'nextAction', 'escalationReason']
+  minimumSchemaFields: ['call_id', 'caller', 'lead', 'outcome', 'data_verified', 'flags']
 };
 
 function asJsonObject(value: unknown): Record<string, unknown> {
@@ -76,6 +131,112 @@ function asStringArray(value: unknown): string[] {
 
 function ensureString(value: unknown, fallback: string) {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function asStringRecordArray(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((item) => asJsonObject(item)).filter((item) => Object.keys(item).length > 0);
+}
+
+function buildDefaultPostCallSchema() {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      call_id: { type: 'string' },
+      timestamp: { type: 'string' },
+      direction: { type: 'string', enum: ['inbound', 'outbound'] },
+      duration_seconds: { type: 'integer' },
+      agent_version: { type: 'string' },
+      business_name: { type: 'string' },
+      agent_role: { type: 'string' },
+      specific_call_type: { type: 'string' },
+      lead_source: { type: ['string', 'null'] },
+      caller: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          name: { type: ['string', 'null'] },
+          phone: { type: 'string' },
+          email: { type: ['string', 'null'] },
+          address: { type: ['string', 'null'] }
+        },
+        required: ['phone']
+      },
+      lead: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          type: { type: ['string', 'null'] },
+          service_requested: { type: ['string', 'null'] },
+          urgency: { type: 'string' },
+          in_service_area: { type: ['boolean', 'string'] },
+          qualified: { type: ['boolean', 'string'] },
+          qualification_reason: { type: ['string', 'null'] },
+          disqualification_reason: { type: ['string', 'null'] }
+        }
+      },
+      outcome: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          result: { type: 'string' },
+          appointment_datetime: { type: ['string', 'null'] },
+          appointment_type: { type: ['string', 'null'] },
+          escalation_reason: { type: ['string', 'null'] },
+          next_action: { type: 'string' },
+          next_action_owner: { type: 'string' },
+          follow_up_deadline: { type: ['string', 'null'] },
+          needs_human_review: { type: 'boolean' }
+        },
+        required: ['result', 'next_action', 'next_action_owner', 'needs_human_review']
+      },
+      data_verified: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          phone_verified: { type: 'boolean' },
+          email_verified: { type: 'boolean' },
+          address_verified: { type: 'boolean' },
+          appointment_confirmed: { type: 'boolean' }
+        }
+      },
+      objections_raised: {
+        type: 'array',
+        items: { type: 'string' }
+      },
+      transfer: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          requested: { type: 'boolean' },
+          completed: { type: 'boolean' }
+        }
+      },
+      crm_fields: {
+        type: 'object',
+        additionalProperties: true
+      },
+      call_notes: { type: 'string' },
+      flags: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          compliance: { type: 'string' },
+          audio_quality: { type: 'string' },
+          sentiment: { type: 'string' },
+          repeat_caller: { type: ['boolean', 'string'] },
+          escalation_required: { type: 'boolean' },
+          pricing_requested: { type: 'boolean' },
+          human_requested: { type: 'boolean' },
+          urgent_flag: { type: 'boolean' }
+        }
+      }
+    },
+    required: ['call_id', 'timestamp', 'direction', 'caller', 'lead', 'outcome', 'data_verified', 'flags']
+  };
 }
 
 function toPrismaJson(value: unknown): Prisma.InputJsonValue {
@@ -158,51 +319,179 @@ export async function createMetricSnapshot(input: {
 function buildFallbackDraft(company: { name: string; website: string | null }, overridePayload: Record<string, unknown>): ArtifactDraft {
   const qualifier = asStringArray(overridePayload.qualificationCriteria);
   const escalationContacts = asStringArray(overridePayload.escalationContacts);
+  const disallowedClaims = asStringArray(overridePayload.disallowedClaims);
+  const customFlowFocus = ensureString(overridePayload.customCallFlowFocus, '');
+  const businessContext = ensureString(overridePayload.businessContext, '');
+  const toneGuidelines = ensureString(overridePayload.toneGuidelines, 'warm, calm, professional, low-pressure');
 
   return {
-    systemPrompt: `You are the AI booking operator for ${company.name}. Always disclose you are an AI assistant. Never claim a tool action succeeded unless the tool confirms success. Do not provide legal, medical, or financial advice. Before any write action, verify high-stakes details (date, time, contact, and service) with the customer. If the customer requests removal or do-not-contact, confirm and stop outreach immediately.`,
-    callFlow: [
-      'Open call, disclose AI identity, and ask permission to continue.',
-      'Confirm lead intent and collect context needed for qualification.',
-      'Ask concise qualification questions and summarize answers back.',
-      'Offer appointment windows and confirm final booking details.',
-      'Send confirmation summary and explain escalation path when needed.'
-    ],
-    qualificationLogic: qualifier.length > 0
-      ? qualifier
-      : ['Service need matches client offer', 'Lead has decision-maker availability', 'Timeline is actionable within 30 days'],
-    fallbackRules: [
-      'Escalate immediately if confidence is low or caller asks for a human.',
-      'Escalate for billing, legal, medical, or policy disputes.',
-      `Escalation contacts: ${escalationContacts.join(', ') || 'Use default operator escalation channel.'}`
-    ],
-    postCallOutputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        callOutcome: { type: 'string' },
-        leadQualified: { type: 'boolean' },
-        nextAction: { type: 'string' },
-        escalationReason: { type: 'string' },
-        bookingRequest: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            requestedDateTime: { type: 'string' },
-            timezone: { type: 'string' }
-          },
-          required: ['requestedDateTime', 'timezone']
+    systemPrompt: [
+      `ROLE`,
+      `You are the AI booking operator for ${company.name}. You are an AI assistant and never claim to be human.`,
+      '',
+      `GOAL`,
+      `Handle lead qualification and booking calls with clear spoken language, accurate tool use, and compliant escalation.`,
+      '',
+      `PRIORITIES`,
+      `1. Caller safety and compliance.`,
+      `2. Data accuracy over speed.`,
+      `3. Scope discipline over improvisation.`,
+      '',
+      `HARD RULES`,
+      `- Never claim to be human.`,
+      `- Never claim a tool succeeded without tool evidence.`,
+      `- Never provide legal, medical, or financial advice.`,
+      `- Always verify high-stakes fields before write actions.`,
+      `- Always honor do-not-call and removal requests immediately.`,
+      `- Never promise outcomes the system cannot verify.`,
+      ...(disallowedClaims.length > 0 ? disallowedClaims.map((line) => `- ${line}`) : []),
+      '',
+      `TONE`,
+      toneGuidelines,
+      '',
+      `BUSINESS CONTEXT`,
+      businessContext || `${company.name}${company.website ? ` (${company.website})` : ''}`,
+      '',
+      `ACTION LADDER`,
+      `ask -> verify -> confirm -> act -> wait -> escalate`
+    ].join('\n'),
+    callFlow: {
+      happyPathPhases: [
+        {
+          phase: 'Open',
+          objective: 'Start safely and disclose AI identity.',
+          keySteps: ['Greet caller briefly.', 'Disclose AI assistant identity.', 'Ask permission to continue.']
+        },
+        {
+          phase: 'Establish purpose',
+          objective: 'Identify intent and call type quickly.',
+          keySteps: ['Confirm caller reason for reaching out.', 'Determine if this is booking, follow-up, or support redirection.']
+        },
+        {
+          phase: 'Collect information',
+          objective: 'Gather minimum required fields in low-friction order.',
+          keySteps: ['Collect name and callback phone.', 'Collect service details and location when relevant.']
+        },
+        {
+          phase: 'Qualify or check',
+          objective: 'Determine qualified status and risk flags.',
+          keySteps: ['Run qualification criteria.', 'Verify high-stakes data before any write action.']
+        },
+        {
+          phase: 'Convert',
+          objective: 'Book or capture next action.',
+          keySteps: ['Offer one to three booking options.', 'Confirm selected slot before booking tool write.']
+        },
+        {
+          phase: 'Wrap up',
+          objective: 'Close with clear next step and post-call integrity.',
+          keySteps: ['Summarize outcome.', 'State confirmation delivery path or escalation owner.']
         }
-      },
-      required: ['callOutcome', 'leadQualified', 'nextAction', 'escalationReason', 'bookingRequest']
+      ],
+      namedBranches: [
+        {
+          name: 'Emergency escalation',
+          trigger: 'Caller describes emergency or unsafe situation.',
+          handling: ['Stop routine flow.', 'Advise immediate human escalation.', 'Log urgent flag for follow-up.']
+        },
+        {
+          name: 'Disqualified lead',
+          trigger: 'Lead fails qualification criteria.',
+          handling: ['Politely close with low-risk language.', 'Avoid detailed disqualification reasoning.', 'Log disqualification reason internally.']
+        },
+        {
+          name: 'Callback requested',
+          trigger: 'Caller asks for later follow-up.',
+          handling: ['Confirm best callback number and time window.', 'Create follow-up action with owner and deadline.']
+        },
+        {
+          name: 'Tool failure recovery',
+          trigger: 'Lookup or write tool fails.',
+          handling: ['Do not claim success.', 'Give one short apology.', 'Escalate to human owner with context.']
+        },
+        {
+          name: 'Caller frustration',
+          trigger: 'Caller shows repeated frustration or asks to stop.',
+          handling: ['Acknowledge briefly.', 'Offer human handoff immediately.']
+        },
+        {
+          name: 'Human-identity question',
+          trigger: 'Caller asks whether assistant is a person.',
+          handling: ['State AI identity honestly.', 'Offer to continue or transfer to person.']
+        },
+        {
+          name: 'Removal / DNC request',
+          trigger: 'Caller asks to be removed or not contacted.',
+          handling: ['Confirm request in plain language.', 'Stop outreach flow.', 'Log suppression flag immediately.']
+        },
+        {
+          name: 'Out-of-scope request',
+          trigger: 'Caller asks for unsupported tasks or regulated advice.',
+          handling: ['State boundary briefly.', 'Escalate to human follow-up.']
+        }
+      ],
+      actionLadder: [
+        { step: 'ask', rule: 'Ask when required information is missing.' },
+        { step: 'verify', rule: 'Verify high-stakes fields before any write action.' },
+        { step: 'confirm', rule: 'Confirm meaningful writes or commitments with caller.' },
+        { step: 'act', rule: 'Act only when enough verified data is present.' },
+        { step: 'wait', rule: 'During latency, provide a short progress signal.' },
+        { step: 'escalate', rule: 'Escalate when blocked, risky, regulated, or requested by caller.' }
+      ]
     },
-    testingChecklist: [
-      'Identity disclosure spoken before qualification.',
-      'DNC/removal phrase triggers immediate suppression confirmation.',
-      'Tool failure branch does not claim success.',
-      'High-stakes writes require customer readback verification.',
-      `Booking result payload can be parsed and stored for ${company.website || company.name}.`
-    ]
+    qualificationLogic: {
+      requiredFields: ['full name', 'phone number', 'service requested', 'availability window'],
+      collectionOrder: ['name', 'phone', 'address/service area (if needed)', 'service details', 'availability'],
+      verificationRules: [
+        'Read back phone in grouped digits before message/callback actions.',
+        'Read back date and time in natural spoken format before booking writes.',
+        'Verify address and city before location-dependent scheduling.'
+      ],
+      qualificationCriteria:
+        qualifier.length > 0
+          ? qualifier
+          : ['Service need matches client offer', 'Lead has decision-maker availability', 'Timeline is actionable within 30 days'],
+      disqualificationHandling: [
+        'Use brief, low-pressure closeout language.',
+        'Avoid argumentative or detailed rejection language.',
+        'Offer safe next step if follow-up is possible.'
+      ],
+      outcomes: ['qualified_ready', 'qualified_follow_up', 'needs_human_review', 'not_qualified', 'insufficient_information']
+    },
+    fallbackRules: {
+      uncertainty: ['Ask one clarifying question, then escalate if still uncertain.'],
+      missingInformation: ['Request only missing required field.', 'If unavailable, capture callback path and escalate.'],
+      toolFailures: ['Name the failure plainly without hedging.', 'Never claim success after failure.', 'Escalate with context payload.'],
+      frustration: ['Acknowledge emotion briefly.', 'Offer immediate human handoff.'],
+      regulatedQuestions: ['Do not provide regulated advice.', 'Route to authorized human follow-up.'],
+      humanRequests: ['Transfer or capture callback for human operator immediately.'],
+      dncRemoval: ['Confirm removal request.', 'Stop outreach and set suppression flag.'],
+      poorConnection: ['Offer to repeat once.', 'If still poor, capture callback and escalate.'],
+      escalationTriggers: [
+        'Caller asks for a person',
+        'Request is out of scope',
+        'Regulated advice request',
+        'Tool failure blocks approved flow',
+        'Persistent uncertainty after one clarification'
+      ],
+      escalationContacts: escalationContacts.length > 0 ? escalationContacts : ['default_operator_channel']
+    },
+    postCallOutputSchema: buildDefaultPostCallSchema(),
+    testingChecklist: {
+      launchChecklist: [
+        'AI identity disclosure appears before qualification in all opening variants.',
+        'No tool-success language appears unless a success result is present.',
+        'DNC/removal intent routes to suppression flow without extra questions.',
+        'High-stakes fields are verified before booking or CRM writes.',
+        `Post-call payload parses and stores for ${company.website || company.name}.`
+      ],
+      diagnosticLayers: DEFAULT_DIAGNOSTIC_LAYERS,
+      revisionProtocol: [
+        'Diagnose failure with nine-layer model and stop at first explanatory layer.',
+        'Apply smallest possible change set (prompt, flow, tool rule, or evaluation).',
+        'Run regression checks for identity honesty, tool-truthfulness, and DNC handling.'
+      ]
+    }
   };
 }
 
@@ -222,13 +511,15 @@ function buildGenerationPrompt(input: {
     'Client overrides (JSON):',
     JSON.stringify(input.clientOverridePayload, null, 2),
     '',
-    'Generate booking-assistant artifacts with these constraints:',
-    '1) Identity honesty: explicit AI disclosure.',
-    '2) Never fake tool success.',
-    '3) Regulated advice boundaries (no legal/medical/financial advice).',
-    '4) Verify high-stakes data before write actions.',
-    '5) Handle do-not-contact and removal requests immediately.',
-    '6) Provide a strict post-call JSON schema for parsing.'
+    'Generate a full Telnyx voice-agent artifact package as valid JSON.',
+    'Required top-level keys: systemPrompt, callFlow, qualificationLogic, fallbackRules, postCallOutputSchema, testingChecklist.',
+    'Call flow must include six happy-path phases: Open, Establish purpose, Collect information, Qualify or check, Convert, Wrap up.',
+    'Call flow must include named branches for emergency escalation, disqualification, callbacks, tool failures, frustration, human-identity questions, removals, and out-of-scope requests.',
+    'Call flow must include action ladder in this order: ask, verify, confirm, act, wait, escalate.',
+    'System prompt must follow a master-prompt shell style with sections for ROLE, GOAL, PRIORITIES, HARD RULES, TONE, TOOL USE RULES, FALLBACK, ESCALATION, POST-CALL OUTPUT.',
+    'Hard-rule constraints (must be explicit): AI identity honesty, no fake tool success, no regulated advice, verify high-stakes data before write actions, immediate DNC/removal handling.',
+    'Post-call output must be a strict JSON schema object with required top-level fields: call_id, caller, lead, outcome, data_verified, flags.',
+    'Testing checklist must include launch checklist and nine diagnostic layers for revision triage.'
   ].join('\n');
 }
 
@@ -268,24 +559,111 @@ async function generateWithOpenAI(model: string, prompt: string) {
             properties: {
               systemPrompt: { type: 'string' },
               callFlow: {
-                type: 'array',
-                items: { type: 'string' }
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  happyPathPhases: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: {
+                        phase: { type: 'string' },
+                        objective: { type: 'string' },
+                        keySteps: { type: 'array', items: { type: 'string' } }
+                      },
+                      required: ['phase', 'objective', 'keySteps']
+                    }
+                  },
+                  namedBranches: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: {
+                        name: { type: 'string' },
+                        trigger: { type: 'string' },
+                        handling: { type: 'array', items: { type: 'string' } }
+                      },
+                      required: ['name', 'trigger', 'handling']
+                    }
+                  },
+                  actionLadder: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: {
+                        step: { type: 'string', enum: ['ask', 'verify', 'confirm', 'act', 'wait', 'escalate'] },
+                        rule: { type: 'string' }
+                      },
+                      required: ['step', 'rule']
+                    }
+                  }
+                },
+                required: ['happyPathPhases', 'namedBranches', 'actionLadder']
               },
               qualificationLogic: {
-                type: 'array',
-                items: { type: 'string' }
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  requiredFields: { type: 'array', items: { type: 'string' } },
+                  collectionOrder: { type: 'array', items: { type: 'string' } },
+                  verificationRules: { type: 'array', items: { type: 'string' } },
+                  qualificationCriteria: { type: 'array', items: { type: 'string' } },
+                  disqualificationHandling: { type: 'array', items: { type: 'string' } },
+                  outcomes: { type: 'array', items: { type: 'string' } }
+                },
+                required: [
+                  'requiredFields',
+                  'collectionOrder',
+                  'verificationRules',
+                  'qualificationCriteria',
+                  'disqualificationHandling',
+                  'outcomes'
+                ]
               },
               fallbackRules: {
-                type: 'array',
-                items: { type: 'string' }
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  uncertainty: { type: 'array', items: { type: 'string' } },
+                  missingInformation: { type: 'array', items: { type: 'string' } },
+                  toolFailures: { type: 'array', items: { type: 'string' } },
+                  frustration: { type: 'array', items: { type: 'string' } },
+                  regulatedQuestions: { type: 'array', items: { type: 'string' } },
+                  humanRequests: { type: 'array', items: { type: 'string' } },
+                  dncRemoval: { type: 'array', items: { type: 'string' } },
+                  poorConnection: { type: 'array', items: { type: 'string' } },
+                  escalationTriggers: { type: 'array', items: { type: 'string' } },
+                  escalationContacts: { type: 'array', items: { type: 'string' } }
+                },
+                required: [
+                  'uncertainty',
+                  'missingInformation',
+                  'toolFailures',
+                  'frustration',
+                  'regulatedQuestions',
+                  'humanRequests',
+                  'dncRemoval',
+                  'poorConnection',
+                  'escalationTriggers',
+                  'escalationContacts'
+                ]
               },
               postCallOutputSchema: {
                 type: 'object',
                 additionalProperties: true
               },
               testingChecklist: {
-                type: 'array',
-                items: { type: 'string' }
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  launchChecklist: { type: 'array', items: { type: 'string' } },
+                  diagnosticLayers: { type: 'array', items: { type: 'string' } },
+                  revisionProtocol: { type: 'array', items: { type: 'string' } }
+                },
+                required: ['launchChecklist', 'diagnosticLayers', 'revisionProtocol']
               }
             },
             required: [
@@ -336,13 +714,110 @@ function validatePostCallSchema(schema: Record<string, unknown>) {
   if (Object.keys(properties).length === 0 || !Array.isArray(required)) {
     return false;
   }
-  return required.every((field) => typeof field === 'string' && field in properties);
+  if (!required.every((field) => typeof field === 'string' && field in properties)) {
+    return false;
+  }
+  const minimumTopLevel = ['call_id', 'caller', 'lead', 'outcome', 'data_verified', 'flags'];
+  return minimumTopLevel.every((field) => field in properties);
+}
+
+function normalizeCallFlow(input: Record<string, unknown>, fallback: ArtifactDraft['callFlow']) {
+  const happyPathPhases = asStringRecordArray(input.happyPathPhases)
+    .map((phase) => ({
+      phase: ensureString(phase.phase, ''),
+      objective: ensureString(phase.objective, ''),
+      keySteps: asStringArray(phase.keySteps)
+    }))
+    .filter((phase) => phase.phase && phase.objective && phase.keySteps.length > 0);
+
+  const namedBranches = asStringRecordArray(input.namedBranches)
+    .map((branch) => ({
+      name: ensureString(branch.name, ''),
+      trigger: ensureString(branch.trigger, ''),
+      handling: asStringArray(branch.handling)
+    }))
+    .filter((branch) => branch.name && branch.trigger && branch.handling.length > 0);
+
+  const actionLadder = asStringRecordArray(input.actionLadder)
+    .map((step) => ({
+      step: ensureString(step.step, '').toLowerCase(),
+      rule: ensureString(step.rule, '')
+    }))
+    .filter(
+      (step): step is ArtifactDraft['callFlow']['actionLadder'][number] =>
+        ACTION_LADDER_STEPS.includes(step.step as (typeof ACTION_LADDER_STEPS)[number]) && step.rule.length > 0
+    );
+
+  return {
+    happyPathPhases: happyPathPhases.length > 0 ? happyPathPhases : fallback.happyPathPhases,
+    namedBranches: namedBranches.length > 0 ? namedBranches : fallback.namedBranches,
+    actionLadder: actionLadder.length > 0 ? actionLadder : fallback.actionLadder
+  };
+}
+
+function normalizeQualificationLogic(input: Record<string, unknown>, fallback: ArtifactDraft['qualificationLogic']) {
+  const legacyCriteria = asStringArray(input as unknown as string[]);
+  const qualificationCriteria =
+    asStringArray(input.qualificationCriteria).length > 0
+      ? asStringArray(input.qualificationCriteria)
+      : legacyCriteria.length > 0
+        ? legacyCriteria
+        : fallback.qualificationCriteria;
+
+  return {
+    requiredFields: asStringArray(input.requiredFields).length > 0 ? asStringArray(input.requiredFields) : fallback.requiredFields,
+    collectionOrder: asStringArray(input.collectionOrder).length > 0 ? asStringArray(input.collectionOrder) : fallback.collectionOrder,
+    verificationRules:
+      asStringArray(input.verificationRules).length > 0 ? asStringArray(input.verificationRules) : fallback.verificationRules,
+    qualificationCriteria,
+    disqualificationHandling:
+      asStringArray(input.disqualificationHandling).length > 0
+        ? asStringArray(input.disqualificationHandling)
+        : fallback.disqualificationHandling,
+    outcomes: asStringArray(input.outcomes).length > 0 ? asStringArray(input.outcomes) : fallback.outcomes
+  };
+}
+
+function normalizeFallbackRules(input: Record<string, unknown>, fallback: ArtifactDraft['fallbackRules']) {
+  return {
+    uncertainty: asStringArray(input.uncertainty).length > 0 ? asStringArray(input.uncertainty) : fallback.uncertainty,
+    missingInformation:
+      asStringArray(input.missingInformation).length > 0 ? asStringArray(input.missingInformation) : fallback.missingInformation,
+    toolFailures: asStringArray(input.toolFailures).length > 0 ? asStringArray(input.toolFailures) : fallback.toolFailures,
+    frustration: asStringArray(input.frustration).length > 0 ? asStringArray(input.frustration) : fallback.frustration,
+    regulatedQuestions:
+      asStringArray(input.regulatedQuestions).length > 0 ? asStringArray(input.regulatedQuestions) : fallback.regulatedQuestions,
+    humanRequests: asStringArray(input.humanRequests).length > 0 ? asStringArray(input.humanRequests) : fallback.humanRequests,
+    dncRemoval: asStringArray(input.dncRemoval).length > 0 ? asStringArray(input.dncRemoval) : fallback.dncRemoval,
+    poorConnection: asStringArray(input.poorConnection).length > 0 ? asStringArray(input.poorConnection) : fallback.poorConnection,
+    escalationTriggers:
+      asStringArray(input.escalationTriggers).length > 0 ? asStringArray(input.escalationTriggers) : fallback.escalationTriggers,
+    escalationContacts:
+      asStringArray(input.escalationContacts).length > 0 ? asStringArray(input.escalationContacts) : fallback.escalationContacts
+  };
+}
+
+function normalizeTestingChecklist(input: Record<string, unknown>, fallback: ArtifactDraft['testingChecklist']) {
+  const legacyChecklist = asStringArray(input as unknown as string[]);
+  return {
+    launchChecklist:
+      asStringArray(input.launchChecklist).length > 0
+        ? asStringArray(input.launchChecklist)
+        : legacyChecklist.length > 0
+          ? legacyChecklist
+          : fallback.launchChecklist,
+    diagnosticLayers:
+      asStringArray(input.diagnosticLayers).length > 0 ? asStringArray(input.diagnosticLayers) : fallback.diagnosticLayers,
+    revisionProtocol:
+      asStringArray(input.revisionProtocol).length > 0 ? asStringArray(input.revisionProtocol) : fallback.revisionProtocol
+  };
 }
 
 export function validateArtifactDraft(draft: ArtifactDraft) {
   const checks: ValidationCheck[] = [];
   const prompt = draft.systemPrompt.toLowerCase();
-  const fallbackText = draft.fallbackRules.join(' ').toLowerCase();
+  const fallbackText = JSON.stringify(draft.fallbackRules).toLowerCase();
+  const ladderSteps = draft.callFlow.actionLadder.map((item) => item.step.toLowerCase());
 
   checks.push({
     key: 'identity_honesty',
@@ -370,6 +845,11 @@ export function validateArtifactDraft(draft: ArtifactDraft) {
     detail: 'Prompt or fallback rules must define DNC/removal handling.'
   });
   checks.push({
+    key: 'action_ladder_present',
+    passed: ACTION_LADDER_STEPS.every((step) => ladderSteps.includes(step)),
+    detail: 'Call flow must include action ladder steps: ask, verify, confirm, act, wait, escalate.'
+  });
+  checks.push({
     key: 'post_call_schema_valid',
     passed: validatePostCallSchema(draft.postCallOutputSchema),
     detail: 'Post-call output schema must be a valid object schema with required fields.'
@@ -382,18 +862,59 @@ export function validateArtifactDraft(draft: ArtifactDraft) {
 }
 
 function normalizeDraft(input: Record<string, unknown>, fallbackDraft: ArtifactDraft): ArtifactDraft {
+  const callFlowInput = asJsonObject(input.callFlow);
+  const qualificationInput = asJsonObject(input.qualificationLogic);
+  const fallbackRulesInput = asJsonObject(input.fallbackRules);
+  const testingInput = asJsonObject(input.testingChecklist);
+
+  const legacyCallFlow = asStringArray(input.callFlow);
+  const legacyQualification = asStringArray(input.qualificationLogic);
+  const legacyFallback = asStringArray(input.fallbackRules);
+  const legacyTesting = asStringArray(input.testingChecklist);
+
+  const normalizedCallFlow =
+    Object.keys(callFlowInput).length > 0
+      ? normalizeCallFlow(callFlowInput, fallbackDraft.callFlow)
+      : {
+          ...fallbackDraft.callFlow,
+          happyPathPhases:
+            legacyCallFlow.length > 0
+              ? legacyCallFlow.map((step, index) => ({
+                  phase: `Legacy step ${index + 1}`,
+                  objective: step,
+                  keySteps: [step]
+                }))
+              : fallbackDraft.callFlow.happyPathPhases
+        };
+
   return {
     systemPrompt: ensureString(input.systemPrompt, fallbackDraft.systemPrompt),
-    callFlow: asStringArray(input.callFlow).length > 0 ? asStringArray(input.callFlow) : fallbackDraft.callFlow,
+    callFlow: normalizedCallFlow,
     qualificationLogic:
-      asStringArray(input.qualificationLogic).length > 0 ? asStringArray(input.qualificationLogic) : fallbackDraft.qualificationLogic,
-    fallbackRules: asStringArray(input.fallbackRules).length > 0 ? asStringArray(input.fallbackRules) : fallbackDraft.fallbackRules,
+      Object.keys(qualificationInput).length > 0
+        ? normalizeQualificationLogic(qualificationInput, fallbackDraft.qualificationLogic)
+        : {
+            ...fallbackDraft.qualificationLogic,
+            qualificationCriteria: legacyQualification.length > 0 ? legacyQualification : fallbackDraft.qualificationLogic.qualificationCriteria
+          },
+    fallbackRules:
+      Object.keys(fallbackRulesInput).length > 0
+        ? normalizeFallbackRules(fallbackRulesInput, fallbackDraft.fallbackRules)
+        : {
+            ...fallbackDraft.fallbackRules,
+            uncertainty: legacyFallback.length > 0 ? legacyFallback : fallbackDraft.fallbackRules.uncertainty
+          },
     postCallOutputSchema: {
       ...fallbackDraft.postCallOutputSchema,
       ...asJsonObject(input.postCallOutputSchema)
     },
     testingChecklist:
-      asStringArray(input.testingChecklist).length > 0 ? asStringArray(input.testingChecklist) : fallbackDraft.testingChecklist
+      Object.keys(testingInput).length > 0
+        ? normalizeTestingChecklist(testingInput, fallbackDraft.testingChecklist)
+        : {
+            ...fallbackDraft.testingChecklist,
+            launchChecklist: legacyTesting.length > 0 ? legacyTesting : fallbackDraft.testingChecklist.launchChecklist
+          }
   };
 }
 
