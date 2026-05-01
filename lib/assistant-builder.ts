@@ -58,7 +58,9 @@ type ValidationCheck = {
     | 'high_stakes_verification'
     | 'dnc_handling'
     | 'post_call_schema_valid'
-    | 'action_ladder_present';
+    | 'action_ladder_present'
+    | 'system_prompt_architecture'
+    | 'voice_quality_coverage';
   passed: boolean;
   detail: string;
 };
@@ -77,9 +79,13 @@ const DEFAULT_DIAGNOSTIC_LAYERS = [
   'evaluation process'
 ];
 
+const DEFAULT_VOICE_QUALITY_DIMENSIONS = ['clarity', 'naturalness', 'responsiveness', 'control', 'goal-orientation', 'recovery'];
+
 const DEFAULT_BASE_SKILL_CONTENT = {
   role: 'Fix Your Leads booking operator',
   workflow: 'Telnyx AI voice booking operator',
+  instructionLayers: ['system prompt', 'developer instructions', 'task prompts', 'runtime context', 'tools', 'memory'],
+  qualityDimensions: DEFAULT_VOICE_QUALITY_DIMENSIONS,
   goals: [
     'Help qualified leads schedule appointments quickly.',
     'Avoid misleading claims and protect the customer from risky guidance.',
@@ -110,7 +116,9 @@ const DEFAULT_VALIDATION_RULES = {
     'high_stakes_verification',
     'dnc_handling',
     'post_call_schema_valid',
-    'action_ladder_present'
+    'action_ladder_present',
+    'system_prompt_architecture',
+    'voice_quality_coverage'
   ],
   minimumSchemaFields: ['call_id', 'caller', 'lead', 'outcome', 'data_verified', 'flags']
 };
@@ -346,11 +354,43 @@ function buildFallbackDraft(company: { name: string; website: string | null }, o
       `- Never promise outcomes the system cannot verify.`,
       ...(disallowedClaims.length > 0 ? disallowedClaims.map((line) => `- ${line}`) : []),
       '',
+      `BOUNDARIES`,
+      `- Do not provide legal, medical, financial, or other regulated advice.`,
+      `- Do not promise pricing, coverage, or outcomes that cannot be verified.`,
+      `- Escalate out-of-scope requests to a human owner.`,
+      '',
       `TONE`,
       toneGuidelines,
       '',
+      `DEVELOPER INSTRUCTIONS`,
+      `- Keep routine turns to one or two sentences.`,
+      `- Ask one question at a time when possible.`,
+      `- Never mention internal tool names to callers.`,
+      '',
+      `TASK PROMPT`,
+      `${customFlowFocus || 'Prioritize qualification and booking completion with minimal friction.'}`,
+      '',
+      `RUNTIME CONTEXT`,
+      `Use only provided caller facts, conversation memory, and tool outputs for factual claims.`,
+      '',
+      `TOOLS`,
+      `Use lookup tools before writes when context is uncertain. Confirm before write actions.`,
+      '',
+      `MEMORY`,
+      `Retain caller-provided details within the call and avoid re-asking already confirmed fields.`,
+      '',
       `BUSINESS CONTEXT`,
       businessContext || `${company.name}${company.website ? ` (${company.website})` : ''}`,
+      '',
+      `FALLBACK`,
+      `If uncertain after one clarification, escalate. If tool call fails, state failure plainly and route to human follow-up.`,
+      '',
+      `EXAMPLES`,
+      `Caller: "Can you move my appointment?"`,
+      `Assistant: "Absolutely. Let me confirm your current appointment first, then I'll check options."`,
+      '',
+      `Caller: "Are you a real person?"`,
+      `Assistant: "I'm an AI assistant for ${company.name}. I can help now, or get a person involved."`,
       '',
       `ACTION LADDER`,
       `ask -> verify -> confirm -> act -> wait -> escalate`
@@ -483,6 +523,9 @@ function buildFallbackDraft(company: { name: string; website: string | null }, o
         'No tool-success language appears unless a success result is present.',
         'DNC/removal intent routes to suppression flow without extra questions.',
         'High-stakes fields are verified before booking or CRM writes.',
+        'System prompt includes role, goal, priorities, hard rules, boundaries, fallback, and examples.',
+        'Instruction layers are explicitly represented: system prompt, developer instructions, task prompt, runtime context, tools, memory.',
+        'Voice quality checks cover clarity, naturalness, responsiveness, control, goal-orientation, and recovery.',
         `Post-call payload parses and stores for ${company.website || company.name}.`
       ],
       diagnosticLayers: DEFAULT_DIAGNOSTIC_LAYERS,
@@ -513,13 +556,17 @@ function buildGenerationPrompt(input: {
     '',
     'Generate a full Telnyx voice-agent artifact package as valid JSON.',
     'Required top-level keys: systemPrompt, callFlow, qualificationLogic, fallbackRules, postCallOutputSchema, testingChecklist.',
+    'Treat this as a full real-time voice system, not a text chatbot prompt. Build for spoken clarity, turn-taking, and latency perception.',
     'Call flow must include six happy-path phases: Open, Establish purpose, Collect information, Qualify or check, Convert, Wrap up.',
     'Call flow must include named branches for emergency escalation, disqualification, callbacks, tool failures, frustration, human-identity questions, removals, and out-of-scope requests.',
     'Call flow must include action ladder in this order: ask, verify, confirm, act, wait, escalate.',
-    'System prompt must follow a master-prompt shell style with sections for ROLE, GOAL, PRIORITIES, HARD RULES, TONE, TOOL USE RULES, FALLBACK, ESCALATION, POST-CALL OUTPUT.',
+    'System prompt must follow a master-prompt shell style with sections for ROLE, GOAL, PRIORITIES, HARD RULES, BOUNDARIES, TONE, DEVELOPER INSTRUCTIONS, TASK PROMPT, RUNTIME CONTEXT, TOOLS, MEMORY, FALLBACK, ESCALATION, POST-CALL OUTPUT, EXAMPLES.',
     'Hard-rule constraints (must be explicit): AI identity honesty, no fake tool success, no regulated advice, verify high-stakes data before write actions, immediate DNC/removal handling.',
+    'Design for voice-specific quality dimensions: clarity, naturalness, responsiveness, control, goal-orientation, recovery.',
     'Post-call output must be a strict JSON schema object with required top-level fields: call_id, caller, lead, outcome, data_verified, flags.',
-    'Testing checklist must include launch checklist and nine diagnostic layers for revision triage.'
+    'Testing checklist must include launch checklist and nine diagnostic layers for revision triage.',
+    'Testing checklist must include checks for the six voice quality dimensions and at least one latency-perception check.',
+    'Use short spoken turns and avoid wall-of-sound responses.'
   ].join('\n');
 }
 
@@ -721,6 +768,11 @@ function validatePostCallSchema(schema: Record<string, unknown>) {
   return minimumTopLevel.every((field) => field in properties);
 }
 
+function includesPromptSections(prompt: string, sections: string[]) {
+  const normalized = prompt.toLowerCase();
+  return sections.every((section) => normalized.includes(section.toLowerCase()));
+}
+
 function normalizeCallFlow(input: Record<string, unknown>, fallback: ArtifactDraft['callFlow']) {
   const happyPathPhases = asStringRecordArray(input.happyPathPhases)
     .map((phase) => ({
@@ -818,6 +870,25 @@ export function validateArtifactDraft(draft: ArtifactDraft) {
   const prompt = draft.systemPrompt.toLowerCase();
   const fallbackText = JSON.stringify(draft.fallbackRules).toLowerCase();
   const ladderSteps = draft.callFlow.actionLadder.map((item) => item.step.toLowerCase());
+  const architectureSectionsPresent = includesPromptSections(draft.systemPrompt, [
+    'role',
+    'goal',
+    'priorities',
+    'hard rules',
+    'boundaries',
+    'tone',
+    'developer instructions',
+    'task prompt',
+    'runtime context',
+    'tools',
+    'memory',
+    'fallback',
+    'examples'
+  ]);
+  const qualityCoverage =
+    DEFAULT_VOICE_QUALITY_DIMENSIONS.every((dimension) =>
+      draft.testingChecklist.launchChecklist.some((line) => line.toLowerCase().includes(dimension))
+    ) || DEFAULT_VOICE_QUALITY_DIMENSIONS.every((dimension) => prompt.includes(dimension));
 
   checks.push({
     key: 'identity_honesty',
@@ -853,6 +924,16 @@ export function validateArtifactDraft(draft: ArtifactDraft) {
     key: 'post_call_schema_valid',
     passed: validatePostCallSchema(draft.postCallOutputSchema),
     detail: 'Post-call output schema must be a valid object schema with required fields.'
+  });
+  checks.push({
+    key: 'system_prompt_architecture',
+    passed: architectureSectionsPresent,
+    detail: 'System prompt must include architecture sections for role/goal/rules/boundaries and instruction layers.'
+  });
+  checks.push({
+    key: 'voice_quality_coverage',
+    passed: qualityCoverage,
+    detail: 'Draft must cover voice quality dimensions: clarity, naturalness, responsiveness, control, goal-orientation, recovery.'
   });
 
   return {

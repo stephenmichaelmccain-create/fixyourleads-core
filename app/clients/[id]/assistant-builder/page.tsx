@@ -106,6 +106,16 @@ function parseTesting(value: unknown) {
   };
 }
 
+function parseValidationChecks(value: unknown) {
+  const payload = asJsonRecord(value);
+  const checks = toRecordArray(payload.checks);
+  return checks.map((check) => ({
+    key: typeof check.key === 'string' ? check.key : 'unknown_check',
+    passed: check.passed === true,
+    detail: typeof check.detail === 'string' ? check.detail : ''
+  }));
+}
+
 function noticeMessage(notice: string, runId: string | undefined) {
   if (notice === 'override_saved') {
     return 'Client override saved as a new version.';
@@ -231,6 +241,7 @@ export default async function ClientAssistantBuilderPage({
             fallbackRules: true,
             postCallOutputSchema: true,
             testingChecklist: true,
+            validationPayload: true,
             publishedAt: true,
             approvedAt: true,
             createdAt: true,
@@ -509,6 +520,7 @@ export default async function ClientAssistantBuilderPage({
             const testing = parseTesting(artifact.testingChecklist);
             const postCallSchema = asJsonRecord(artifact.postCallOutputSchema);
             const postCallSchemaFields = Object.keys(asJsonRecord(postCallSchema.properties));
+            const validationChecks = parseValidationChecks(artifact.validationPayload);
 
             return (
             <article key={artifact.id} className="record-card">
@@ -558,6 +570,16 @@ export default async function ClientAssistantBuilderPage({
                 <div className="tiny-muted">
                   Launch checks: {testing.launchChecklist.length} · Diagnostic layers: {testing.diagnosticLayers.length}
                 </div>
+                {validationChecks.length > 0 && (
+                  <>
+                    <div className="metric-label">Validation gate</div>
+                    {validationChecks.map((check) => (
+                      <div key={check.key} className="tiny-muted">
+                        {check.passed ? 'PASS' : 'FAIL'} · {check.key}
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
 
               {(artifact.status === AssistantArtifactStatus.NEEDS_REVIEW || artifact.status === AssistantArtifactStatus.APPROVED) && (
