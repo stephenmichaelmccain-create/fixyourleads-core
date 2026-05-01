@@ -3,8 +3,6 @@ import { notFound } from 'next/navigation';
 import {
   approveAssistantDraftAction,
   generateAssistantDraftAction,
-  publishAssistantDraftAction,
-  saveAssistantMetricSnapshotAction,
   saveClientAssistantOverrideAction
 } from '@/app/clients/[id]/assistant-builder/actions';
 import { ClientWorkspaceTabs } from '@/app/clients/[id]/ClientWorkspaceTabs';
@@ -133,13 +131,7 @@ function noticeMessage(notice: string, runId: string | undefined) {
     return `Draft queued. Build run ${runId || 'created'} is now waiting in assistant_builder_queue.`;
   }
   if (notice === 'draft_approved') {
-    return 'Draft approved and ready to publish.';
-  }
-  if (notice === 'draft_published') {
-    return 'Assistant version published successfully.';
-  }
-  if (notice === 'metric_saved') {
-    return 'Metrics snapshot saved.';
+    return 'Draft approved (internal status only).';
   }
   return null;
 }
@@ -182,7 +174,7 @@ export default async function ClientAssistantBuilderPage({
     notFound();
   }
 
-  const [baseSkillVersion, latestOverride, buildRuns, artifacts, publishedArtifact] = await Promise.all([
+  const [baseSkillVersion, latestOverride, buildRuns, artifacts] = await Promise.all([
     safeLoad(
       () =>
         db.globalAssistantSkillVersion.findFirst({
@@ -263,41 +255,10 @@ export default async function ClientAssistantBuilderPage({
               select: {
                 version: true
               }
-            },
-            metricsSnapshots: {
-              orderBy: { capturedAt: 'desc' },
-              take: 3,
-              select: {
-                id: true,
-                window: true,
-                bookingRate: true,
-                qualificationAccuracy: true,
-                escalationRate: true,
-                latencyPerceptionScore: true,
-                complianceFlags: true,
-                sampleSize: true,
-                capturedAt: true
-              }
             }
           }
         }),
       []
-    ),
-    safeLoad(
-      () =>
-        db.assistantArtifactVersion.findFirst({
-          where: {
-            companyId: id,
-            status: AssistantArtifactStatus.PUBLISHED
-          },
-          orderBy: { publishedAt: 'desc' },
-          select: {
-            id: true,
-            version: true,
-            publishedAt: true
-          }
-        }),
-      null
     )
   ]);
 
@@ -307,7 +268,7 @@ export default async function ClientAssistantBuilderPage({
   const qualificationCriteria = toStringArray(overridePayload.qualificationCriteria).join('\n');
   const disallowedClaims = toStringArray(overridePayload.disallowedClaims).join('\n');
   const escalationContacts = toStringArray(overridePayload.escalationContacts).join('\n');
-  const latestDraft = artifacts.find((artifact) => artifact.status === AssistantArtifactStatus.NEEDS_REVIEW) || artifacts[0] || null;
+  const publishedArtifact = artifacts.find((artifact) => artifact.status === AssistantArtifactStatus.PUBLISHED) || null;
 
   return (
     <LayoutShell
@@ -328,6 +289,18 @@ export default async function ClientAssistantBuilderPage({
           </div>
         </section>
       )}
+
+      <section className="panel panel-stack">
+        <div className="record-header">
+          <div className="panel-stack">
+            <div className="metric-label">Scope</div>
+            <h3 className="section-title">Internal Builder Only</h3>
+            <div className="record-subtitle">
+              This page manages internal draft artifacts and validation. It does not directly deploy or verify live Telnyx assistants, n8n workflows, Calendar writes, or Gmail sends.
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="panel panel-stack">
         <div className="record-header">
@@ -354,7 +327,7 @@ export default async function ClientAssistantBuilderPage({
             <div className="tiny-muted">Saved {formatCompactDateTime(latestOverride?.createdAt)}</div>
           </article>
           <article className="record-card">
-            <div className="metric-label">Published assistant</div>
+            <div className="metric-label">Published artifact (internal)</div>
             <div className="metric-value">{publishedArtifact ? `v${publishedArtifact.version}` : 'None yet'}</div>
             <div className="tiny-muted">{formatCompactDateTime(publishedArtifact?.publishedAt)}</div>
           </article>
@@ -515,7 +488,7 @@ export default async function ClientAssistantBuilderPage({
             <div className="metric-label">Draft review + publish</div>
             <h3 className="section-title">Artifact versions</h3>
             <div className="record-subtitle">
-              Generated artifacts are saved as <code>needs_review</code> until a human approves and publishes.
+              Generated artifacts are saved as <code>needs_review</code> until a human approves them for internal use.
             </div>
           </div>
         </div>
@@ -597,142 +570,21 @@ export default async function ClientAssistantBuilderPage({
                 )}
               </div>
 
-              {(artifact.status === AssistantArtifactStatus.NEEDS_REVIEW || artifact.status === AssistantArtifactStatus.APPROVED) && (
+              {artifact.status === AssistantArtifactStatus.NEEDS_REVIEW && (
                 <div className="workspace-action-rail">
-                  {artifact.status === AssistantArtifactStatus.NEEDS_REVIEW && (
-                    <form action={approveAssistantDraftAction}>
-                      <input type="hidden" name="companyId" value={company.id} />
-                      <input type="hidden" name="artifactVersionId" value={artifact.id} />
-                      <button className="button-ghost" type="submit">
-                        Approve
-                      </button>
-                    </form>
-                  )}
-                  {artifact.status === AssistantArtifactStatus.APPROVED && (
-                    <form action={publishAssistantDraftAction}>
-                      <input type="hidden" name="companyId" value={company.id} />
-                      <input type="hidden" name="artifactVersionId" value={artifact.id} />
-                      <button className="button-primary" type="submit">
-                        Publish
-                      </button>
-                    </form>
-                  )}
-                </div>
-              )}
-
-              {artifact.metricsSnapshots.length > 0 && (
-                <div className="panel-stack">
-                  <div className="metric-label">Latest metric snapshots</div>
-                  {artifact.metricsSnapshots.map((snapshot) => (
-                    <div key={snapshot.id} className="tiny-muted">
-                      {snapshot.window}: booking {snapshot.bookingRate ?? '—'}%, qualification {snapshot.qualificationAccuracy ?? '—'}%,
-                      escalation {snapshot.escalationRate ?? '—'}%, compliance flags {snapshot.complianceFlags ?? '—'} ({formatCompactDateTime(snapshot.capturedAt)})
-                    </div>
-                  ))}
+                  <form action={approveAssistantDraftAction}>
+                    <input type="hidden" name="companyId" value={company.id} />
+                    <input type="hidden" name="artifactVersionId" value={artifact.id} />
+                    <button className="button-ghost" type="submit">
+                      Approve
+                    </button>
+                  </form>
                 </div>
               )}
             </article>
             );
           })}
         </div>
-      </section>
-
-      <section className="panel panel-stack">
-        <div className="record-header">
-          <div className="panel-stack">
-            <div className="metric-label">Version analytics</div>
-            <h3 className="section-title">Capture metrics snapshot</h3>
-            <div className="record-subtitle">
-              Log before/after performance for this assistant version to track regressions or improvements over time.
-            </div>
-          </div>
-        </div>
-
-        <form action={saveAssistantMetricSnapshotAction} className="panel-stack client-profile-form">
-          <input type="hidden" name="companyId" value={company.id} />
-
-          <div className="workspace-filter-row">
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="metric-artifact">
-                Artifact version
-              </label>
-              <select id="metric-artifact" className="select-input" name="artifactVersionId" defaultValue={latestDraft?.id || ''}>
-                {artifacts.map((artifact) => (
-                  <option key={artifact.id} value={artifact.id}>
-                    v{artifact.version} ({artifact.status})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="metric-window">
-                Window
-              </label>
-              <select id="metric-window" className="select-input" name="window" defaultValue="LIFETIME">
-                <option value="LIFETIME">Lifetime</option>
-                <option value="LAST_7_DAYS">Last 7 days</option>
-                <option value="LAST_30_DAYS">Last 30 days</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="workspace-filter-row">
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="metric-booking-rate">
-                Booking rate (%)
-              </label>
-              <input id="metric-booking-rate" className="text-input" name="bookingRate" placeholder="34.5" />
-            </div>
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="metric-qualification-accuracy">
-                Qualification accuracy (%)
-              </label>
-              <input id="metric-qualification-accuracy" className="text-input" name="qualificationAccuracy" placeholder="82.0" />
-            </div>
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="metric-escalation-rate">
-                Escalation rate (%)
-              </label>
-              <input id="metric-escalation-rate" className="text-input" name="escalationRate" placeholder="14.2" />
-            </div>
-          </div>
-
-          <div className="workspace-filter-row">
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="metric-latency">
-                Latency perception (% positive)
-              </label>
-              <input id="metric-latency" className="text-input" name="latencyPerceptionScore" placeholder="90" />
-            </div>
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="metric-compliance-flags">
-                Compliance flags (count)
-              </label>
-              <input id="metric-compliance-flags" className="text-input" name="complianceFlags" placeholder="0" />
-            </div>
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="metric-sample-size">
-                Sample size
-              </label>
-              <input id="metric-sample-size" className="text-input" name="sampleSize" placeholder="100" />
-            </div>
-          </div>
-
-          <div className="workspace-filter-row">
-            <div className="field-stack">
-              <label className="key-value-label" htmlFor="metric-notes">
-                Notes
-              </label>
-              <input id="metric-notes" className="text-input" name="notes" placeholder="Campaign source, date range, caveats." />
-            </div>
-          </div>
-
-          <div className="workspace-action-rail">
-            <button className="button-primary" type="submit" disabled={artifacts.length === 0}>
-              Save metrics snapshot
-            </button>
-          </div>
-        </form>
       </section>
     </LayoutShell>
   );
