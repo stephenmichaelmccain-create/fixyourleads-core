@@ -7,7 +7,6 @@ import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoadDb } from '@/lib/ui-data';
 import { suggestUpcomingAppointmentSlots } from '@/services/calendar-sync';
 import { LeadBookMeetingDialog } from './LeadBookMeetingDialog';
-import { claimFirstAvailableProspect, getLeadQueueSessionId, isProspectClaimedByAnotherSession } from './lead-claims.server';
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
 import { LeadNotesComposer } from './LeadNotesComposer';
 import { SpeakProspectNameButton } from './SpeakProspectNameButton';
@@ -550,7 +549,6 @@ export default async function OurLeadsPage({
     notes: String(params.bookingNotes || '').trim()
   };
   const now = new Date();
-  const leadQueueSessionId = await getLeadQueueSessionId();
 
   const allProspects = await safeLoadDb(
     () =>
@@ -566,8 +564,6 @@ export default async function OurLeadsPage({
           lastCallAt: true,
           lastCallOutcome: true,
           nextActionAt: true,
-          claimSessionId: true,
-          claimExpiresAt: true,
           notes: true,
           updatedAt: true,
           createdAt: true,
@@ -605,7 +601,7 @@ export default async function OurLeadsPage({
   ).sort((left, right) => left.localeCompare(right));
   const showingUntouched = !selectedView && !selectedStatus && !selectedDue;
 
-  const filteredProspects = [...prospectRows]
+  const visibleProspects = [...prospectRows]
     .filter((prospect) => {
       if (!normalizedSearchQuery) {
         return true;
@@ -635,10 +631,6 @@ export default async function OurLeadsPage({
     .filter((prospect) => (selectedClinicType ? prospect.profile.clinicType === selectedClinicType : true))
     .filter((prospect) => dueBucketMatches(prospect.nextActionAt, selectedDue, now))
     .sort(compareProspects);
-  const visibleProspects = filteredProspects.filter(
-    (prospect) => !isProspectClaimedByAnotherSession(prospect, leadQueueSessionId, now)
-  );
-  const teammateClaimedCount = filteredProspects.length - visibleProspects.length;
 
   const queueCounts = {
     all: prospectRows.length,
@@ -661,13 +653,10 @@ export default async function OurLeadsPage({
     dead: prospectRows.filter((prospect) => prospect.status === ProspectStatus.DEAD).length
   };
 
-  const prioritizedProspectIds = [
-    ...(selectedProspectId && visibleProspects.some((prospect) => prospect.id === selectedProspectId)
-      ? [selectedProspectId]
-      : []),
-    ...visibleProspects.map((prospect) => prospect.id).filter((prospectId) => prospectId !== selectedProspectId)
-  ];
-  const effectiveSelectedProspectId = await claimFirstAvailableProspect(prioritizedProspectIds, leadQueueSessionId);
+  const effectiveSelectedProspectId =
+    (selectedProspectId && visibleProspects.some((prospect) => prospect.id === selectedProspectId)
+      ? selectedProspectId
+      : visibleProspects[0]?.id) || '';
   const selectedQueueIndex = visibleProspects.findIndex((prospect) => prospect.id === effectiveSelectedProspectId);
   const nextQueueProspect =
     selectedQueueIndex >= 0 ? visibleProspects[selectedQueueIndex + 1] || null : visibleProspects[1] || null;
@@ -1179,10 +1168,7 @@ export default async function OurLeadsPage({
               <LeadQueueAutoCenter selectedProspectId={effectiveSelectedProspectId} />
               {visibleProspects.length === 0 ? (
                 <div className="empty-state">
-                  <div>{teammateClaimedCount > 0 ? 'Those matching leads are already being worked.' : 'No leads in this view.'}</div>
-                  {teammateClaimedCount > 0 ? (
-                    <span>Try again in a minute or change the niche, city, or status filters.</span>
-                  ) : null}
+                  <div>No leads in this view.</div>
                 </div>
               ) : (
                 <div className="record-grid lead-queue-list">
@@ -1298,8 +1284,7 @@ export default async function OurLeadsPage({
           <section className="panel panel-stack sticky-panel lead-sidebar-panel">
             {!selectedProspectView ? (
               <div className="empty-state">
-                <strong>No lead is available to claim right now.</strong>
-                <span>Refresh in a moment or change the filters to grab the next open clinic.</span>
+                Pick a clinic from the queue to call, schedule, or update.
               </div>
             ) : (
               <>
