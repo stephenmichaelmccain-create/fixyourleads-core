@@ -345,6 +345,8 @@ model Prospect {
   lastCallAt      DateTime?
   lastCallOutcome String?
   nextActionAt    DateTime?
+  claimSessionId  String?
+  claimExpiresAt  DateTime?
   notes           String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
@@ -354,6 +356,8 @@ model Prospect {
   @@index([status])
   @@index([nextActionAt])
   @@index([companyId])
+  @@index([claimExpiresAt])
+  @@index([claimSessionId, claimExpiresAt])
 }
 
 model ProspectDedupEntry {
