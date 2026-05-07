@@ -12,6 +12,7 @@ type LeadBookMeetingDialogProps = {
   view: string;
   status: string;
   city: string;
+  clinicType: string;
   nextActionDue: string;
   companyName: string;
   contactName: string;
@@ -66,6 +67,7 @@ export function LeadBookMeetingDialog({
   view,
   status,
   city,
+  clinicType,
   nextActionDue,
   companyName,
   contactName,
@@ -184,6 +186,7 @@ export function LeadBookMeetingDialog({
             <input type="hidden" name="view" value={view} />
             <input type="hidden" name="status" value={status} />
             <input type="hidden" name="city" value={city} />
+            <input type="hidden" name="clinicType" value={clinicType} />
             <input type="hidden" name="nextActionDue" value={nextActionDue} />
             <input type="hidden" name="meetingStage" value="demo_booked" />
 

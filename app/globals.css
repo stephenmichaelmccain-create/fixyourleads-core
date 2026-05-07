@@ -1171,6 +1171,10 @@ select {
   pointer-events: auto;
 }
 
+.lead-master-select-button {
+  min-width: 132px;
+}
+
 .lead-queue-list {
   gap: 12px;
   grid-auto-flow: column;
@@ -2723,6 +2727,10 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.lead-toolbar-select {
+  min-width: 180px;
 }
 
 .filter-chip {

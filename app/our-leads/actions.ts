@@ -68,6 +68,7 @@ function buildOurLeadsHref({
   view,
   status,
   city,
+  clinicType,
   nextActionDue,
   updated,
   added,
@@ -89,6 +90,7 @@ function buildOurLeadsHref({
   view?: string;
   status?: string;
   city?: string;
+  clinicType?: string;
   nextActionDue?: string;
   updated?: string;
   added?: string;
@@ -142,6 +144,10 @@ function buildOurLeadsHref({
 
   if (city) {
     params.set('city', city);
+  }
+
+  if (clinicType) {
+    params.set('clinicType', clinicType);
   }
 
   if (nextActionDue) {
@@ -450,6 +456,7 @@ function readCurrentView(formData: FormData) {
     view: readText(formData, 'viewMode'),
     status: readText(formData, 'viewStatus'),
     city: readText(formData, 'viewCity'),
+    clinicType: readText(formData, 'viewClinicType'),
     nextActionDue: readText(formData, 'viewNextActionDue')
   };
 }
@@ -799,10 +806,11 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   const view = readText(formData, 'view');
   const status = readText(formData, 'status');
   const city = readText(formData, 'city');
+  const clinicType = readText(formData, 'clinicType');
   const nextActionDue = readText(formData, 'nextActionDue');
 
   if (!prospectId) {
-    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
   }
 
   const outcomeMap: Record<
@@ -853,7 +861,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   const selection = outcomeMap[outcome];
 
   if (!selection) {
-    redirect(buildOurLeadsHref({ prospectId, q, view, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ prospectId, q, view, status, city, clinicType, nextActionDue }));
   }
 
   if (outcome === 'booked') {
@@ -864,6 +872,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
         view,
         status,
         city,
+        clinicType,
         nextActionDue,
         bookMeeting: '1'
       })
@@ -879,7 +888,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
   }
 
   await ensureInternalCompany();
@@ -930,6 +939,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
       view,
       status,
       city,
+      clinicType,
       nextActionDue,
       updated: outcome
     })
@@ -943,6 +953,7 @@ export async function createProspectMeetingAction(formData: FormData) {
   const view = readText(formData, 'view');
   const status = readText(formData, 'status');
   const city = readText(formData, 'city');
+  const clinicType = readText(formData, 'clinicType');
   const nextActionDue = readText(formData, 'nextActionDue');
   const meetingAtRaw = readText(formData, 'meetingAt');
   const contactName = readText(formData, 'contactName');
@@ -965,7 +976,7 @@ export async function createProspectMeetingAction(formData: FormData) {
   };
 
   if (!prospectId) {
-    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
   }
 
   const normalizedPhone = normalizePhone(contactPhoneRaw);
@@ -978,6 +989,7 @@ export async function createProspectMeetingAction(formData: FormData) {
         view,
         status,
         city,
+        clinicType,
         nextActionDue,
         bookMeeting: '1',
         meetingError: 'phone_required',
@@ -994,6 +1006,7 @@ export async function createProspectMeetingAction(formData: FormData) {
         view,
         status,
         city,
+        clinicType,
         nextActionDue,
         bookMeeting: '1',
         meetingError: 'meetingAt_required',
@@ -1010,6 +1023,7 @@ export async function createProspectMeetingAction(formData: FormData) {
         view,
         status,
         city,
+        clinicType,
         nextActionDue,
         bookMeeting: '1',
         meetingError: 'purpose_required',
@@ -1033,6 +1047,7 @@ export async function createProspectMeetingAction(formData: FormData) {
           view,
           status,
           city,
+          clinicType,
           nextActionDue,
           bookMeeting: '1',
           meetingError: 'meetingUrl_invalid',
@@ -1049,6 +1064,7 @@ export async function createProspectMeetingAction(formData: FormData) {
           view,
           status,
           city,
+          clinicType,
           nextActionDue,
           bookMeeting: '1',
           meetingError: 'meetingUrl_invalid',
@@ -1072,6 +1088,7 @@ export async function createProspectMeetingAction(formData: FormData) {
         view,
         status,
         city,
+        clinicType,
         nextActionDue,
         bookMeeting: '1',
         meetingError: error instanceof Error ? error.message : 'meetingAt_invalid',
@@ -1093,7 +1110,7 @@ export async function createProspectMeetingAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
   }
 
   await ensureInternalCompany();
@@ -1108,6 +1125,7 @@ export async function createProspectMeetingAction(formData: FormData) {
         view,
         status,
         city,
+        clinicType,
         nextActionDue,
         bookMeeting: '1',
         meetingError: 'host_invalid',
@@ -1124,6 +1142,7 @@ export async function createProspectMeetingAction(formData: FormData) {
         view,
         status,
         city,
+        clinicType,
         nextActionDue,
         bookMeeting: '1',
         meetingError: 'host_invalid',
@@ -1274,6 +1293,7 @@ export async function createProspectMeetingAction(formData: FormData) {
       view,
       status,
       city,
+      clinicType,
       nextActionDue,
       updated: 'meeting_booked'
     })
@@ -1313,16 +1333,17 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
   const view = readText(formData, 'view');
   const status = readText(formData, 'status');
   const city = readText(formData, 'city');
+  const clinicType = readText(formData, 'clinicType');
   const nextActionDue = readText(formData, 'nextActionDue');
 
   if (!prospectId) {
-    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
   }
 
   const callbackPlan = readCallbackPreset(preset);
 
   if (!callbackPlan) {
-    redirect(buildOurLeadsHref({ prospectId, q, view, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ prospectId, q, view, status, city, clinicType, nextActionDue }));
   }
 
   const existing = await db.prospect.findUnique({
@@ -1333,7 +1354,7 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
   }
 
   await ensureInternalCompany();
@@ -1379,6 +1400,7 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
       view,
       status,
       city,
+      clinicType,
       nextActionDue,
       updated: 'callback'
     })
@@ -1391,13 +1413,14 @@ export async function updateProspectDetailsAction(formData: FormData) {
   const view = readText(formData, 'view');
   const status = readText(formData, 'status');
   const city = readText(formData, 'city');
+  const clinicType = readText(formData, 'clinicType');
   const nextActionDue = readText(formData, 'nextActionDue');
   const notes = readText(formData, 'notes');
   const hoursInput = formData.has('hours') ? readText(formData, 'hours') : null;
   const nextActionRaw = readText(formData, 'nextActionAt');
 
   if (!prospectId) {
-    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
   }
 
   const nextActionAt = nextActionRaw ? new Date(nextActionRaw) : null;
@@ -1410,6 +1433,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
         view,
         status,
         city,
+        clinicType,
         nextActionDue,
         updated: 'invalid_details'
       })
@@ -1426,7 +1450,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirect(buildOurLeadsHref({ q, view, status, city, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
   }
 
   await ensureInternalCompany();
@@ -1522,6 +1546,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
       view,
       status,
       city,
+      clinicType,
       nextActionDue,
       updated: 'details'
     })

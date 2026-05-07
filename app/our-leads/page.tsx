@@ -26,6 +26,7 @@ type SearchParamShape = Promise<{
   view?: string;
   status?: string;
   city?: string;
+  clinicType?: string;
   nextActionDue?: string;
   added?: string;
   bulkAdded?: string;
@@ -324,6 +325,7 @@ function buildPageHref({
   view,
   status,
   city,
+  clinicType,
   nextActionDue
 }: {
   prospectId?: string;
@@ -331,6 +333,7 @@ function buildPageHref({
   view?: string;
   status?: string;
   city?: string;
+  clinicType?: string;
   nextActionDue?: string;
 }) {
   const params = new URLSearchParams();
@@ -353,6 +356,10 @@ function buildPageHref({
 
   if (city) {
     params.set('city', city);
+  }
+
+  if (clinicType) {
+    params.set('clinicType', clinicType);
   }
 
   if (nextActionDue) {
@@ -506,6 +513,7 @@ export default async function OurLeadsPage({
   const searchQuery = String(params.q || '').trim();
   const normalizedSearchQuery = normalizeSearch(searchQuery);
   const selectedCity = String(params.city || '').trim();
+  const selectedClinicType = String(params.clinicType || '').trim();
   const selectedDue = String(params.nextActionDue || '').trim();
   const selectedProspectId = String(params.prospectId || '').trim();
   const added = params.added === '1';
@@ -584,6 +592,13 @@ export default async function OurLeadsPage({
       profile: parsed.profile
     };
   });
+  const clinicTypeOptions = Array.from(
+    new Set(
+      prospectRows
+        .map((prospect) => String(prospect.profile.clinicType || '').trim())
+        .filter(Boolean)
+    )
+  ).sort((left, right) => left.localeCompare(right));
   const showingUntouched = !selectedView && !selectedStatus && !selectedDue;
 
   const visibleProspects = [...prospectRows]
@@ -613,6 +628,7 @@ export default async function OurLeadsPage({
     .filter((prospect) => (showingUntouched ? isUntouchedProspect(prospect) : true))
     .filter((prospect) => (selectedStatus ? prospect.status === selectedStatus : true))
     .filter((prospect) => (selectedCity ? prospect.city === selectedCity : true))
+    .filter((prospect) => (selectedClinicType ? prospect.profile.clinicType === selectedClinicType : true))
     .filter((prospect) => dueBucketMatches(prospect.nextActionAt, selectedDue, now))
     .sort(compareProspects);
 
@@ -649,20 +665,34 @@ export default async function OurLeadsPage({
       ? visibleProspects[Math.min(selectedQueueIndex + 1, Math.max(visibleProspects.length - 1, 0))]?.id || ''
       : '';
 
-  const selectedProspect = effectiveSelectedProspectId
-      ? await safeLoadDb(
-        () =>
-          db.prospect.findUnique({
-            where: { id: effectiveSelectedProspectId },
-            include: {
-              callLogs: {
-                orderBy: { createdAt: 'desc' }
+  const [selectedProspect, meetingTeamDefaults, suggestedMeetingSlots] = await Promise.all([
+    effectiveSelectedProspectId
+      ? safeLoadDb(
+          () =>
+            db.prospect.findUnique({
+              where: { id: effectiveSelectedProspectId },
+              include: {
+                callLogs: {
+                  orderBy: { createdAt: 'desc' }
+                }
               }
-            }
-          }),
-        null
-      )
-    : null;
+            }),
+          null
+        )
+      : Promise.resolve(null),
+    safeLoadDb(() => getMeetingTeamDefaults(), {
+      defaultAttendeeEmails: []
+    }),
+    safeLoadDb(
+      () =>
+        suggestUpcomingAppointmentSlots(INTERNAL_COMPANY_ID, {
+          lookaheadDays: 14,
+          minLeadMinutes: 90,
+          maxResults: 4
+        }),
+      []
+    )
+  ]);
 
   const selectedProspectView = selectedProspect
     ? {
@@ -670,18 +700,6 @@ export default async function OurLeadsPage({
         ...parseProspectNotes(selectedProspect.notes)
       }
     : null;
-  const meetingTeamDefaults = await safeLoadDb(() => getMeetingTeamDefaults(), {
-    defaultAttendeeEmails: []
-  });
-  const suggestedMeetingSlots = await safeLoadDb(
-    () =>
-      suggestUpcomingAppointmentSlots(INTERNAL_COMPANY_ID, {
-        lookaheadDays: 14,
-        minLeadMinutes: 90,
-        maxResults: 4
-      }),
-    []
-  );
   const suggestedMeetingQuickSlots = suggestedMeetingSlots.map((slot) => ({
     value: formatDateTimeInput(slot.startTime),
     label: formatDateTime(slot.startTime),
@@ -693,7 +711,17 @@ export default async function OurLeadsPage({
   const suggestedMeetingSlotHint = firstSuggestedMeetingSlot
     ? `${firstSuggestedMeetingSlot.source === 'calendar' ? 'Live calendar slot' : 'Fallback slot'} · ${formatDateTime(firstSuggestedMeetingSlot.startTime)}`
     : '';
-  const duplicateLeadHref = selectedProspectId ? `${buildPageHref({ prospectId: selectedProspectId })}#selected-lead` : '/leads';
+  const duplicateLeadHref = selectedProspectId
+    ? `${buildPageHref({
+        prospectId: selectedProspectId,
+        q: searchQuery,
+        view: selectedView,
+        status: selectedStatus,
+        city: selectedCity,
+        clinicType: selectedClinicType,
+        nextActionDue: selectedDue
+      })}#selected-lead`
+    : '/leads';
   const duplicateCompanyHref = duplicateCompanyId ? `/clients/${duplicateCompanyId}` : '/clients';
   const errorMessage =
     error === 'name_required'
@@ -830,7 +858,22 @@ export default async function OurLeadsPage({
                   placeholder="Search clinic, phone, website, contact, city"
                 />
                 {selectedView ? <input type="hidden" name="view" value={selectedView} /> : null}
+                {selectedStatus ? <input type="hidden" name="status" value={selectedStatus} /> : null}
                 {selectedCity ? <input type="hidden" name="city" value={selectedCity} /> : null}
+                {selectedDue ? <input type="hidden" name="nextActionDue" value={selectedDue} /> : null}
+                <select
+                  name="clinicType"
+                  className="select-input lead-toolbar-select"
+                  defaultValue={selectedClinicType}
+                  aria-label="Filter leads by clinic type"
+                >
+                  <option value="">All niches</option>
+                  {clinicTypeOptions.map((clinicType) => (
+                    <option key={clinicType} value={clinicType}>
+                      {clinicType}
+                    </option>
+                  ))}
+                </select>
                 <button type="submit" className="button-ghost">
                   Search
                 </button>
@@ -849,6 +892,7 @@ export default async function OurLeadsPage({
                   <input type="hidden" name="viewMode" value={selectedView} />
                   <input type="hidden" name="viewStatus" value={selectedStatus} />
                   <input type="hidden" name="viewCity" value={selectedCity} />
+                  <input type="hidden" name="viewClinicType" value={selectedClinicType} />
                   <input type="hidden" name="viewNextActionDue" value={selectedDue} />
                   <div className="workspace-filter-row">
                     <div className="field-stack">
@@ -967,6 +1011,7 @@ export default async function OurLeadsPage({
                       <input type="hidden" name="viewMode" value={selectedView} />
                       <input type="hidden" name="viewStatus" value={selectedStatus} />
                       <input type="hidden" name="viewCity" value={selectedCity} />
+                      <input type="hidden" name="viewClinicType" value={selectedClinicType} />
                       <input type="hidden" name="viewNextActionDue" value={selectedDue} />
                       <div className="field-stack">
                         <label className="key-value-label" htmlFor="prospect-bulk-rows">
@@ -999,7 +1044,11 @@ export default async function OurLeadsPage({
             </div>
 
             <div className="filter-bar">
-              <Link className={`filter-chip${showingUntouched ? ' is-active' : ''}`} href={buildPageHref({ q: searchQuery, city: selectedCity })} scroll={false}>
+              <Link
+                className={`filter-chip${showingUntouched ? ' is-active' : ''}`}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, clinicType: selectedClinicType })}
+                scroll={false}
+              >
                 Untouched {queueCounts.untouched}
               </Link>
               <Link
@@ -1009,6 +1058,7 @@ export default async function OurLeadsPage({
                 href={buildPageHref({
                   q: searchQuery,
                   city: selectedCity,
+                  clinicType: selectedClinicType,
                   status: ProspectStatus.GATEKEEPER,
                   nextActionDue: 'ready'
                 })}
@@ -1018,35 +1068,60 @@ export default async function OurLeadsPage({
               </Link>
               <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.NO_ANSWER ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.NO_ANSWER })}
+                href={buildPageHref({
+                  q: searchQuery,
+                  city: selectedCity,
+                  clinicType: selectedClinicType,
+                  status: ProspectStatus.NO_ANSWER
+                })}
                 scroll={false}
               >
                 No answer {queueCounts.noAnswer}
               </Link>
               <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.VM_LEFT ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.VM_LEFT })}
+                href={buildPageHref({
+                  q: searchQuery,
+                  city: selectedCity,
+                  clinicType: selectedClinicType,
+                  status: ProspectStatus.VM_LEFT
+                })}
                 scroll={false}
               >
                 Left voicemail {queueCounts.voicemail}
               </Link>
               <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.NOT_INTERESTED ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.NOT_INTERESTED })}
+                href={buildPageHref({
+                  q: searchQuery,
+                  city: selectedCity,
+                  clinicType: selectedClinicType,
+                  status: ProspectStatus.NOT_INTERESTED
+                })}
                 scroll={false}
               >
                 Not interested {queueCounts.notInterested}
               </Link>
               <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.BOOKED_DEMO ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.BOOKED_DEMO })}
+                href={buildPageHref({
+                  q: searchQuery,
+                  city: selectedCity,
+                  clinicType: selectedClinicType,
+                  status: ProspectStatus.BOOKED_DEMO
+                })}
                 scroll={false}
               >
                 Booked {queueCounts.booked}
               </Link>
               <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.CLOSED ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.CLOSED })}
+                href={buildPageHref({
+                  q: searchQuery,
+                  city: selectedCity,
+                  clinicType: selectedClinicType,
+                  status: ProspectStatus.CLOSED
+                })}
                 scroll={false}
               >
                 Sold {queueCounts.sold}
@@ -1060,6 +1135,7 @@ export default async function OurLeadsPage({
                 href={buildPageHref({
                   q: searchQuery,
                   city: selectedCity,
+                  clinicType: selectedClinicType,
                   status: ProspectStatus.GATEKEEPER,
                   nextActionDue: 'later'
                 })}
@@ -1069,14 +1145,19 @@ export default async function OurLeadsPage({
               </Link>
               <Link
                 className={`filter-chip${selectedStatus === ProspectStatus.DEAD ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, status: ProspectStatus.DEAD })}
+                href={buildPageHref({
+                  q: searchQuery,
+                  city: selectedCity,
+                  clinicType: selectedClinicType,
+                  status: ProspectStatus.DEAD
+                })}
                 scroll={false}
               >
                 Do not contact {queueCounts.dead}
               </Link>
               <Link
                 className={`filter-chip${selectedView === 'all' ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, view: 'all' })}
+                href={buildPageHref({ q: searchQuery, city: selectedCity, clinicType: selectedClinicType, view: 'all' })}
                 scroll={false}
               >
                 All {queueCounts.all}
@@ -1098,6 +1179,7 @@ export default async function OurLeadsPage({
                     view: selectedView,
                     status: selectedStatus,
                     city: selectedCity,
+                    clinicType: selectedClinicType,
                     nextActionDue: selectedDue
                   });
                   const lastTouch = prospect.callLogs[0]?.createdAt || prospect.lastCallAt || null;
@@ -1165,21 +1247,29 @@ export default async function OurLeadsPage({
                       </div>
 
                       <div className="inline-row inline-actions-wrap lead-master-footer">
-                        {prospect.phone ? (
-                          <a className="button" href={`tel:${prospect.phone}`}>
-                            Call now
-                          </a>
-                        ) : null}
-                        {prospect.website ? (
-                          <a
-                            className="button-secondary button-secondary-strong"
-                            href={websiteHref(prospect.website)}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Open website
-                          </a>
-                        ) : null}
+                        {selected ? (
+                          <>
+                            {prospect.phone ? (
+                              <a className="button" href={`tel:${prospect.phone}`}>
+                                Call now
+                              </a>
+                            ) : null}
+                            {prospect.website ? (
+                              <a
+                                className="button-secondary button-secondary-strong"
+                                href={websiteHref(prospect.website)}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Open website
+                              </a>
+                            ) : null}
+                          </>
+                        ) : (
+                          <Link className="button-ghost lead-master-select-button" href={rowHref} scroll={false}>
+                            Select lead
+                          </Link>
+                        )}
                       </div>
                     </section>
                   );
@@ -1218,6 +1308,7 @@ export default async function OurLeadsPage({
                                     view={selectedView}
                                     status={selectedStatus}
                                     city={selectedCity}
+                                    clinicType={selectedClinicType}
                                     nextActionDue={selectedDue}
                                     companyName={selectedProspectView.name}
                                     contactName={bookingDraftValues.contactName || selectedProspectView.ownerName || ''}
@@ -1256,6 +1347,7 @@ export default async function OurLeadsPage({
                               <input type="hidden" name="view" value={selectedView} />
                               <input type="hidden" name="status" value={selectedStatus} />
                               <input type="hidden" name="city" value={selectedCity} />
+                              <input type="hidden" name="clinicType" value={selectedClinicType} />
                               <input type="hidden" name="nextActionDue" value={selectedDue} />
                             </form>
                           </>
@@ -1272,6 +1364,7 @@ export default async function OurLeadsPage({
                         <input type="hidden" name="view" value={selectedView} />
                         <input type="hidden" name="status" value={selectedStatus} />
                         <input type="hidden" name="city" value={selectedCity} />
+                        <input type="hidden" name="clinicType" value={selectedClinicType} />
                         <input type="hidden" name="nextActionDue" value={selectedDue} />
                         {leadCallbackCommands.map((command) => (
                           <button key={command.value} type="submit" className="lead-command-button" name="preset" value={command.value}>
@@ -1369,6 +1462,7 @@ export default async function OurLeadsPage({
                       <input type="hidden" name="view" value={selectedView} />
                       <input type="hidden" name="status" value={selectedStatus} />
                       <input type="hidden" name="city" value={selectedCity} />
+                      <input type="hidden" name="clinicType" value={selectedClinicType} />
                       <input type="hidden" name="nextActionDue" value={selectedDue} />
                       <div className="lead-notes-header">
                         <span className="metric-label">Follow-up &amp; notes</span>
