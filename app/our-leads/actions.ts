@@ -23,6 +23,7 @@ import { normalizePhone } from '@/lib/phone';
 import { buildProspectNotes, parseProspectNotes } from '@/lib/prospect-metadata';
 import { resolveAppointmentStartTime } from '@/services/booking';
 import { suggestNextAppointmentSlot, syncAppointmentToExternalCalendar } from '@/services/calendar-sync';
+import { getLeadQueueSessionId, refreshLeadClaim, releaseLeadClaim } from './lead-claims.server';
 
 function readText(formData: FormData, key: string) {
   return String(formData.get(key) || '').trim();
@@ -813,6 +814,8 @@ export async function updateProspectOutcomeAction(formData: FormData) {
     redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
   }
 
+  const leadQueueSessionId = await getLeadQueueSessionId();
+
   const outcomeMap: Record<
     string,
     {
@@ -865,6 +868,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   }
 
   if (outcome === 'booked') {
+    await refreshLeadClaim(prospectId, leadQueueSessionId);
     redirect(
       buildOurLeadsHref({
         prospectId,
@@ -931,6 +935,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
     });
   });
 
+  await releaseLeadClaim(prospectId, leadQueueSessionId);
   revalidateLeadSurfaces();
   redirect(
     buildOurLeadsHref({
@@ -978,6 +983,9 @@ export async function createProspectMeetingAction(formData: FormData) {
   if (!prospectId) {
     redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
   }
+
+  const leadQueueSessionId = await getLeadQueueSessionId();
+  await refreshLeadClaim(prospectId, leadQueueSessionId);
 
   const normalizedPhone = normalizePhone(contactPhoneRaw);
 
@@ -1285,6 +1293,7 @@ export async function createProspectMeetingAction(formData: FormData) {
     await syncAppointmentToExternalCalendar(bookedAppointmentId, 'lead_book_meeting');
   }
 
+  await releaseLeadClaim(prospectId, leadQueueSessionId);
   revalidateLeadSurfaces();
   redirect(
     buildOurLeadsHref({
@@ -1340,6 +1349,8 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
     redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
   }
 
+  const leadQueueSessionId = await getLeadQueueSessionId();
+
   const callbackPlan = readCallbackPreset(preset);
 
   if (!callbackPlan) {
@@ -1392,6 +1403,7 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
     });
   });
 
+  await releaseLeadClaim(prospectId, leadQueueSessionId);
   revalidateLeadSurfaces();
   redirect(
     buildOurLeadsHref({
@@ -1422,6 +1434,8 @@ export async function updateProspectDetailsAction(formData: FormData) {
   if (!prospectId) {
     redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
   }
+
+  const leadQueueSessionId = await getLeadQueueSessionId();
 
   const nextActionAt = nextActionRaw ? new Date(nextActionRaw) : null;
 
@@ -1538,6 +1552,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
     }
   });
 
+  await refreshLeadClaim(prospectId, leadQueueSessionId);
   revalidateLeadSurfaces();
   redirect(
     buildOurLeadsHref({

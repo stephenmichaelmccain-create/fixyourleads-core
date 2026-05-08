@@ -1,5 +1,6 @@
 import { ProspectStatus } from '@prisma/client';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { getMeetingTeamDefaults, INTERNAL_COMPANY_ID } from '@/lib/meeting-team-defaults';
@@ -7,8 +8,10 @@ import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoadDb } from '@/lib/ui-data';
 import { suggestUpcomingAppointmentSlots } from '@/services/calendar-sync';
 import { LeadBookMeetingDialog } from './LeadBookMeetingDialog';
+import { claimFirstAvailableProspect, getLeadQueueSessionId, isProspectClaimedByAnotherSession } from './lead-claims.server';
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
 import { LeadNotesComposer } from './LeadNotesComposer';
+import { LeadQueueSessionKeeper } from './LeadQueueSessionKeeper';
 import { SpeakProspectNameButton } from './SpeakProspectNameButton';
 import {
   bulkCreateProspectsAction,
@@ -565,6 +568,8 @@ export default async function OurLeadsPage({
           lastCallOutcome: true,
           nextActionAt: true,
           notes: true,
+          claimSessionId: true,
+          claimExpiresAt: true,
           updatedAt: true,
           createdAt: true,
           callLogs: {
@@ -600,8 +605,9 @@ export default async function OurLeadsPage({
     )
   ).sort((left, right) => left.localeCompare(right));
   const showingUntouched = !selectedView && !selectedStatus && !selectedDue;
+  const leadQueueSessionId = await getLeadQueueSessionId();
 
-  const visibleProspects = [...prospectRows]
+  const filteredProspects = [...prospectRows]
     .filter((prospect) => {
       if (!normalizedSearchQuery) {
         return true;
@@ -632,6 +638,10 @@ export default async function OurLeadsPage({
     .filter((prospect) => dueBucketMatches(prospect.nextActionAt, selectedDue, now))
     .sort(compareProspects);
 
+  const visibleProspects = leadQueueSessionId
+    ? filteredProspects.filter((prospect) => !isProspectClaimedByAnotherSession(prospect, leadQueueSessionId, now))
+    : filteredProspects;
+
   const queueCounts = {
     all: prospectRows.length,
     untouched: prospectRows.filter((prospect) => isUntouchedProspect(prospect)).length,
@@ -653,16 +663,45 @@ export default async function OurLeadsPage({
     dead: prospectRows.filter((prospect) => prospect.status === ProspectStatus.DEAD).length
   };
 
-  const effectiveSelectedProspectId =
-    (selectedProspectId && visibleProspects.some((prospect) => prospect.id === selectedProspectId)
-      ? selectedProspectId
-      : visibleProspects[0]?.id) || '';
-  const selectedQueueIndex = visibleProspects.findIndex((prospect) => prospect.id === effectiveSelectedProspectId);
-  const nextQueueProspect =
-    selectedQueueIndex >= 0 ? visibleProspects[selectedQueueIndex + 1] || null : visibleProspects[1] || null;
+  const requestedProspectId =
+    selectedProspectId && visibleProspects.some((prospect) => prospect.id === selectedProspectId) ? selectedProspectId : '';
+  let effectiveSelectedProspectId = requestedProspectId || visibleProspects[0]?.id || '';
+
+  if (leadQueueSessionId && visibleProspects.length > 0) {
+    const preferredProspectIds = effectiveSelectedProspectId
+      ? [
+          effectiveSelectedProspectId,
+          ...visibleProspects.filter((prospect) => prospect.id !== effectiveSelectedProspectId).map((prospect) => prospect.id)
+        ]
+      : visibleProspects.map((prospect) => prospect.id);
+
+    effectiveSelectedProspectId = (await claimFirstAvailableProspect(preferredProspectIds, leadQueueSessionId)) || '';
+  }
+
+  if (leadQueueSessionId && effectiveSelectedProspectId && effectiveSelectedProspectId !== selectedProspectId) {
+    redirect(
+      buildPageHref({
+        prospectId: effectiveSelectedProspectId,
+        q: searchQuery,
+        view: selectedView,
+        status: selectedStatus,
+        city: selectedCity,
+        clinicType: selectedClinicType,
+        nextActionDue: selectedDue
+      })
+    );
+  }
+
+  const renderedProspects = effectiveSelectedProspectId
+    ? [
+        ...visibleProspects.filter((prospect) => prospect.id === effectiveSelectedProspectId),
+        ...visibleProspects.filter((prospect) => prospect.id !== effectiveSelectedProspectId)
+      ]
+    : visibleProspects;
+  const selectedQueueIndex = renderedProspects.findIndex((prospect) => prospect.id === effectiveSelectedProspectId);
   const nextQueueProspectId =
     selectedQueueIndex >= 0
-      ? visibleProspects[Math.min(selectedQueueIndex + 1, Math.max(visibleProspects.length - 1, 0))]?.id || ''
+      ? renderedProspects[Math.min(selectedQueueIndex + 1, Math.max(renderedProspects.length - 1, 0))]?.id || ''
       : '';
 
   const [selectedProspect, meetingTeamDefaults, suggestedMeetingSlots] = await Promise.all([
@@ -750,6 +789,10 @@ export default async function OurLeadsPage({
 
   return (
     <LayoutShell title="Leads" section="leads" variant="workspace" hidePageHeader>
+      <LeadQueueSessionKeeper
+        hasSession={Boolean(leadQueueSessionId)}
+        selectedProspectId={effectiveSelectedProspectId || undefined}
+      />
       {updated || added || bulkAdded || bulkSkipped || bulkError || errorMessage || meetingError ? (
         <section className="panel prospect-update-bar">
           {updated ? (
@@ -1168,13 +1211,17 @@ export default async function OurLeadsPage({
 
             <div className="lead-queue-scroll">
               <LeadQueueAutoCenter selectedProspectId={effectiveSelectedProspectId} />
-              {visibleProspects.length === 0 ? (
+              {renderedProspects.length === 0 ? (
                 <div className="empty-state">
-                  <div>No leads in this view.</div>
+                  <div>
+                    {filteredProspects.length > 0
+                      ? 'Those leads are already being worked by someone else right now.'
+                      : 'No leads in this view.'}
+                  </div>
                 </div>
               ) : (
                 <div className="record-grid lead-queue-list">
-                {visibleProspects.map((prospect) => {
+                {renderedProspects.map((prospect) => {
                   const rowHref = buildPageHref({
                     prospectId: prospect.id,
                     q: searchQuery,
