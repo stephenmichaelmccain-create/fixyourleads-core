@@ -848,15 +848,8 @@ export default async function OurLeadsPage({
       <div className="conversation-layout lead-call-layout">
         <div className="page-stack lead-queue-column">
           <section className="panel panel-stack lead-queue-panel">
-            <div className="workspace-search-bar">
-              <form action="/leads" className="workspace-search-bar" style={{ flex: 1 }}>
-                <input
-                  id="our-leads-search"
-                  name="q"
-                  className="text-input"
-                  defaultValue={searchQuery}
-                  placeholder="Search clinic, phone, website, contact, city"
-                />
+            <div className="workspace-search-bar lead-toolbar-row">
+              <form action="/leads" className="workspace-search-bar lead-toolbar-form">
                 {selectedView ? <input type="hidden" name="view" value={selectedView} /> : null}
                 {selectedStatus ? <input type="hidden" name="status" value={selectedStatus} /> : null}
                 {selectedCity ? <input type="hidden" name="city" value={selectedCity} /> : null}
@@ -874,11 +867,20 @@ export default async function OurLeadsPage({
                     </option>
                   ))}
                 </select>
-                <button type="submit" className="button-ghost">
-                  Search
-                </button>
+                <div className="lead-toolbar-search-field">
+                  <input
+                    id="our-leads-search"
+                    name="q"
+                    className="text-input"
+                    defaultValue={searchQuery}
+                    placeholder="Search clinic, phone, website, contact, city"
+                  />
+                  <button type="submit" className="button-ghost lead-toolbar-search-button">
+                    Search
+                  </button>
+                </div>
               </form>
-              <div className="workspace-action-rail">
+              <div className="workspace-action-rail lead-toolbar-actions">
                 {searchQuery || selectedStatus || selectedCity || selectedDue || selectedView ? (
                   <Link className="button-secondary prospect-reset-trigger" href="/leads" scroll={false}>
                     Reset view
