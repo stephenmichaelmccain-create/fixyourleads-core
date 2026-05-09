@@ -292,6 +292,82 @@ function splitBulkRow(row: string) {
   return row.split(',').map((part) => part.trim());
 }
 
+function isBulkHeaderCell(value: string, aliases: string[]) {
+  const normalized = String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+  return aliases.some((alias) => alias === normalized);
+}
+
+function isBulkHeaderRow(columns: string[]) {
+  if (columns.length === 0) {
+    return false;
+  }
+
+  const [name = '', second = '', third = ''] = columns;
+
+  return (
+    isBulkHeaderCell(name, ['business name', 'name', 'clinic name']) &&
+    (isBulkHeaderCell(second, ['niche', 'clinic type', 'industry']) ||
+      isBulkHeaderCell(third, ['phone', 'phone number']))
+  );
+}
+
+function parseBulkLeadColumns(row: string) {
+  const columns = splitBulkRow(row);
+
+  if (columns.length >= 9) {
+    const [
+      nameRaw,
+      clinicTypeRaw = '',
+      phoneRaw = '',
+      cityRaw = '',
+      ownerNameRaw = '',
+      websiteRaw = '',
+      hoursRaw = '',
+      nextActionRaw = '',
+      ...notesParts
+    ] = columns;
+
+    return {
+      nameRaw,
+      clinicTypeRaw,
+      phoneRaw,
+      cityRaw,
+      ownerNameRaw,
+      websiteRaw,
+      hoursRaw,
+      nextActionRaw,
+      notesRaw: notesParts.join(', ').trim()
+    };
+  }
+
+  const [
+    nameRaw,
+    phoneRaw = '',
+    cityRaw = '',
+    ownerNameRaw = '',
+    websiteRaw = '',
+    hoursRaw = '',
+    nextActionRaw = '',
+    ...notesParts
+  ] = columns;
+
+  return {
+    nameRaw,
+    clinicTypeRaw: '',
+    phoneRaw,
+    cityRaw,
+    ownerNameRaw,
+    websiteRaw,
+    hoursRaw,
+    nextActionRaw,
+    notesRaw: notesParts.join(', ').trim()
+  };
+}
+
 function normalizeOptionalPhone(raw: string | null | undefined) {
   const normalized = normalizePhone(String(raw || '').trim());
   return normalized ? normalized : null;
@@ -683,18 +759,14 @@ export async function bulkCreateProspectsAction(formData: FormData) {
   let invalidSkippedCount = 0;
 
   for (const row of rows) {
-    const [
-      nameRaw,
-      phoneRaw = '',
-      cityRaw = '',
-      ownerNameRaw = '',
-      websiteRaw = '',
-      hoursRaw = '',
-      nextActionRaw = '',
-      notesRaw = ''
-    ] =
-      splitBulkRow(row);
+    const { nameRaw, clinicTypeRaw, phoneRaw, cityRaw, ownerNameRaw, websiteRaw, hoursRaw, nextActionRaw, notesRaw } =
+      parseBulkLeadColumns(row);
     const name = nameRaw?.trim();
+    const clinicType = clinicTypeRaw?.trim() || null;
+
+    if (isBulkHeaderRow(splitBulkRow(row))) {
+      continue;
+    }
 
     if (!name) {
       invalidSkippedCount += 1;
@@ -746,6 +818,7 @@ export async function bulkCreateProspectsAction(formData: FormData) {
             nextActionAt,
             notes: buildProspectNotes({
               plainNotes: notesRaw || null,
+              clinicType,
               operatingHours: hoursRaw || null
             })
           },
