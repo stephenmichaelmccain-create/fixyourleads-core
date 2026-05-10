@@ -248,6 +248,23 @@ function detailValue(value?: string | null, fallback = 'Not set') {
   return trimmed || fallback;
 }
 
+function leadNotePreview(notes?: string | null) {
+  const firstLine = String(notes || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+
+  if (!firstLine) {
+    return '';
+  }
+
+  if (firstLine.length <= 84) {
+    return firstLine;
+  }
+
+  return `${firstLine.slice(0, 81).trimEnd()}...`;
+}
+
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase();
 }
@@ -1311,6 +1328,7 @@ export default async function OurLeadsPage({
                   const leadNotesSummary = summarizeLeadNotes(prospect.plainNotes);
                   const leadRole = extractLeadRole(prospect.ownerName, prospect.plainNotes);
                   const leadContactLine = [compactLeadText(prospect.ownerName), leadRole].filter(Boolean).join(' · ');
+                  const notePreview = leadNotePreview(prospect.plainNotes);
                   const selected = prospect.id === effectiveSelectedProspectId;
 
                   return (
@@ -1339,7 +1357,13 @@ export default async function OurLeadsPage({
                               {leadContactLine ? <div className="lead-queue-contact-name">{leadContactLine}</div> : null}
                               <div className="lead-queue-subline">{leadSummary || 'No location or website saved yet'}</div>
                             </div>
-                            {leadNotesSummary ? <div className="lead-card-summary">{leadNotesSummary}</div> : null}
+                            {leadNotesSummary ? (
+                              <div className="lead-card-summary">{leadNotesSummary}</div>
+                            ) : notePreview ? (
+                              <div className="lead-queue-note-chip" title={notePreview}>
+                                {notePreview}
+                              </div>
+                            ) : null}
                           </div>
 
                           <div className="lead-queue-body">
