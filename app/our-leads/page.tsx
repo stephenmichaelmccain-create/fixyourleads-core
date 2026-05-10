@@ -252,6 +252,75 @@ function normalizeSearch(value: string) {
   return value.trim().toLowerCase();
 }
 
+function compactLeadText(value?: string | null) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function summarizeLeadNotes(notes?: string | null) {
+  const cleaned = compactLeadText(notes);
+
+  if (!cleaned) {
+    return '';
+  }
+
+  const firstSentence = cleaned.match(/^(.{1,220}?[.!?])(\s|$)/);
+
+  if (firstSentence?.[1]) {
+    return firstSentence[1].trim();
+  }
+
+  return cleaned.length > 220 ? `${cleaned.slice(0, 217).trimEnd()}...` : cleaned;
+}
+
+function extractLeadRole(ownerName?: string | null, notes?: string | null) {
+  const cleanedNotes = compactLeadText(notes);
+  const cleanedOwnerName = compactLeadText(ownerName);
+
+  if (!cleanedNotes) {
+    return '';
+  }
+
+  const rolePatterns: Array<{ pattern: RegExp; label: string }> = [
+    { pattern: /\b(owner)\b/i, label: 'Owner' },
+    { pattern: /\b(founder)\b/i, label: 'Founder' },
+    { pattern: /\b(office manager)\b/i, label: 'Office Manager' },
+    { pattern: /\b(practice manager)\b/i, label: 'Practice Manager' },
+    { pattern: /\b(manager)\b/i, label: 'Manager' },
+    { pattern: /\b(medical director)\b/i, label: 'Medical Director' },
+    { pattern: /\b(dentist)\b/i, label: 'Dentist' },
+    { pattern: /\b(doctor)\b/i, label: 'Doctor' },
+    { pattern: /\b(physician)\b/i, label: 'Physician' },
+    { pattern: /\b(front desk)\b/i, label: 'Front Desk' }
+  ];
+
+  const noteSentences = cleanedNotes.split(/(?<=[.!?])\s+/);
+  const matchingSentence =
+    cleanedOwnerName &&
+    noteSentences.find((sentence) => sentence.toLowerCase().includes(cleanedOwnerName.toLowerCase()));
+
+  if (matchingSentence) {
+    for (const candidate of rolePatterns) {
+      if (candidate.pattern.test(matchingSentence)) {
+        return candidate.label;
+      }
+    }
+  }
+
+  if (/^dr\.?\s/i.test(cleanedOwnerName)) {
+    return 'Doctor';
+  }
+
+  for (const candidate of rolePatterns) {
+    if (candidate.pattern.test(cleanedNotes)) {
+      return candidate.label;
+    }
+  }
+
+  return '';
+}
+
 function dueBucketMatches(date: Date | null, bucket: string, now: Date) {
   if (!bucket) {
     return true;
@@ -1239,6 +1308,9 @@ export default async function OurLeadsPage({
                   const leadSummary = [prospect.city, prospect.website ? websiteLabel(prospect.website) : null]
                     .filter(Boolean)
                     .join(' · ');
+                  const leadNotesSummary = summarizeLeadNotes(prospect.plainNotes);
+                  const leadRole = extractLeadRole(prospect.ownerName, prospect.plainNotes);
+                  const leadContactLine = [compactLeadText(prospect.ownerName), leadRole].filter(Boolean).join(' · ');
                   const selected = prospect.id === effectiveSelectedProspectId;
 
                   return (
@@ -1258,11 +1330,13 @@ export default async function OurLeadsPage({
                             )}
                             <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
                           </div>
+                          {leadNotesSummary ? <div className="lead-card-summary">{leadNotesSummary}</div> : null}
                           <div className="record-stack">
                             <div className="lead-company-name-row">
                               <h2 className="form-title lead-company-name">{prospect.name}</h2>
                               <SpeakProspectNameButton name={prospect.name} />
                             </div>
+                            {leadContactLine ? <div className="lead-queue-contact-name">{leadContactLine}</div> : null}
                             <div className="lead-queue-subline">{leadSummary || 'No location or website saved yet'}</div>
                           </div>
 

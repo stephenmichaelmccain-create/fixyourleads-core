@@ -1033,6 +1033,29 @@ select {
   text-transform: uppercase;
 }
 
+.lead-card-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(181, 151, 255, 0.12);
+  background: rgba(34, 30, 72, 0.52);
+  color: #f1e9ff;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.lead-queue-contact-name {
+  min-width: 0;
+  color: #d9c9ff;
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .lead-queue-subline {
   min-width: 0;
   color: var(--fyl-muted);
@@ -5441,6 +5464,12 @@ select {
   }
 
   .lead-queue-subline {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .lead-card-summary,
+  .lead-queue-contact-name {
     font-size: 12px;
     line-height: 1.35;
   }
