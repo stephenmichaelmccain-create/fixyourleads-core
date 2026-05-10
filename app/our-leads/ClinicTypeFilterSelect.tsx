@@ -1,5 +1,7 @@
 'use client';
 
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+
 type ClinicTypeFilterSelectProps = {
   defaultValue: string;
   options: string[];
@@ -15,6 +17,10 @@ export function ClinicTypeFilterSelect({
   name = 'clinicType',
   ariaLabel = 'Filter leads by clinic type'
 }: ClinicTypeFilterSelectProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   return (
     <select
       name={name}
@@ -22,7 +28,18 @@ export function ClinicTypeFilterSelect({
       defaultValue={defaultValue}
       aria-label={ariaLabel}
       onChange={(event) => {
-        event.currentTarget.form?.requestSubmit();
+        const nextClinicType = event.currentTarget.value.trim();
+        const params = new URLSearchParams(searchParams.toString());
+
+        if (nextClinicType) {
+          params.set(name, nextClinicType);
+        } else {
+          params.delete(name);
+        }
+
+        params.delete('prospectId');
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
       }}
     >
       <option value="">All niches</option>

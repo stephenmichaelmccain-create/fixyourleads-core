@@ -792,7 +792,7 @@ export default async function OurLeadsPage({
     effectiveSelectedProspectId = (await claimFirstAvailableProspect(preferredProspectIds, leadQueueSessionId)) || '';
   }
 
-  if (leadQueueSessionId && effectiveSelectedProspectId && effectiveSelectedProspectId !== selectedProspectId) {
+  if (leadQueueSessionId && selectedProspectId && effectiveSelectedProspectId && effectiveSelectedProspectId !== selectedProspectId) {
     redirect(
       buildPageHref({
         prospectId: effectiveSelectedProspectId,
