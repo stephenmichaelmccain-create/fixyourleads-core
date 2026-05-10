@@ -1330,14 +1330,16 @@ export default async function OurLeadsPage({
                             )}
                             <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
                           </div>
-                          {leadNotesSummary ? <div className="lead-card-summary">{leadNotesSummary}</div> : null}
-                          <div className="record-stack">
-                            <div className="lead-company-name-row">
-                              <h2 className="form-title lead-company-name">{prospect.name}</h2>
-                              <SpeakProspectNameButton name={prospect.name} />
+                          <div className="lead-card-identity-row">
+                            <div className="record-stack lead-card-identity-main">
+                              <div className="lead-company-name-row">
+                                <h2 className="form-title lead-company-name">{prospect.name}</h2>
+                                <SpeakProspectNameButton name={prospect.name} />
+                              </div>
+                              {leadContactLine ? <div className="lead-queue-contact-name">{leadContactLine}</div> : null}
+                              <div className="lead-queue-subline">{leadSummary || 'No location or website saved yet'}</div>
                             </div>
-                            {leadContactLine ? <div className="lead-queue-contact-name">{leadContactLine}</div> : null}
-                            <div className="lead-queue-subline">{leadSummary || 'No location or website saved yet'}</div>
+                            {leadNotesSummary ? <div className="lead-card-summary">{leadNotesSummary}</div> : null}
                           </div>
 
                           <div className="lead-queue-body">

@@ -1019,6 +1019,19 @@ select {
   min-width: 0;
 }
 
+.lead-card-identity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.9fr);
+  gap: 14px;
+  align-items: start;
+  min-width: 0;
+}
+
+.lead-card-identity-main {
+  gap: 8px;
+  min-width: 0;
+}
+
 .lead-selected-pill {
   display: inline-flex;
   align-items: center;
@@ -1039,6 +1052,7 @@ select {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   min-width: 0;
+  min-height: 100%;
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid rgba(181, 151, 255, 0.12);
@@ -5472,6 +5486,11 @@ select {
   .lead-queue-contact-name {
     font-size: 12px;
     line-height: 1.35;
+  }
+
+  .lead-card-identity-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .lead-queue-phone {
