@@ -729,25 +729,52 @@ export default async function OurLeadsPage({
     ? filteredProspects.filter((prospect) => !isProspectClaimedByAnotherSession(prospect, leadQueueSessionId, now))
     : filteredProspects;
 
+  const scopedProspectsForCounts = prospectRows
+    .filter((prospect) => {
+      if (!normalizedSearchQuery) {
+        return true;
+      }
+
+      const searchFields = [
+        prospect.name,
+        prospect.city,
+        prospect.phone,
+        prospect.website,
+        prospect.ownerName,
+        prospect.profile.clinicType,
+        prospect.profile.zipCode,
+        prospect.profile.predictedRevenue,
+        prospect.profile.source,
+        prospect.profile.importBatch,
+        prospect.profile.sourceRecord,
+        prospect.lastCallOutcome,
+        prospect.plainNotes
+      ];
+
+      return searchFields.some((value) => normalizeSearch(value || '').includes(normalizedSearchQuery));
+    })
+    .filter((prospect) => (selectedCity ? prospect.city === selectedCity : true))
+    .filter((prospect) => (selectedClinicType ? prospect.profile.clinicType === selectedClinicType : true));
+
   const queueCounts = {
-    all: prospectRows.length,
-    untouched: prospectRows.filter((prospect) => isUntouchedProspect(prospect)).length,
-    overdue: prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'overdue', now)).length,
-    today: prospectRows.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'today', now)).length,
-    callbackReady: prospectRows.filter(
+    all: scopedProspectsForCounts.length,
+    untouched: scopedProspectsForCounts.filter((prospect) => isUntouchedProspect(prospect)).length,
+    overdue: scopedProspectsForCounts.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'overdue', now)).length,
+    today: scopedProspectsForCounts.filter((prospect) => dueBucketMatches(prospect.nextActionAt, 'today', now)).length,
+    callbackReady: scopedProspectsForCounts.filter(
       (prospect) =>
         prospect.status === ProspectStatus.GATEKEEPER && dueBucketMatches(prospect.nextActionAt, 'ready', now)
     ).length,
-    callbackLater: prospectRows.filter(
+    callbackLater: scopedProspectsForCounts.filter(
       (prospect) =>
         prospect.status === ProspectStatus.GATEKEEPER && dueBucketMatches(prospect.nextActionAt, 'later', now)
     ).length,
-    voicemail: prospectRows.filter((prospect) => prospect.status === ProspectStatus.VM_LEFT).length,
-    notInterested: prospectRows.filter((prospect) => prospect.status === ProspectStatus.NOT_INTERESTED).length,
-    booked: prospectRows.filter((prospect) => prospect.status === ProspectStatus.BOOKED_DEMO).length,
-    noAnswer: prospectRows.filter((prospect) => prospect.status === ProspectStatus.NO_ANSWER).length,
-    sold: prospectRows.filter((prospect) => prospect.status === ProspectStatus.CLOSED).length,
-    dead: prospectRows.filter((prospect) => prospect.status === ProspectStatus.DEAD).length
+    voicemail: scopedProspectsForCounts.filter((prospect) => prospect.status === ProspectStatus.VM_LEFT).length,
+    notInterested: scopedProspectsForCounts.filter((prospect) => prospect.status === ProspectStatus.NOT_INTERESTED).length,
+    booked: scopedProspectsForCounts.filter((prospect) => prospect.status === ProspectStatus.BOOKED_DEMO).length,
+    noAnswer: scopedProspectsForCounts.filter((prospect) => prospect.status === ProspectStatus.NO_ANSWER).length,
+    sold: scopedProspectsForCounts.filter((prospect) => prospect.status === ProspectStatus.CLOSED).length,
+    dead: scopedProspectsForCounts.filter((prospect) => prospect.status === ProspectStatus.DEAD).length
   };
 
   const requestedProspectId =
