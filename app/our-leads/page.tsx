@@ -9,6 +9,7 @@ import { safeLoadDb } from '@/lib/ui-data';
 import { suggestUpcomingAppointmentSlots } from '@/services/calendar-sync';
 import { LeadBookMeetingDialog } from './LeadBookMeetingDialog';
 import { ClinicTypeFilterSelect } from './ClinicTypeFilterSelect';
+import { LeadFilterBar } from './LeadFilterBar';
 import { claimFirstAvailableProspect, getLeadQueueSessionId, isProspectClaimedByAnotherSession } from './lead-claims.server';
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
 import { LeadNotesComposer } from './LeadNotesComposer';
@@ -1194,126 +1195,16 @@ export default async function OurLeadsPage({
               </div>
             </div>
 
-            <div className="filter-bar">
-              <Link
-                className={`filter-chip${showingUntouched ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, clinicType: selectedClinicType })}
-                scroll={false}
-              >
-                Untouched {queueCounts.untouched}
-              </Link>
-              <Link
-                className={`filter-chip${
-                  selectedStatus === ProspectStatus.GATEKEEPER && selectedDue === 'ready' ? ' is-active' : ''
-                }`}
-                href={buildPageHref({
-                  q: searchQuery,
-                  city: selectedCity,
-                  clinicType: selectedClinicType,
-                  status: ProspectStatus.GATEKEEPER,
-                  nextActionDue: 'ready'
-                })}
-                scroll={false}
-              >
-                Callback now {queueCounts.callbackReady}
-              </Link>
-              <Link
-                className={`filter-chip${selectedStatus === ProspectStatus.NO_ANSWER ? ' is-active' : ''}`}
-                href={buildPageHref({
-                  q: searchQuery,
-                  city: selectedCity,
-                  clinicType: selectedClinicType,
-                  status: ProspectStatus.NO_ANSWER
-                })}
-                scroll={false}
-              >
-                No answer {queueCounts.noAnswer}
-              </Link>
-              <Link
-                className={`filter-chip${selectedStatus === ProspectStatus.VM_LEFT ? ' is-active' : ''}`}
-                href={buildPageHref({
-                  q: searchQuery,
-                  city: selectedCity,
-                  clinicType: selectedClinicType,
-                  status: ProspectStatus.VM_LEFT
-                })}
-                scroll={false}
-              >
-                Left voicemail {queueCounts.voicemail}
-              </Link>
-              <Link
-                className={`filter-chip${selectedStatus === ProspectStatus.NOT_INTERESTED ? ' is-active' : ''}`}
-                href={buildPageHref({
-                  q: searchQuery,
-                  city: selectedCity,
-                  clinicType: selectedClinicType,
-                  status: ProspectStatus.NOT_INTERESTED
-                })}
-                scroll={false}
-              >
-                Not interested {queueCounts.notInterested}
-              </Link>
-              <Link
-                className={`filter-chip${selectedStatus === ProspectStatus.BOOKED_DEMO ? ' is-active' : ''}`}
-                href={buildPageHref({
-                  q: searchQuery,
-                  city: selectedCity,
-                  clinicType: selectedClinicType,
-                  status: ProspectStatus.BOOKED_DEMO
-                })}
-                scroll={false}
-              >
-                Booked {queueCounts.booked}
-              </Link>
-              <Link
-                className={`filter-chip${selectedStatus === ProspectStatus.CLOSED ? ' is-active' : ''}`}
-                href={buildPageHref({
-                  q: searchQuery,
-                  city: selectedCity,
-                  clinicType: selectedClinicType,
-                  status: ProspectStatus.CLOSED
-                })}
-                scroll={false}
-              >
-                Sold {queueCounts.sold}
-              </Link>
-              <Link
-                className={`filter-chip${
-                  selectedStatus === ProspectStatus.GATEKEEPER && (!selectedDue || selectedDue === 'later')
-                    ? ' is-active'
-                    : ''
-                }`}
-                href={buildPageHref({
-                  q: searchQuery,
-                  city: selectedCity,
-                  clinicType: selectedClinicType,
-                  status: ProspectStatus.GATEKEEPER,
-                  nextActionDue: 'later'
-                })}
-                scroll={false}
-              >
-                Call back later {queueCounts.callbackLater}
-              </Link>
-              <Link
-                className={`filter-chip${selectedStatus === ProspectStatus.DEAD ? ' is-active' : ''}`}
-                href={buildPageHref({
-                  q: searchQuery,
-                  city: selectedCity,
-                  clinicType: selectedClinicType,
-                  status: ProspectStatus.DEAD
-                })}
-                scroll={false}
-              >
-                Do not contact {queueCounts.dead}
-              </Link>
-              <Link
-                className={`filter-chip${selectedView === 'all' ? ' is-active' : ''}`}
-                href={buildPageHref({ q: searchQuery, city: selectedCity, clinicType: selectedClinicType, view: 'all' })}
-                scroll={false}
-              >
-                All {queueCounts.all}
-              </Link>
-            </div>
+            <LeadFilterBar
+              queueCounts={queueCounts}
+              showingUntouched={showingUntouched}
+              searchQuery={searchQuery}
+              selectedCity={selectedCity}
+              selectedClinicType={selectedClinicType}
+              selectedView={selectedView}
+              selectedStatus={selectedStatus}
+              selectedDue={selectedDue}
+            />
 
             <div className="lead-queue-scroll">
               <LeadQueueAutoCenter selectedProspectId={effectiveSelectedProspectId} />
