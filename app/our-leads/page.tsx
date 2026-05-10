@@ -8,6 +8,7 @@ import { parseProspectNotes } from '@/lib/prospect-metadata';
 import { safeLoadDb } from '@/lib/ui-data';
 import { suggestUpcomingAppointmentSlots } from '@/services/calendar-sync';
 import { LeadBookMeetingDialog } from './LeadBookMeetingDialog';
+import { ClinicTypeFilterSelect } from './ClinicTypeFilterSelect';
 import { claimFirstAvailableProspect, getLeadQueueSessionId, isProspectClaimedByAnotherSession } from './lead-claims.server';
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
 import { LeadNotesComposer } from './LeadNotesComposer';
@@ -983,19 +984,11 @@ export default async function OurLeadsPage({
                 {selectedStatus ? <input type="hidden" name="status" value={selectedStatus} /> : null}
                 {selectedCity ? <input type="hidden" name="city" value={selectedCity} /> : null}
                 {selectedDue ? <input type="hidden" name="nextActionDue" value={selectedDue} /> : null}
-                <select
-                  name="clinicType"
+                <ClinicTypeFilterSelect
                   className="select-input lead-toolbar-select"
                   defaultValue={selectedClinicType}
-                  aria-label="Filter leads by clinic type"
-                >
-                  <option value="">All niches</option>
-                  {clinicTypeOptions.map((clinicType) => (
-                    <option key={clinicType} value={clinicType}>
-                      {clinicType}
-                    </option>
-                  ))}
-                </select>
+                  options={clinicTypeOptions}
+                />
                 <div className="lead-toolbar-search-field">
                   <input
                     id="our-leads-search"
@@ -1380,7 +1373,6 @@ export default async function OurLeadsPage({
                               </div>
                             </div>
                             <div className="lead-queue-contact-row">
-                              <div className="lead-queue-phone">{detailValue(prospect.phone)}</div>
                               <div className={`lead-queue-hours${prospect.profile.operatingHours ? '' : ' is-empty'}`}>
                                 <span className="lead-queue-hours-icon" aria-hidden="true">
                                   <svg viewBox="0 0 20 20" focusable="false">
@@ -1413,6 +1405,7 @@ export default async function OurLeadsPage({
                                 Open website
                               </a>
                             ) : null}
+                            {prospect.phone ? <span className="lead-master-phone-inline">{detailValue(prospect.phone)}</span> : null}
                           </>
                         ) : (
                           <Link className="button-ghost lead-master-select-button" href={rowHref} scroll={false}>
