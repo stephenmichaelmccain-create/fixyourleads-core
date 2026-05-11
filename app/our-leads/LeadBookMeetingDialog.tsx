@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { createProspectMeetingAction } from './actions';
+import { LeadSafeSubmitButton } from './LeadSafeSubmitButton';
 
 type LeadBookMeetingDialogProps = {
   initialOpen?: boolean;
@@ -121,13 +122,10 @@ export function LeadBookMeetingDialog({
   return (
     <>
       {renderTrigger ? (
-        <button
-          className="lead-command-button"
-          data-tone="success"
-          type="button"
-          onClick={openDialog}
-        >
-          <span className="lead-command-icon" aria-hidden="true">
+        <LeadSafeSubmitButton
+          buttonType="button"
+          tone="success"
+          icon={
             <svg viewBox="0 0 24 24" focusable="false">
               <rect x="4" y="5" width="16" height="15" rx="2" />
               <path d="M8 3v4" />
@@ -135,9 +133,11 @@ export function LeadBookMeetingDialog({
               <path d="M4 9h16" />
               <path d="m9 14 2 2 4-5" />
             </svg>
-          </span>
-          <span className="lead-command-label">Book</span>
-        </button>
+          }
+          label="Book"
+          ariaLabel="Book meeting"
+          onConfirmed={openDialog}
+        />
       ) : null}
 
       <dialog

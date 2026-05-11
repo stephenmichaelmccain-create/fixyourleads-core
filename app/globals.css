@@ -1251,11 +1251,11 @@ select {
 }
 
 .lead-command-group-outcomes {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
 }
 
 .lead-command-group-callbacks {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -1282,6 +1282,20 @@ select {
 
 .lead-command-button:hover {
   background: rgba(255, 255, 255, 0.03);
+}
+
+.lead-command-button[data-armed='true'] {
+  background: rgba(255, 194, 92, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 194, 92, 0.55);
+}
+
+.lead-command-button[data-armed='true'] .lead-command-label {
+  color: rgba(255, 247, 214, 0.98);
+}
+
+.lead-command-button[data-armed='true'] .lead-command-meta {
+  color: rgba(255, 219, 137, 0.98);
+  font-weight: 600;
 }
 
 .lead-command-icon {

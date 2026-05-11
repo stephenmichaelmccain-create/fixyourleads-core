@@ -1,6 +1,6 @@
 "use server";
 
-import { AppointmentStatus, Prisma, ProspectDedupKeyType, ProspectStatus } from '@prisma/client';
+import { AppointmentExternalSyncStatus, AppointmentStatus, Prisma, ProspectDedupKeyType, ProspectStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { normalizeClinicKey, normalizeWebsiteKey } from '@/lib/client-intake';
@@ -38,8 +38,27 @@ function addDaysFromNow(days: number, hour: number) {
   return value;
 }
 
+function addHoursFromNow(hours: number) {
+  const value = new Date();
+  value.setHours(value.getHours() + hours, 0, 0, 0);
+
+  // Keep callback defaults in normal calling hours.
+  if (value.getHours() >= 19) {
+    value.setDate(value.getDate() + 1);
+    value.setHours(9, 0, 0, 0);
+  }
+
+  if (value.getHours() < 8) {
+    value.setHours(9, 0, 0, 0);
+  }
+
+  return value;
+}
+
 function readCallbackPreset(preset: string) {
   switch (preset) {
+    case 'later_today':
+      return { label: 'Later today', nextActionAt: addHoursFromNow(2) };
     case 'tomorrow':
       return { label: 'Tomorrow', nextActionAt: addDaysFromNow(1, 9) };
     case '3_days':
@@ -815,11 +834,23 @@ export async function updateProspectOutcomeAction(formData: FormData) {
       lastCallOutcome: 'Left voicemail',
       nextActionAt: addDaysFromNow(1, 11)
     },
+    gatekeeper: {
+      status: ProspectStatus.GATEKEEPER,
+      lastCallOutcome: 'Gatekeeper',
+      nextActionAt: addDaysFromNow(1, 10),
+      notesSuffix: 'Reached gatekeeper. Follow up when decision maker is available.'
+    },
     not_interested: {
       status: ProspectStatus.NOT_INTERESTED,
       lastCallOutcome: 'Not interested',
       nextActionAt: addDaysFromNow(45, 10),
       notesSuffix: 'Not interested. Revisit later if priorities change.'
+    },
+    wrong_number: {
+      status: ProspectStatus.DEAD,
+      lastCallOutcome: 'Wrong number',
+      nextActionAt: null,
+      notesSuffix: 'Marked wrong number. Remove from active call queue.'
     },
     do_not_contact: {
       status: ProspectStatus.DEAD,
@@ -1200,7 +1231,8 @@ export async function createProspectMeetingAction(formData: FormData) {
       attendeeEmails: meetingDefaults.defaultAttendeeEmails,
       displayCompanyName: existing.name,
       sourceProspectId: prospectId,
-      notes: noteParts.filter(Boolean).join('\n')
+      notes: noteParts.filter(Boolean).join('\n'),
+      externalSyncStatus: AppointmentExternalSyncStatus.PENDING
     };
 
     if (existingAppointment) {
@@ -1213,7 +1245,9 @@ export async function createProspectMeetingAction(formData: FormData) {
           attendeeEmails: meetingDefaults.defaultAttendeeEmails,
           displayCompanyName: existing.name,
           sourceProspectId: prospectId,
-          notes: noteParts.filter(Boolean).join('\n')
+          notes: noteParts.filter(Boolean).join('\n'),
+          externalSyncStatus: AppointmentExternalSyncStatus.PENDING,
+          externalSyncError: null
         }
       });
     } else {

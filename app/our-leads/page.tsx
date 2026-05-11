@@ -8,6 +8,7 @@ import { safeLoadDb } from '@/lib/ui-data';
 import { LeadBookMeetingDialog } from './LeadBookMeetingDialog';
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
 import { LeadNotesComposer } from './LeadNotesComposer';
+import { LeadSafeSubmitButton } from './LeadSafeSubmitButton';
 import { SpeakProspectNameButton } from './SpeakProspectNameButton';
 import {
   bulkCreateProspectsAction,
@@ -417,7 +418,18 @@ function nextActionState(date: Date | null, now: Date) {
   return 'Scheduled';
 }
 
-function leadCommandIcon(kind: 'no_answer' | 'voicemail' | 'not_interested' | 'booked' | 'sold' | 'do_not_contact' | 'callback') {
+function leadCommandIcon(
+  kind:
+    | 'no_answer'
+    | 'voicemail'
+    | 'not_interested'
+    | 'booked'
+    | 'sold'
+    | 'do_not_contact'
+    | 'gatekeeper'
+    | 'wrong_number'
+    | 'callback'
+) {
   if (kind === 'voicemail') {
     return (
       <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -466,6 +478,25 @@ function leadCommandIcon(kind: 'no_answer' | 'voicemail' | 'not_interested' | 'b
     );
   }
 
+  if (kind === 'gatekeeper') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <rect x="4" y="4" width="16" height="16" rx="2.5" />
+        <path d="M12 8v4" />
+        <path d="M9.2 12.2c.8-.8 1.8-1.2 2.8-1.2s2 .4 2.8 1.2" />
+      </svg>
+    );
+  }
+
+  if (kind === 'wrong_number') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M7.4 4.6c-.6-.6-1.5-.6-2.1 0L3.5 6.4c-.8.8-1 2-.5 3 2.3 4.9 6.3 8.9 11.2 11.2 1 .5 2.2.3 3-.5l1.8-1.8c.6-.6.6-1.5 0-2.1l-2.7-2.7c-.5-.5-1.3-.6-2-.3l-1.8 1a15.1 15.1 0 0 1-3.6-3.6l1-1.8c.3-.7.2-1.5-.3-2L7.4 4.6Z" />
+        <path d="m8 8 8 8" />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
       <path d="M7.4 4.6c-.6-.6-1.5-.6-2.1 0L3.5 6.4c-.8.8-1 2-.5 3 2.3 4.9 6.3 8.9 11.2 11.2 1 .5 2.2.3 3-.5l1.8-1.8c.6-.6.6-1.5 0-2.1l-2.7-2.7c-.5-.5-1.3-.6-2-.3l-1.8 1a15.1 15.1 0 0 1-3.6-3.6l1-1.8c.3-.7.2-1.5-.3-2L7.4 4.6Z" />
@@ -476,13 +507,16 @@ function leadCommandIcon(kind: 'no_answer' | 'voicemail' | 'not_interested' | 'b
 const leadOutcomeCommands = [
   { value: 'no_answer', label: 'No answer', tone: 'info', icon: 'no_answer' as const },
   { value: 'voicemail', label: 'Left voicemail', tone: 'accent', icon: 'voicemail' as const },
+  { value: 'gatekeeper', label: 'Gatekeeper', tone: 'info', icon: 'gatekeeper' as const },
   { value: 'not_interested', label: 'Not interested', tone: 'warning', icon: 'not_interested' as const },
+  { value: 'wrong_number', label: 'Wrong number', tone: 'danger', icon: 'wrong_number' as const },
   { value: 'booked', label: 'Book', tone: 'success', icon: 'booked' as const },
   { value: 'sold', label: 'Sold', tone: 'gold', icon: 'sold' as const },
   { value: 'do_not_contact', label: 'Do not contact', tone: 'danger', icon: 'do_not_contact' as const }
 ] as const;
 
 const leadCallbackCommands = [
+  { value: 'later_today', label: 'Later today', meta: '+2 hours' },
   { value: 'tomorrow', label: 'Tomorrow', meta: '+1 day' },
   { value: '3_days', label: '3 days', meta: '+3 days' },
   { value: '1_week', label: '1 week', meta: '+7 days' },
@@ -710,8 +744,12 @@ export default async function OurLeadsPage({
                 ? 'No answer saved'
                 : updated === 'voicemail'
                   ? 'Voicemail saved'
+                  : updated === 'gatekeeper'
+                    ? 'Gatekeeper saved'
                   : updated === 'not_interested'
                     ? 'Not interested saved'
+                    : updated === 'wrong_number'
+                      ? 'Wrong number saved'
                     : updated === 'callback'
                       ? 'Callback scheduled'
                         : updated === 'do_not_contact'
@@ -1213,17 +1251,15 @@ export default async function OurLeadsPage({
                               meetingError={meetingError || undefined}
                             />
                           ) : (
-                            <button
+                            <LeadSafeSubmitButton
                               key={command.value}
-                              type="submit"
-                              className="lead-command-button"
-                              data-tone={command.tone}
                               name="outcome"
                               value={command.value}
-                            >
-                              <span className="lead-command-icon">{leadCommandIcon(command.icon)}</span>
-                              <span className="lead-command-label">{command.label}</span>
-                            </button>
+                              icon={leadCommandIcon(command.icon)}
+                              label={command.label}
+                              tone={command.tone}
+                              ariaLabel={`${command.label} outcome`}
+                            />
                           )
                         )}
                       </form>
@@ -1240,11 +1276,16 @@ export default async function OurLeadsPage({
                         <input type="hidden" name="city" value={selectedCity} />
                         <input type="hidden" name="nextActionDue" value={selectedDue} />
                         {leadCallbackCommands.map((command) => (
-                          <button key={command.value} type="submit" className="lead-command-button" name="preset" value={command.value}>
-                            <span className="lead-command-icon">{leadCommandIcon('callback')}</span>
-                            <span className="lead-command-label">{command.label}</span>
-                            <span className="lead-command-meta">{command.meta}</span>
-                          </button>
+                          <LeadSafeSubmitButton
+                            key={command.value}
+                            name="preset"
+                            value={command.value}
+                            icon={leadCommandIcon('callback')}
+                            label={command.label}
+                            meta={command.meta}
+                            tone="info"
+                            ariaLabel={`${command.label} follow-up`}
+                          />
                         ))}
                       </form>
                     </div>
