@@ -8,6 +8,7 @@ type ClinicTypeFilterSelectProps = {
   className?: string;
   name?: string;
   ariaLabel?: string;
+  allLabel?: string;
 };
 
 export function ClinicTypeFilterSelect({
@@ -15,7 +16,8 @@ export function ClinicTypeFilterSelect({
   options,
   className,
   name = 'clinicType',
-  ariaLabel = 'Filter leads by clinic type'
+  ariaLabel = 'Filter leads by clinic type',
+  allLabel = 'All niches'
 }: ClinicTypeFilterSelectProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -42,10 +44,10 @@ export function ClinicTypeFilterSelect({
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
       }}
     >
-      <option value="">All niches</option>
-      {options.map((clinicType) => (
-        <option key={clinicType} value={clinicType}>
-          {clinicType}
+      <option value="">{allLabel}</option>
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
         </option>
       ))}
     </select>

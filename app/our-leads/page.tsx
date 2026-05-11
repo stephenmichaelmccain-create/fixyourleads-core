@@ -32,6 +32,7 @@ type SearchParamShape = Promise<{
   view?: string;
   status?: string;
   city?: string;
+  source?: string;
   clinicType?: string;
   nextActionDue?: string;
   added?: string;
@@ -640,6 +641,7 @@ function buildPageHref({
   view,
   status,
   city,
+  source,
   clinicType,
   nextActionDue
 }: {
@@ -648,6 +650,7 @@ function buildPageHref({
   view?: string;
   status?: string;
   city?: string;
+  source?: string;
   clinicType?: string;
   nextActionDue?: string;
 }) {
@@ -671,6 +674,10 @@ function buildPageHref({
 
   if (city) {
     params.set('city', city);
+  }
+
+  if (source) {
+    params.set('source', source);
   }
 
   if (clinicType) {
@@ -828,6 +835,7 @@ export default async function OurLeadsPage({
   const searchQuery = String(params.q || '').trim();
   const normalizedSearchQuery = normalizeSearch(searchQuery);
   const selectedCity = String(params.city || '').trim();
+  const selectedSource = String(params.source || '').trim();
   const selectedClinicType = String(params.clinicType || '').trim();
   const selectedDue = String(params.nextActionDue || '').trim();
   const selectedProspectId = String(params.prospectId || '').trim();
@@ -916,6 +924,13 @@ export default async function OurLeadsPage({
         .filter(Boolean)
     )
   ).sort((left, right) => left.localeCompare(right));
+  const sourceOptions = Array.from(
+    new Set(
+      prospectRows
+        .map((prospect) => String(prospect.profile.source || '').trim())
+        .filter(Boolean)
+    )
+  ).sort((left, right) => left.localeCompare(right));
   const showingUntouched = !selectedView && !selectedStatus && !selectedDue;
   const leadQueueSessionId = await getLeadQueueSessionId();
 
@@ -946,6 +961,7 @@ export default async function OurLeadsPage({
     .filter((prospect) => (showingUntouched ? isUntouchedProspect(prospect) : true))
     .filter((prospect) => (selectedStatus ? prospect.status === selectedStatus : true))
     .filter((prospect) => (selectedCity ? prospect.city === selectedCity : true))
+    .filter((prospect) => (selectedSource ? prospect.profile.source === selectedSource : true))
     .filter((prospect) => (selectedClinicType ? prospect.profile.clinicType === selectedClinicType : true))
     .filter((prospect) => dueBucketMatches(prospect.nextActionAt, selectedDue, now))
     .sort(compareProspects);
@@ -979,6 +995,7 @@ export default async function OurLeadsPage({
       return searchFields.some((value) => normalizeSearch(value || '').includes(normalizedSearchQuery));
     })
     .filter((prospect) => (selectedCity ? prospect.city === selectedCity : true))
+    .filter((prospect) => (selectedSource ? prospect.profile.source === selectedSource : true))
     .filter((prospect) => (selectedClinicType ? prospect.profile.clinicType === selectedClinicType : true));
 
   const queueCounts = {
@@ -1025,6 +1042,7 @@ export default async function OurLeadsPage({
         view: selectedView,
         status: selectedStatus,
         city: selectedCity,
+        source: selectedSource,
         clinicType: selectedClinicType,
         nextActionDue: selectedDue
       })
@@ -1096,6 +1114,7 @@ export default async function OurLeadsPage({
         view: selectedView,
         status: selectedStatus,
         city: selectedCity,
+        source: selectedSource,
         clinicType: selectedClinicType,
         nextActionDue: selectedDue
       })}#selected-lead`
@@ -1238,6 +1257,14 @@ export default async function OurLeadsPage({
                 {selectedDue ? <input type="hidden" name="nextActionDue" value={selectedDue} /> : null}
                 <ClinicTypeFilterSelect
                   className="select-input lead-toolbar-select"
+                  defaultValue={selectedSource}
+                  options={sourceOptions}
+                  name="source"
+                  ariaLabel="Filter leads by source"
+                  allLabel="All sources"
+                />
+                <ClinicTypeFilterSelect
+                  className="select-input lead-toolbar-select"
                   defaultValue={selectedClinicType}
                   options={clinicTypeOptions}
                 />
@@ -1255,7 +1282,7 @@ export default async function OurLeadsPage({
                 </div>
               </form>
               <div className="workspace-action-rail lead-toolbar-actions">
-                {searchQuery || selectedStatus || selectedCity || selectedDue || selectedView ? (
+                {searchQuery || selectedStatus || selectedCity || selectedSource || selectedDue || selectedView ? (
                   <Link className="button-secondary prospect-reset-trigger" href="/leads" scroll={false}>
                     Reset view
                   </Link>
@@ -1268,6 +1295,7 @@ export default async function OurLeadsPage({
                   <input type="hidden" name="viewMode" value={selectedView} />
                   <input type="hidden" name="viewStatus" value={selectedStatus} />
                   <input type="hidden" name="viewCity" value={selectedCity} />
+                  <input type="hidden" name="viewSource" value={selectedSource} />
                   <input type="hidden" name="viewClinicType" value={selectedClinicType} />
                   <input type="hidden" name="viewNextActionDue" value={selectedDue} />
                   <div className="workspace-filter-row">
@@ -1387,6 +1415,7 @@ export default async function OurLeadsPage({
                       <input type="hidden" name="viewMode" value={selectedView} />
                       <input type="hidden" name="viewStatus" value={selectedStatus} />
                       <input type="hidden" name="viewCity" value={selectedCity} />
+                      <input type="hidden" name="viewSource" value={selectedSource} />
                       <input type="hidden" name="viewClinicType" value={selectedClinicType} />
                       <input type="hidden" name="viewNextActionDue" value={selectedDue} />
                       <div className="field-stack">
@@ -1424,6 +1453,7 @@ export default async function OurLeadsPage({
               showingUntouched={showingUntouched}
               searchQuery={searchQuery}
               selectedCity={selectedCity}
+              selectedSource={selectedSource}
               selectedClinicType={selectedClinicType}
               selectedView={selectedView}
               selectedStatus={selectedStatus}
@@ -1449,6 +1479,7 @@ export default async function OurLeadsPage({
                     view: selectedView,
                     status: selectedStatus,
                     city: selectedCity,
+                    source: selectedSource,
                     clinicType: selectedClinicType,
                     nextActionDue: selectedDue
                   });
@@ -1719,6 +1750,7 @@ export default async function OurLeadsPage({
                                     view={selectedView}
                                     status={selectedStatus}
                                     city={selectedCity}
+                                    source={selectedSource}
                                     clinicType={selectedClinicType}
                                     nextActionDue={selectedDue}
                                     companyName={selectedProspectView.name}
@@ -1758,6 +1790,7 @@ export default async function OurLeadsPage({
                               <input type="hidden" name="view" value={selectedView} />
                               <input type="hidden" name="status" value={selectedStatus} />
                               <input type="hidden" name="city" value={selectedCity} />
+                              <input type="hidden" name="source" value={selectedSource} />
                               <input type="hidden" name="clinicType" value={selectedClinicType} />
                               <input type="hidden" name="nextActionDue" value={selectedDue} />
                             </form>
@@ -1775,6 +1808,7 @@ export default async function OurLeadsPage({
                         <input type="hidden" name="view" value={selectedView} />
                         <input type="hidden" name="status" value={selectedStatus} />
                         <input type="hidden" name="city" value={selectedCity} />
+                        <input type="hidden" name="source" value={selectedSource} />
                         <input type="hidden" name="clinicType" value={selectedClinicType} />
                         <input type="hidden" name="nextActionDue" value={selectedDue} />
                         {leadCallbackCommands.map((command) => (
@@ -1873,6 +1907,7 @@ export default async function OurLeadsPage({
                       <input type="hidden" name="view" value={selectedView} />
                       <input type="hidden" name="status" value={selectedStatus} />
                       <input type="hidden" name="city" value={selectedCity} />
+                      <input type="hidden" name="source" value={selectedSource} />
                       <input type="hidden" name="clinicType" value={selectedClinicType} />
                       <input type="hidden" name="nextActionDue" value={selectedDue} />
                       <div className="lead-notes-header">

@@ -69,6 +69,7 @@ function buildOurLeadsHref({
   view,
   status,
   city,
+  source,
   clinicType,
   nextActionDue,
   updated,
@@ -91,6 +92,7 @@ function buildOurLeadsHref({
   view?: string;
   status?: string;
   city?: string;
+  source?: string;
   clinicType?: string;
   nextActionDue?: string;
   updated?: string;
@@ -145,6 +147,10 @@ function buildOurLeadsHref({
 
   if (city) {
     params.set('city', city);
+  }
+
+  if (source) {
+    params.set('source', source);
   }
 
   if (clinicType) {
@@ -533,6 +539,7 @@ function readCurrentView(formData: FormData) {
     view: readText(formData, 'viewMode'),
     status: readText(formData, 'viewStatus'),
     city: readText(formData, 'viewCity'),
+    source: readText(formData, 'viewSource'),
     clinicType: readText(formData, 'viewClinicType'),
     nextActionDue: readText(formData, 'viewNextActionDue')
   };
@@ -880,11 +887,12 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   const view = readText(formData, 'view');
   const status = readText(formData, 'status');
   const city = readText(formData, 'city');
+  const source = readText(formData, 'source');
   const clinicType = readText(formData, 'clinicType');
   const nextActionDue = readText(formData, 'nextActionDue');
 
   if (!prospectId) {
-    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, source, clinicType, nextActionDue }));
   }
 
   const leadQueueSessionId = await getLeadQueueSessionId();
@@ -937,7 +945,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   const selection = outcomeMap[outcome];
 
   if (!selection) {
-    redirect(buildOurLeadsHref({ prospectId, q, view, status, city, clinicType, nextActionDue }));
+    redirect(buildOurLeadsHref({ prospectId, q, view, status, city, source, clinicType, nextActionDue }));
   }
 
   if (outcome === 'booked') {
@@ -965,7 +973,7 @@ export async function updateProspectOutcomeAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, source, clinicType, nextActionDue }));
   }
 
   await ensureInternalCompany();
@@ -1031,6 +1039,7 @@ export async function createProspectMeetingAction(formData: FormData) {
   const view = readText(formData, 'view');
   const status = readText(formData, 'status');
   const city = readText(formData, 'city');
+  const source = readText(formData, 'source');
   const clinicType = readText(formData, 'clinicType');
   const nextActionDue = readText(formData, 'nextActionDue');
   const meetingAtRaw = readText(formData, 'meetingAt');
@@ -1054,7 +1063,7 @@ export async function createProspectMeetingAction(formData: FormData) {
   };
 
   if (!prospectId) {
-    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, source, clinicType, nextActionDue }));
   }
 
   const leadQueueSessionId = await getLeadQueueSessionId();
@@ -1191,7 +1200,7 @@ export async function createProspectMeetingAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, source, clinicType, nextActionDue }));
   }
 
   await ensureInternalCompany();
@@ -1415,11 +1424,12 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
   const view = readText(formData, 'view');
   const status = readText(formData, 'status');
   const city = readText(formData, 'city');
+  const source = readText(formData, 'source');
   const clinicType = readText(formData, 'clinicType');
   const nextActionDue = readText(formData, 'nextActionDue');
 
   if (!prospectId) {
-    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, source, clinicType, nextActionDue }));
   }
 
   const leadQueueSessionId = await getLeadQueueSessionId();
@@ -1427,7 +1437,7 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
   const callbackPlan = readCallbackPreset(preset);
 
   if (!callbackPlan) {
-    redirect(buildOurLeadsHref({ prospectId, q, view, status, city, clinicType, nextActionDue }));
+    redirect(buildOurLeadsHref({ prospectId, q, view, status, city, source, clinicType, nextActionDue }));
   }
 
   const existing = await db.prospect.findUnique({
@@ -1438,7 +1448,7 @@ export async function scheduleProspectCallbackAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, source, clinicType, nextActionDue }));
   }
 
   await ensureInternalCompany();
@@ -1498,6 +1508,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
   const view = readText(formData, 'view');
   const status = readText(formData, 'status');
   const city = readText(formData, 'city');
+  const source = readText(formData, 'source');
   const clinicType = readText(formData, 'clinicType');
   const nextActionDue = readText(formData, 'nextActionDue');
   const notes = readText(formData, 'notes');
@@ -1505,7 +1516,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
   const nextActionRaw = readText(formData, 'nextActionAt');
 
   if (!prospectId) {
-    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, source, clinicType, nextActionDue }));
   }
 
   const leadQueueSessionId = await getLeadQueueSessionId();
@@ -1537,7 +1548,7 @@ export async function updateProspectDetailsAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirect(buildOurLeadsHref({ q, view, status, city, clinicType, nextActionDue }));
+    redirect(buildOurLeadsHref({ q, view, status, city, source, clinicType, nextActionDue }));
   }
 
   await ensureInternalCompany();

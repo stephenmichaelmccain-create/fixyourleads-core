@@ -22,6 +22,7 @@ type LeadFilterBarProps = {
   showingUntouched: boolean;
   searchQuery: string;
   selectedCity: string;
+  selectedSource: string;
   selectedClinicType: string;
   selectedView: string;
   selectedStatus: string;
@@ -47,6 +48,7 @@ export function LeadFilterBar({
   showingUntouched,
   searchQuery,
   selectedCity,
+  selectedSource,
   selectedClinicType,
   selectedView,
   selectedStatus,
@@ -59,6 +61,7 @@ export function LeadFilterBar({
     const params = new URLSearchParams();
     applyParam(params, 'q', searchQuery);
     applyParam(params, 'city', selectedCity);
+    applyParam(params, 'source', selectedSource);
     applyParam(params, 'clinicType', selectedClinicType);
     applyParam(params, 'view', target.view || '');
     applyParam(params, 'status', target.status || '');
