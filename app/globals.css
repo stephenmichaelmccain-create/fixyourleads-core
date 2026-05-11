@@ -2960,17 +2960,17 @@ select {
 }
 
 .lead-toolbar-select {
-  min-width: 180px;
+  min-width: 160px;
 }
 
-.lead-toolbar-row {
+.workspace-search-bar.lead-toolbar-row {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: nowrap;
 }
 
-.lead-toolbar-form {
+.workspace-search-bar.lead-toolbar-form {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2979,21 +2979,23 @@ select {
   flex-wrap: nowrap;
 }
 
-.lead-toolbar-form .lead-toolbar-select {
+.workspace-search-bar.lead-toolbar-form .lead-toolbar-select {
   width: auto;
-  min-width: clamp(180px, 16vw, 240px);
-  max-width: 240px;
-  flex: 0 0 clamp(180px, 16vw, 240px);
+  min-width: clamp(150px, 13vw, 210px);
+  max-width: 210px;
+  flex: 0 0 clamp(150px, 13vw, 210px);
 }
 
 .lead-toolbar-search-field {
   position: relative;
-  flex: 1 1 420px;
-  min-width: 0;
+  flex: 1 1 clamp(240px, 26vw, 420px);
+  min-width: 220px;
+  max-width: 560px;
 }
 
-.lead-toolbar-search-field .text-input {
+.workspace-search-bar.lead-toolbar-form .lead-toolbar-search-field .text-input {
   width: 100%;
+  flex: 0 1 auto;
   padding-right: 94px;
 }
 
@@ -3007,7 +3009,7 @@ select {
   white-space: nowrap;
 }
 
-.lead-toolbar-actions {
+.workspace-action-rail.lead-toolbar-actions {
   display: inline-flex;
   align-items: center;
   gap: 12px;
