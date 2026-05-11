@@ -978,6 +978,8 @@ select {
     0 0 0 3px rgba(124, 58, 237, 0.14),
     0 18px 34px rgba(0, 0, 0, 0.2);
   background: linear-gradient(180deg, rgba(58, 45, 106, 0.98), rgba(39, 31, 77, 0.98));
+  /* Reserve room for the absolute-positioned "More info" rail. */
+  margin-right: calc(clamp(220px, 18vw, 252px) + 12px);
 }
 
 .lead-master-card-selected::before {
