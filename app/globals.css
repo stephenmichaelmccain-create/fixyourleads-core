@@ -1279,7 +1279,7 @@ select {
 }
 
 .lead-queue-list {
-  gap: 12px;
+  gap: 8px;
   grid-auto-flow: column;
   grid-auto-columns: minmax(360px, 34vw);
   grid-auto-rows: var(--lead-master-card-height, 430px);
@@ -1299,8 +1299,8 @@ select {
 }
 
 .lead-more-info-panel {
-  width: min(360px, 32vw);
-  min-width: 300px;
+  width: min(320px, 28vw);
+  min-width: 270px;
   min-height: 0;
   height: 100%;
   padding: 12px;
@@ -2699,7 +2699,7 @@ select {
 
   .lead-more-info-panel {
     min-width: 280px;
-    width: min(320px, 80vw);
+    width: min(300px, 76vw);
     height: auto;
   }
 

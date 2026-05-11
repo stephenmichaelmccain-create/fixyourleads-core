@@ -497,7 +497,7 @@ function buildMoreInfoModel(prospect: {
   const hiringSnippet = firstMatchingLine(lines, [/\bhiring\b/i, /\bnow hiring\b/i, /\breceptionist\b/i, /\bfront desk\b/i]);
   const hiringStatus = hiringSnippet ? 'Confirmed' : 'Not found';
   const hiringEvidence: MoreInfoEvidence = {
-    text: hiringSnippet || 'No hiring wording found in captured notes.',
+    text: hiringSnippet,
     source: hiringSnippet ? 'Careers / notes' : sourceLabel,
     url: sourceFallbackUrl
   };
@@ -506,7 +506,7 @@ function buildMoreInfoModel(prospect: {
   const reviewHasFriction = /wait|hold|rude|no answer|hard to reach|slow|friction/i.test(reviewSnippet);
   const reviewStatus = reviewSnippet && reviewHasFriction ? 'Friction found' : 'None found';
   const reviewEvidence: MoreInfoEvidence = {
-    text: reviewSnippet || 'No review friction wording found in captured notes.',
+    text: reviewSnippet,
     source: reviewSnippet ? 'Reviews / notes' : sourceLabel,
     url: sourceFallbackUrl
   };
@@ -514,28 +514,22 @@ function buildMoreInfoModel(prospect: {
   const contextLines = lines.filter((line) =>
     /\b(front desk|intake|handoff|staffing|call volume|reception|schedule|overflow|coverage)\b/i.test(line)
   );
-  const callerContext = contextLines.slice(0, 2).join(' ') || 'Operational context not captured yet.';
+  const callerContext = contextLines.slice(0, 2).join(' ');
 
   const contactEvidence: MoreInfoEvidence = {
-    text:
-      decisionMakerName !== 'Not found'
-        ? `Decision-maker context captured for ${decisionMakerName}.`
-        : 'Decision-maker identity still needs verification.',
+    text: '',
     source: sourceLabel,
     url: sourceFallbackUrl
   };
 
   const businessEvidence: MoreInfoEvidence = {
-    text:
-      appointmentTypes.length > 0 || topServices.length > 0
-        ? 'Service and appointment mix pulled from current lead notes.'
-        : 'Service mix not yet captured in lead notes.',
+    text: '',
     source: sourceLabel,
     url: sourceFallbackUrl
   };
 
   const contextEvidence: MoreInfoEvidence = {
-    text: contextLines[0] || 'No operational pressure line captured yet.',
+    text: '',
     source: contextLines[0] ? 'Notes' : sourceLabel,
     url: sourceFallbackUrl
   };
@@ -1566,14 +1560,13 @@ export default async function OurLeadsPage({
                         <aside className="lead-more-info-panel" aria-label={`More info for ${prospect.name}`}>
                           <div className="lead-more-info-header">
                             <strong>More info</strong>
-                            <span className="tiny-muted">Business intel</span>
                           </div>
                           <div className="lead-more-info-body">
                             <section className="lead-more-info-section">
                               <h3>Contact</h3>
                               <div className="lead-more-info-list">
                                 <div>
-                                  <span className="tiny-muted">Decision maker</span>
+                                  <span className="tiny-muted">Contact</span>
                                   <strong>{moreInfo.decisionMakerName}</strong>
                                 </div>
                                 {moreInfo.decisionMakerRole ? (
@@ -1583,7 +1576,7 @@ export default async function OurLeadsPage({
                                   </div>
                                 ) : null}
                                 <div>
-                                  <span className="tiny-muted">Best line</span>
+                                  <span className="tiny-muted">Line</span>
                                   <strong>{moreInfo.bestLineType}</strong>
                                 </div>
                                 {moreInfo.email ? (
@@ -1593,30 +1586,25 @@ export default async function OurLeadsPage({
                                   </div>
                                 ) : null}
                                 <div>
-                                  <span className="tiny-muted">Source</span>
-                                  <strong>{moreInfo.contactSourceLabel}</strong>
-                                </div>
-                                <div>
                                   <span className="tiny-muted">Verified</span>
                                   <strong>{moreInfo.lastVerifiedLabel}</strong>
                                 </div>
                               </div>
-                              <div className="lead-more-info-evidence">
-                                <span>{truncateCopy(moreInfo.contactEvidence.text, 88)}</span>
-                                {moreInfo.contactEvidence.url ? (
+                              {moreInfo.contactEvidence.url ? (
+                                <div className="lead-more-info-evidence">
                                   <a href={moreInfo.contactEvidence.url} target="_blank" rel="noreferrer">
                                     {moreInfo.contactEvidence.source}
                                   </a>
-                                ) : null}
-                              </div>
+                                </div>
+                              ) : null}
                             </section>
 
                             <section className="lead-more-info-section">
-                              <h3>Business snapshot</h3>
+                              <h3>Business</h3>
                               <div className="lead-more-info-list">
                                 {moreInfo.appointmentTypes.length > 0 ? (
                                   <div>
-                                    <span className="tiny-muted">Appointment types</span>
+                                    <span className="tiny-muted">Appt types</span>
                                     <strong>{truncateCopy(moreInfo.appointmentTypes.join(', '), 92)}</strong>
                                   </div>
                                 ) : null}
@@ -1627,67 +1615,71 @@ export default async function OurLeadsPage({
                                   </div>
                                 ) : null}
                                 <div>
-                                  <span className="tiny-muted">Booking flow</span>
+                                  <span className="tiny-muted">Flow</span>
                                   <strong>{moreInfo.bookingFlow}</strong>
                                 </div>
                               </div>
-                              <div className="lead-more-info-evidence">
-                                <span>{truncateCopy(moreInfo.businessEvidence.text, 88)}</span>
-                                {moreInfo.businessEvidence.url ? (
+                              {moreInfo.businessEvidence.url ? (
+                                <div className="lead-more-info-evidence">
                                   <a href={moreInfo.businessEvidence.url} target="_blank" rel="noreferrer">
                                     {moreInfo.businessEvidence.source}
                                   </a>
-                                ) : null}
-                              </div>
-                            </section>
-
-                            <section className="lead-more-info-section">
-                              <h3>Hiring signal</h3>
-                              <div className="lead-more-info-list">
-                                <div>
-                                  <span className="tiny-muted">Status</span>
-                                  <strong>{moreInfo.hiringStatus}</strong>
                                 </div>
-                              </div>
-                              <div className="lead-more-info-evidence">
-                                <span>{truncateCopy(moreInfo.hiringEvidence.text, 88)}</span>
-                                {moreInfo.hiringEvidence.url ? (
-                                  <a href={moreInfo.hiringEvidence.url} target="_blank" rel="noreferrer">
-                                    {moreInfo.hiringEvidence.source}
-                                  </a>
-                                ) : null}
-                              </div>
+                              ) : null}
                             </section>
 
                             <section className="lead-more-info-section">
-                              <h3>Review friction signal</h3>
-                              <div className="lead-more-info-list">
-                                <div>
-                                  <span className="tiny-muted">Status</span>
-                                  <strong>{moreInfo.reviewStatus}</strong>
+                              <h3>Hiring</h3>
+                              <div className="lead-more-info-note">
+                                <strong>{moreInfo.hiringStatus}</strong>
+                              </div>
+                              {moreInfo.hiringEvidence.text || moreInfo.hiringEvidence.url ? (
+                                <div className="lead-more-info-evidence">
+                                  {moreInfo.hiringEvidence.text ? (
+                                    <span>{truncateCopy(moreInfo.hiringEvidence.text, 88)}</span>
+                                  ) : null}
+                                  {moreInfo.hiringEvidence.url ? (
+                                    <a href={moreInfo.hiringEvidence.url} target="_blank" rel="noreferrer">
+                                      {moreInfo.hiringEvidence.source}
+                                    </a>
+                                  ) : null}
                                 </div>
-                              </div>
-                              <div className="lead-more-info-evidence">
-                                <span>{truncateCopy(moreInfo.reviewEvidence.text, 88)}</span>
-                                {moreInfo.reviewEvidence.url ? (
-                                  <a href={moreInfo.reviewEvidence.url} target="_blank" rel="noreferrer">
-                                    {moreInfo.reviewEvidence.source}
-                                  </a>
-                                ) : null}
-                              </div>
+                              ) : null}
                             </section>
 
                             <section className="lead-more-info-section">
-                              <h3>Caller leg-up notes</h3>
-                              <div className="lead-more-info-note">{truncateCopy(moreInfo.callerContext, 120)}</div>
-                              <div className="lead-more-info-evidence">
-                                <span>{truncateCopy(moreInfo.contextEvidence.text, 88)}</span>
-                                {moreInfo.contextEvidence.url ? (
+                              <h3>Review</h3>
+                              <div className="lead-more-info-note">
+                                <strong>{moreInfo.reviewStatus}</strong>
+                              </div>
+                              {moreInfo.reviewEvidence.text || moreInfo.reviewEvidence.url ? (
+                                <div className="lead-more-info-evidence">
+                                  {moreInfo.reviewEvidence.text ? (
+                                    <span>{truncateCopy(moreInfo.reviewEvidence.text, 88)}</span>
+                                  ) : null}
+                                  {moreInfo.reviewEvidence.url ? (
+                                    <a href={moreInfo.reviewEvidence.url} target="_blank" rel="noreferrer">
+                                      {moreInfo.reviewEvidence.source}
+                                    </a>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </section>
+
+                            <section className="lead-more-info-section">
+                              <h3>Notes</h3>
+                              {moreInfo.callerContext ? (
+                                <div className="lead-more-info-note">{truncateCopy(moreInfo.callerContext, 120)}</div>
+                              ) : (
+                                <div className="lead-more-info-note tiny-muted">No extra context yet.</div>
+                              )}
+                              {moreInfo.contextEvidence.url ? (
+                                <div className="lead-more-info-evidence">
                                   <a href={moreInfo.contextEvidence.url} target="_blank" rel="noreferrer">
                                     {moreInfo.contextEvidence.source}
                                   </a>
-                                ) : null}
-                              </div>
+                                </div>
+                              ) : null}
                             </section>
                           </div>
                         </aside>
