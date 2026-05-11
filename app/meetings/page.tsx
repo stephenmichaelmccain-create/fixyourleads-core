@@ -359,10 +359,9 @@ export default async function MeetingsPage({
           )}
 
           <div className={styles.hero}>
-            <div>
+            <div className={styles.heroLead}>
               <div className={styles.heroTitleWrap}>
                 <h1 className={styles.heroTitle}>{meetingFlowStageLabel(selectedStage)}</h1>
-                <span className={styles.heroBadge}>{meetingsToday} today</span>
               </div>
                 <div className={styles.heroActions}>
                   <ManualMeetingDialog
@@ -394,7 +393,10 @@ export default async function MeetingsPage({
                 <div>
                   <div className={styles.heroStatLabel}>Next call in</div>
                   <div className={styles.heroStatValue}>{formatNextCallCountdown(nextMeeting?.startTime || null)}</div>
-                  <div className={styles.heroStatCopy}>{nextMeeting ? formatMeetingDay(nextMeeting.startTime) : 'Nothing booked yet'}</div>
+                  <div className={styles.heroStatMetaRow}>
+                    <span className={styles.heroStatCopy}>{nextMeeting ? formatMeetingDay(nextMeeting.startTime) : 'Nothing booked yet'}</span>
+                    <span className={styles.heroStatPill}>{meetingsToday} today</span>
+                  </div>
                 </div>
               </div>
 
@@ -446,7 +448,7 @@ export default async function MeetingsPage({
                   <div className={styles.heroStatLabel}>Needs prep</div>
                   <div className={styles.heroStatValue}>{needsPrepCount}</div>
                   <div className={styles.heroStatCopy}>
-                    {missingLinkCount} missing a join link, {syncIssueCount + syncPendingCount} need calendar sync attention, {evidenceMissingCount} missing call evidence
+                    {missingLinkCount} links, {syncIssueCount + syncPendingCount} sync, {evidenceMissingCount} evidence missing
                   </div>
                 </div>
               </div>

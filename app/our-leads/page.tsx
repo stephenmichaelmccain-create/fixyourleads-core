@@ -15,6 +15,7 @@ import { claimFirstAvailableProspect, getLeadQueueSessionId, isProspectClaimedBy
 import { LeadQueueAutoCenter } from './LeadQueueAutoCenter';
 import { LeadNotesComposer } from './LeadNotesComposer';
 import { LeadQueueSessionKeeper } from './LeadQueueSessionKeeper';
+import { ProspectDrawerAutoClose } from './ProspectDrawerAutoClose';
 import { SpeakProspectNameButton } from './SpeakProspectNameButton';
 import {
   bulkCreateProspectsAction,
@@ -814,12 +815,9 @@ const leadOutcomeCommands = [
 
 const leadCallbackCommands = [
   { value: 'tomorrow', label: 'Tomorrow', meta: '+1 day' },
-  { value: '3_days', label: '3 days', meta: '+3 days' },
   { value: '1_week', label: '1 week', meta: '+7 days' },
   { value: '1_month', label: '1 month', meta: '+30 days' }
 ] as const;
-
-const leadQuickNotes = ['Gatekeeper', 'Call later', 'Wrong contact', 'Decision maker unavailable'];
 
 export default async function OurLeadsPage({
   searchParams
@@ -1147,6 +1145,7 @@ export default async function OurLeadsPage({
 
   return (
     <LayoutShell title="Leads" section="leads" variant="workspace" hidePageHeader>
+      <ProspectDrawerAutoClose />
       <LeadQueueSessionKeeper
         hasSession={Boolean(leadQueueSessionId)}
         selectedProspectId={effectiveSelectedProspectId || undefined}
@@ -1497,52 +1496,35 @@ export default async function OurLeadsPage({
                   const notePreview = leadNotePreview(prospect.plainNotes);
                   const selected = prospect.id === effectiveSelectedProspectId;
                   const moreInfo = selected ? buildMoreInfoModel(prospect) : null;
-                  const detailsRows =
+                  const detailsPanel =
                     selected && moreInfo
-                      ? [
-                          {
-                            label: 'Contact',
-                            value: truncateCopy(
-                              [moreInfo.decisionMakerName, moreInfo.decisionMakerRole, moreInfo.email].filter(Boolean).join(' · ') ||
-                                'Not found',
-                              132
-                            )
-                          },
-                          {
-                            label: 'Business',
-                            value: truncateCopy(
-                              [
-                                moreInfo.appointmentTypes.length > 0
-                                  ? `Appts: ${moreInfo.appointmentTypes.join(', ')}`
-                                  : '',
-                                moreInfo.topServices.length > 0 ? `Services: ${moreInfo.topServices.join(', ')}` : '',
-                                `Flow: ${moreInfo.bookingFlow}`
-                              ]
-                                .filter(Boolean)
-                                .join(' • '),
-                              152
-                            )
-                          },
-                          {
-                            label: 'Hiring',
-                            value: truncateCopy(
-                              [moreInfo.hiringStatus, moreInfo.hiringEvidence.text].filter(Boolean).join(' • ') || 'Not found',
-                              152
-                            )
-                          },
-                          {
-                            label: 'Review',
-                            value: truncateCopy(
-                              [moreInfo.reviewStatus, moreInfo.reviewEvidence.text].filter(Boolean).join(' • ') || 'Not found',
-                              152
-                            )
-                          },
-                          {
-                            label: 'Notes',
-                            value: truncateCopy(moreInfo.callerContext || 'No extra context yet.', 152)
-                          }
-                        ]
-                      : [];
+                      ? {
+                          listedPerson: truncateCopy(
+                            [moreInfo.decisionMakerName, moreInfo.decisionMakerRole].filter(Boolean).join(' · ') ||
+                              'No listed person yet',
+                            160
+                          ),
+                          business: truncateCopy(
+                            [
+                              moreInfo.appointmentTypes.length > 0 ? `Appointments: ${moreInfo.appointmentTypes.join(', ')}` : '',
+                              moreInfo.topServices.length > 0 ? `Services: ${moreInfo.topServices.join(', ')}` : '',
+                              `Flow: ${moreInfo.bookingFlow}`
+                            ]
+                              .filter(Boolean)
+                              .join(' • ') || 'No business details yet',
+                            200
+                          ),
+                          hiring: truncateCopy(
+                            [moreInfo.hiringStatus, moreInfo.hiringEvidence.text].filter(Boolean).join(' • ') || 'No hiring signal yet',
+                            180
+                          ),
+                          review: truncateCopy(
+                            [moreInfo.reviewStatus, moreInfo.reviewEvidence.text].filter(Boolean).join(' • ') || 'No review signal yet',
+                            180
+                          ),
+                          notes: truncateCopy(moreInfo.callerContext || 'No extra context yet.', 220)
+                        }
+                      : null;
 
                   return (
                     <Fragment key={prospect.id}>
@@ -1550,7 +1532,9 @@ export default async function OurLeadsPage({
                         className={`lead-master-card${selected ? ' lead-master-card-selected' : ''}`}
                         id={selected ? 'selected-lead' : undefined}
                       >
-                        <Link className="lead-master-overlay" href={rowHref} aria-label={`Select ${prospect.name}`} scroll={false} />
+                        {!selected ? (
+                          <Link className="lead-master-overlay" href={rowHref} aria-label={`Select ${prospect.name}`} scroll={false} />
+                        ) : null}
                         <div className="lead-master-header">
                           <div className="lead-master-select">
                             <div className="lead-master-kicker">
@@ -1570,26 +1554,13 @@ export default async function OurLeadsPage({
                                 {leadContactLine ? <div className="lead-queue-contact-name">{leadContactLine}</div> : null}
                                 <div className="lead-queue-subline">{leadSummary || 'No location or website saved yet'}</div>
                               </div>
-                              {leadNotesSummary || notePreview || detailsRows.length > 0 ? (
+                              {leadNotesSummary || notePreview ? (
                                 <div className="lead-card-notes-column">
                                   {leadNotesSummary ? (
                                     <div className="lead-card-summary">{leadNotesSummary}</div>
                                   ) : notePreview ? (
                                     <div className="lead-queue-note-chip" title={notePreview}>
                                       {notePreview}
-                                    </div>
-                                  ) : null}
-                                  {detailsRows.length > 0 ? (
-                                    <div className="lead-card-details-note">
-                                      <span className="key-value-label">Details notes</span>
-                                      <div className="lead-card-details-list">
-                                        {detailsRows.map((row) => (
-                                          <div key={row.label}>
-                                            <span className="tiny-muted">{row.label}</span>
-                                            <strong>{row.value}</strong>
-                                          </div>
-                                        ))}
-                                      </div>
                                     </div>
                                   ) : null}
                                 </div>
@@ -1650,6 +1621,35 @@ export default async function OurLeadsPage({
                           )}
                         </div>
                       </section>
+                      {detailsPanel ? (
+                        <aside className="lead-more-info-panel" aria-label="Selected lead details extension">
+                          <div className="lead-more-info-header">
+                            <strong>More details</strong>
+                          </div>
+                          <div className="lead-more-info-body">
+                            <div className="lead-more-info-section">
+                              <h3>Listed person</h3>
+                              <div className="lead-more-info-note">{detailsPanel.listedPerson}</div>
+                            </div>
+                            <div className="lead-more-info-section">
+                              <h3>Business snapshot</h3>
+                              <div className="lead-more-info-note">{detailsPanel.business}</div>
+                            </div>
+                            <div className="lead-more-info-section">
+                              <h3>Hiring signal</h3>
+                              <div className="lead-more-info-note">{detailsPanel.hiring}</div>
+                            </div>
+                            <div className="lead-more-info-section">
+                              <h3>Review signal</h3>
+                              <div className="lead-more-info-note">{detailsPanel.review}</div>
+                            </div>
+                            <div className="lead-more-info-section">
+                              <h3>Caller notes</h3>
+                              <div className="lead-more-info-note">{detailsPanel.notes}</div>
+                            </div>
+                          </div>
+                        </aside>
+                      ) : null}
                     </Fragment>
                   );
                 })}
@@ -1865,7 +1865,6 @@ export default async function OurLeadsPage({
                         </div>
                         <LeadNotesComposer
                           initialNotes={selectedProspectView.plainNotes}
-                          quickNotes={leadQuickNotes}
                           textAreaId="lead-notes-editor"
                           textAreaName="notes"
                         />
