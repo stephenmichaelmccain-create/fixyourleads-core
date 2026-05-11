@@ -1058,6 +1058,9 @@ export default async function OurLeadsPage({
     selectedQueueIndex >= 0
       ? renderedProspects[Math.min(selectedQueueIndex + 1, Math.max(renderedProspects.length - 1, 0))]?.id || ''
       : '';
+  const hasActiveLeadViewFilters = Boolean(
+    searchQuery || selectedStatus || selectedCity || selectedSource || selectedDue || selectedView
+  );
 
   const [selectedProspect, meetingTeamDefaults, suggestedMeetingSlots] = await Promise.all([
     effectiveSelectedProspectId
@@ -1281,11 +1284,15 @@ export default async function OurLeadsPage({
                 </div>
               </form>
               <div className="workspace-action-rail lead-toolbar-actions">
-                {searchQuery || selectedStatus || selectedCity || selectedSource || selectedDue || selectedView ? (
-                  <Link className="button-secondary prospect-reset-trigger" href="/leads" scroll={false}>
-                    Reset view
-                  </Link>
-                ) : null}
+                <Link
+                  className={`button-secondary prospect-reset-trigger${hasActiveLeadViewFilters ? '' : ' is-placeholder'}`}
+                  href="/leads"
+                  scroll={false}
+                  aria-hidden={hasActiveLeadViewFilters ? undefined : true}
+                  tabIndex={hasActiveLeadViewFilters ? undefined : -1}
+                >
+                  Reset view
+                </Link>
                 <details className="prospect-add-drawer" id="add-prospect" open={shouldOpenAddProspect}>
                   <summary className="button-secondary prospect-add-trigger">Add lead</summary>
                   <div className="prospect-drawer-panel">

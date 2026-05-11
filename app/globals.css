@@ -177,11 +177,13 @@ select {
   align-content: start;
   min-height: calc(100vh - 32px);
   max-height: calc(100vh - 32px);
-  padding: 12px;
+  padding: 14px 12px;
   border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: linear-gradient(180deg, rgba(25, 22, 54, 0.94) 0%, rgba(17, 15, 41, 0.96) 100%);
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.26);
+  border: 1px solid rgba(198, 188, 243, 0.14);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(111, 142, 255, 0.14), transparent 42%),
+    linear-gradient(180deg, rgba(23, 23, 52, 0.95) 0%, rgba(14, 15, 38, 0.97) 100%);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.3);
 }
 
 .app-sidebar-brand {
@@ -290,7 +292,7 @@ select {
 
 .app-nav {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   align-content: start;
   min-width: 0;
 }
@@ -314,22 +316,24 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
-  min-height: 48px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 245, 237, 0.72);
-  font-size: 13px;
-  font-weight: 600;
+  gap: 11px;
+  min-height: 50px;
+  padding: 10px 13px;
+  border-radius: 17px;
+  border: 1px solid rgba(194, 184, 240, 0.14);
+  background: rgba(21, 23, 51, 0.58);
+  color: rgba(231, 228, 245, 0.78);
+  font-size: 13.5px;
+  font-weight: 620;
   line-height: 1;
   text-decoration: none;
+  backdrop-filter: blur(6px);
   transition:
     background-color 160ms ease,
     border-color 160ms ease,
     color 160ms ease,
-    transform 160ms ease;
+    transform 160ms ease,
+    box-shadow 160ms ease;
   white-space: normal;
 }
 
@@ -337,9 +341,12 @@ select {
 .nav-utility-link:hover,
 .nav-link.is-active,
 .nav-utility-link.is-active {
-  color: #fff7f0;
-  background: rgba(124, 58, 237, 0.16);
-  border-color: rgba(167, 139, 250, 0.2);
+  color: #f5f3ff;
+  background: linear-gradient(135deg, rgba(72, 96, 180, 0.34), rgba(93, 72, 188, 0.34));
+  border-color: rgba(178, 161, 244, 0.46);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 18px rgba(35, 39, 92, 0.28);
   transform: translateX(1px);
 }
 
@@ -347,19 +354,25 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   flex: 0 0 auto;
+  color: rgba(207, 196, 246, 0.88);
 }
 
 .nav-link-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .nav-link-label {
   min-width: 0;
   line-height: 1.15;
+}
+
+.nav-link.is-active .nav-link-icon,
+.nav-utility-link.is-active .nav-link-icon {
+  color: #e7dcff;
 }
 
 .app-bottom-nav {
@@ -3149,9 +3162,11 @@ select {
 
 .lead-toolbar-search-field {
   position: relative;
-  flex: 1 1 clamp(240px, 26vw, 420px);
-  min-width: 220px;
-  max-width: 560px;
+  flex: 0 0 460px;
+  width: 460px;
+  min-width: 460px;
+  max-width: 460px;
+  margin-right: auto;
 }
 
 .workspace-search-bar.lead-toolbar-form .lead-toolbar-search-field .text-input {
@@ -4248,6 +4263,12 @@ select {
 .prospect-add-trigger,
 .prospect-reset-trigger {
   min-width: 132px;
+  width: 132px;
+}
+
+.prospect-reset-trigger.is-placeholder {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .prospect-drawer-panel {
