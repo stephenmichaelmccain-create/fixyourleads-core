@@ -322,6 +322,16 @@ function isBulkHeaderRow(columns: string[]) {
   return isBulkHeaderCell(name, ['business name', 'name', 'clinic name']) && (hasPhoneHeader || hasCategoryHeader);
 }
 
+function parseBulkDate(value: string) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const date = new Date(trimmed);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function parseBulkLeadColumns(row: string) {
   const columns = splitBulkRow(row);
 
@@ -335,9 +345,12 @@ function parseBulkLeadColumns(row: string) {
       ownerNameRaw = '',
       websiteRaw = '',
       hoursRaw = '',
-      nextActionRaw = '',
-      ...notesParts
+      notesOrNextActionRaw = '',
+      note2OrNotesRaw = '',
+      ...remainingParts
     ] = columns;
+    const legacyNextActionAt = parseBulkDate(notesOrNextActionRaw);
+    const remainingText = [note2OrNotesRaw, ...remainingParts].filter(Boolean).join(', ').trim();
 
     return {
       nameRaw,
@@ -348,8 +361,9 @@ function parseBulkLeadColumns(row: string) {
       ownerNameRaw,
       websiteRaw,
       hoursRaw,
-      nextActionRaw,
-      notesRaw: notesParts.join(', ').trim()
+      nextActionRaw: legacyNextActionAt ? notesOrNextActionRaw : '',
+      notesRaw: legacyNextActionAt ? remainingText : notesOrNextActionRaw,
+      note2Raw: legacyNextActionAt ? '' : remainingText
     };
   }
 
@@ -362,9 +376,12 @@ function parseBulkLeadColumns(row: string) {
       ownerNameRaw = '',
       websiteRaw = '',
       hoursRaw = '',
-      nextActionRaw = '',
-      ...notesParts
+      notesOrNextActionRaw = '',
+      note2OrNotesRaw = '',
+      ...remainingParts
     ] = columns;
+    const legacyNextActionAt = parseBulkDate(notesOrNextActionRaw);
+    const remainingText = [note2OrNotesRaw, ...remainingParts].filter(Boolean).join(', ').trim();
 
     return {
       nameRaw,
@@ -375,8 +392,9 @@ function parseBulkLeadColumns(row: string) {
       ownerNameRaw,
       websiteRaw,
       hoursRaw,
-      nextActionRaw,
-      notesRaw: notesParts.join(', ').trim()
+      nextActionRaw: legacyNextActionAt ? notesOrNextActionRaw : '',
+      notesRaw: legacyNextActionAt ? remainingText : notesOrNextActionRaw,
+      note2Raw: legacyNextActionAt ? '' : remainingText
     };
   }
 
@@ -387,9 +405,10 @@ function parseBulkLeadColumns(row: string) {
     ownerNameRaw = '',
     websiteRaw = '',
     hoursRaw = '',
-    nextActionRaw = '',
+    notesOrNextActionRaw = '',
     ...notesParts
   ] = columns;
+  const legacyNextActionAt = parseBulkDate(notesOrNextActionRaw);
 
   return {
     nameRaw,
@@ -400,8 +419,11 @@ function parseBulkLeadColumns(row: string) {
     ownerNameRaw,
     websiteRaw,
     hoursRaw,
-    nextActionRaw,
-    notesRaw: notesParts.join(', ').trim()
+    nextActionRaw: legacyNextActionAt ? notesOrNextActionRaw : '',
+    notesRaw: legacyNextActionAt
+      ? notesParts.join(', ').trim()
+      : [notesOrNextActionRaw, ...notesParts].filter(Boolean).join(', ').trim(),
+    note2Raw: ''
   };
 }
 
@@ -807,7 +829,8 @@ export async function bulkCreateProspectsAction(formData: FormData) {
       websiteRaw,
       hoursRaw,
       nextActionRaw,
-      notesRaw
+      notesRaw,
+      note2Raw
     } = parseBulkLeadColumns(row);
     const name = nameRaw?.trim();
     const clinicType = clinicTypeRaw?.trim() || null;
@@ -825,7 +848,7 @@ export async function bulkCreateProspectsAction(formData: FormData) {
     const clinicKey = normalizeClinicKey(name);
     const normalizedPhone = phoneRaw ? normalizeOptionalPhone(phoneRaw) : null;
     const websiteKey = normalizeOptionalWebsiteKey(websiteRaw);
-    const nextActionAt = nextActionRaw ? new Date(nextActionRaw) : null;
+    const nextActionAt = parseBulkDate(nextActionRaw);
 
     if (!clinicKey) {
       invalidSkippedCount += 1;
@@ -833,11 +856,6 @@ export async function bulkCreateProspectsAction(formData: FormData) {
     }
 
     if (phoneRaw && !normalizedPhone) {
-      invalidSkippedCount += 1;
-      continue;
-    }
-
-    if (nextActionAt && Number.isNaN(nextActionAt.getTime())) {
       invalidSkippedCount += 1;
       continue;
     }
@@ -869,7 +887,8 @@ export async function bulkCreateProspectsAction(formData: FormData) {
               plainNotes: notesRaw || null,
               clinicType,
               sourceLabel,
-              operatingHours: hoursRaw || null
+              operatingHours: hoursRaw || null,
+              note2: note2Raw || null
             })
           },
           select: {

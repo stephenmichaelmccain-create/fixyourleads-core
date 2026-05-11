@@ -626,7 +626,7 @@ function demoProspects(now: Date) {
       lastCallOutcome: null,
       nextActionAt: hoursFromNow(2),
       notes:
-        'Decision maker: Dr. Mia Johnson. Front desk said best callback after lunch.\\nSource: Google Maps import.',
+        'fyl:note2=Confirmed decision maker. Front desk said Dr. Mia is usually open after lunch, and Google Maps import showed phone-only booking flow with missed-call risk.\\nDecision maker: Dr. Mia Johnson. Front desk said best callback after lunch.\\nSource: Google Maps import.',
       claimSessionId: null,
       claimExpiresAt: null,
       updatedAt: hoursAgo(1),
@@ -645,7 +645,7 @@ function demoProspects(now: Date) {
       lastCallOutcome: 'Spoke with gatekeeper, call back tomorrow morning',
       nextActionAt: hoursFromNow(18),
       notes:
-        'Office manager requested pricing deck by email before owner callback.\\nSource: Website lead form.',
+        'fyl:note2=Office manager wants pricing context first. Good follow-up angle: reduce front-desk call load before the owner callback tomorrow morning.\\nOffice manager requested pricing deck by email before owner callback.\\nSource: Website lead form.',
       claimSessionId: null,
       claimExpiresAt: null,
       updatedAt: hoursAgo(2),
@@ -672,7 +672,7 @@ function demoProspects(now: Date) {
       lastCallOutcome: 'Left voicemail with callback number',
       nextActionAt: hoursFromNow(24),
       notes:
-        'Owner cell appears in notes from referral partner.\\nSource: Partner referral list.',
+        'fyl:note2=Referral partner included owner cell. Keep this short and reference patient intake coverage instead of a broad automation pitch.\\nOwner cell appears in notes from referral partner.\\nSource: Partner referral list.',
       claimSessionId: null,
       claimExpiresAt: null,
       updatedAt: hoursAgo(3),
@@ -699,7 +699,7 @@ function demoProspects(now: Date) {
       lastCallOutcome: 'Booked demo for next week',
       nextActionAt: hoursFromNow(72),
       notes:
-        'Booked for Tuesday 10:00 AM with owner and office manager.\\nSource: Cold outreach.',
+        'fyl:note2=Demo is booked with both owner and office manager. Bring missed-call examples, booking automation screenshots, and a simple handoff plan.\\nBooked for Tuesday 10:00 AM with owner and office manager.\\nSource: Cold outreach.',
       claimSessionId: null,
       claimExpiresAt: null,
       updatedAt: hoursAgo(5),
@@ -1544,13 +1544,13 @@ export default async function OurLeadsPage({
                           className="text-area"
                           placeholder={
                             'Paste one business per line in this order:\n' +
-                            'Business name, niche, source, phone, city, contact, website, hours, next action, notes\n\n' +
-                            'Glow Med Spa, Med Spa, Google Maps, (555) 555-5555, Austin, Jamie Reed, glowmedspa.com, Mon-Fri 8 AM-5 PM, 2026-04-30 10:00, Warm Instagram lead\n' +
-                            'Premier Eye Center, Optometry, Indeed, (555) 111-2222, Denver, Alex Stone, premiereye.com, Sat 9 AM-1 PM, , '
+                            'Business name, niche, source, phone, city, contact, website, hours, notes, note2\n\n' +
+                            'Glow Med Spa, Med Spa, Google Maps, (555) 555-5555, Austin, Jamie Reed, glowmedspa.com, Mon-Fri 8 AM-5 PM, Warm Instagram lead, Owner mentioned missed calls after 4 PM\n' +
+                            'Premier Eye Center, Optometry, Indeed, (555) 111-2222, Denver, Alex Stone, premiereye.com, Sat 9 AM-1 PM, Hiring signal from front desk, Ask about weekend appointment overflow'
                           }
                         />
                         <div className="tiny-muted">
-                          Paste comma, pipe, or tab-separated rows. New format: business name, niche, source, phone, city, contact, website, hours, next action, notes. Older 9-column and legacy 8-column rows still work, and header rows are ignored.
+                          Paste comma, pipe, or tab-separated rows. New format: business name, niche, source, phone, city, contact, website, hours, notes, note2. Notes show on the lead card; note2 fills the More information card. Older rows with a real next-action date still work, and header rows are ignored.
                         </div>
                       </div>
                       <div className="workspace-filter-actions">
@@ -1613,18 +1613,30 @@ export default async function OurLeadsPage({
                   const notePreview = leadNotePreview(prospect.plainNotes);
                   const selected = prospect.id === effectiveSelectedProspectId;
                   const moreInfo = selected ? buildMoreInfoModel(prospect) : null;
+                  const explicitNote2 = compactLeadText(prospect.profile.note2);
                   const note2 =
-                    selected && moreInfo
+                    selected
                       ? truncateCopy(
-                          [
-                            [moreInfo.decisionMakerName, moreInfo.decisionMakerRole].filter(Boolean).join(' · '),
-                            moreInfo.bookingFlow && moreInfo.bookingFlow !== 'Not found' ? `Flow: ${moreInfo.bookingFlow}` : '',
-                            moreInfo.hiringStatus && moreInfo.hiringStatus !== 'Not found' ? `Hiring: ${moreInfo.hiringStatus}` : '',
-                            moreInfo.reviewStatus && moreInfo.reviewStatus !== 'None found' ? `Reviews: ${moreInfo.reviewStatus}` : ''
-                          ]
-                            .map((item) => compactLeadText(item))
-                            .filter(Boolean)
-                            .join(' | ') || compactLeadText(moreInfo.callerContext) || 'No extra context yet.',
+                          explicitNote2 ||
+                            (moreInfo
+                              ? [
+                                  [moreInfo.decisionMakerName, moreInfo.decisionMakerRole].filter(Boolean).join(' · '),
+                                  moreInfo.bookingFlow && moreInfo.bookingFlow !== 'Not found'
+                                    ? `Flow: ${moreInfo.bookingFlow}`
+                                    : '',
+                                  moreInfo.hiringStatus && moreInfo.hiringStatus !== 'Not found'
+                                    ? `Hiring: ${moreInfo.hiringStatus}`
+                                    : '',
+                                  moreInfo.reviewStatus && moreInfo.reviewStatus !== 'None found'
+                                    ? `Reviews: ${moreInfo.reviewStatus}`
+                                    : ''
+                                ]
+                                  .map((item) => compactLeadText(item))
+                                  .filter(Boolean)
+                                  .join(' | ') ||
+                                compactLeadText(moreInfo.callerContext)
+                              : '') ||
+                            'No extra context yet.',
                           180
                         )
                       : '';
