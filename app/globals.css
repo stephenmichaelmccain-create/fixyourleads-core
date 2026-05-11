@@ -1116,7 +1116,9 @@ select {
 }
 
 .lead-queue-column {
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .lead-queue-list .lead-master-card {
@@ -1129,6 +1131,9 @@ select {
 .lead-queue-panel {
   position: static;
   top: auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   height: auto;
   min-height: 0;
   overflow: visible;
@@ -1139,6 +1144,9 @@ select {
 .lead-queue-scroll {
   --lead-queue-edge-space-start: 0px;
   --lead-queue-edge-space-end: clamp(16px, 6vw, 72px);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 0;
   overflow-x: auto;
   overflow-y: hidden;
