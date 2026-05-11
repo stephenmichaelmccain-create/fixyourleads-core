@@ -276,6 +276,7 @@ function normalizeSearch(value: string) {
 
 function compactLeadText(value?: string | null) {
   return String(value || '')
+    .replace(/\\n/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -608,6 +609,114 @@ function dueBucketMatches(date: Date | null, bucket: string, now: Date) {
   return true;
 }
 
+function demoProspects(now: Date) {
+  const hoursFromNow = (hours: number) => new Date(now.getTime() + hours * 60 * 60 * 1000);
+  const hoursAgo = (hours: number) => new Date(now.getTime() - hours * 60 * 60 * 1000);
+
+  return [
+    {
+      id: 'demo-prospect-1',
+      name: 'Northstar Chiropractic',
+      city: 'Austin',
+      phone: '+1 (512) 555-0111',
+      website: 'northstarchiro.demo',
+      ownerName: 'Dr. Mia Johnson',
+      status: ProspectStatus.NEW,
+      lastCallAt: null,
+      lastCallOutcome: null,
+      nextActionAt: hoursFromNow(2),
+      notes:
+        'Decision maker: Dr. Mia Johnson. Front desk said best callback after lunch.\\nSource: Google Maps import.',
+      claimSessionId: null,
+      claimExpiresAt: null,
+      updatedAt: hoursAgo(1),
+      createdAt: hoursAgo(26),
+      callLogs: []
+    },
+    {
+      id: 'demo-prospect-2',
+      name: 'Lakeside Dental Care',
+      city: 'Dallas',
+      phone: '+1 (214) 555-0182',
+      website: 'lakesidedental.demo',
+      ownerName: 'Noah Carter',
+      status: ProspectStatus.GATEKEEPER,
+      lastCallAt: hoursAgo(4),
+      lastCallOutcome: 'Spoke with gatekeeper, call back tomorrow morning',
+      nextActionAt: hoursFromNow(18),
+      notes:
+        'Office manager requested pricing deck by email before owner callback.\\nSource: Website lead form.',
+      claimSessionId: null,
+      claimExpiresAt: null,
+      updatedAt: hoursAgo(2),
+      createdAt: hoursAgo(52),
+      callLogs: [
+        {
+          id: 'demo-call-2',
+          outcome: 'Gatekeeper',
+          durationSeconds: 93,
+          notes: 'Asked for callback tomorrow and pricing summary.',
+          createdAt: hoursAgo(4)
+        }
+      ]
+    },
+    {
+      id: 'demo-prospect-3',
+      name: 'Sunrise Physical Therapy',
+      city: 'Houston',
+      phone: '+1 (713) 555-0147',
+      website: 'sunrisept.demo',
+      ownerName: 'Olivia Turner',
+      status: ProspectStatus.VM_LEFT,
+      lastCallAt: hoursAgo(20),
+      lastCallOutcome: 'Left voicemail with callback number',
+      nextActionAt: hoursFromNow(24),
+      notes:
+        'Owner cell appears in notes from referral partner.\\nSource: Partner referral list.',
+      claimSessionId: null,
+      claimExpiresAt: null,
+      updatedAt: hoursAgo(3),
+      createdAt: hoursAgo(70),
+      callLogs: [
+        {
+          id: 'demo-call-3',
+          outcome: 'Voicemail left',
+          durationSeconds: 41,
+          notes: 'Introduced FYL and requested callback.',
+          createdAt: hoursAgo(20)
+        }
+      ]
+    },
+    {
+      id: 'demo-prospect-4',
+      name: 'Riverbend Family Clinic',
+      city: 'San Antonio',
+      phone: '+1 (210) 555-0165',
+      website: 'riverbendclinic.demo',
+      ownerName: 'Chloe Adams',
+      status: ProspectStatus.BOOKED_DEMO,
+      lastCallAt: hoursAgo(30),
+      lastCallOutcome: 'Booked demo for next week',
+      nextActionAt: hoursFromNow(72),
+      notes:
+        'Booked for Tuesday 10:00 AM with owner and office manager.\\nSource: Cold outreach.',
+      claimSessionId: null,
+      claimExpiresAt: null,
+      updatedAt: hoursAgo(5),
+      createdAt: hoursAgo(120),
+      callLogs: [
+        {
+          id: 'demo-call-4',
+          outcome: 'Booked demo',
+          durationSeconds: 372,
+          notes: 'Strong interest in missed-call text back and booking automation.',
+          createdAt: hoursAgo(30)
+        }
+      ]
+    }
+  ];
+}
+
 function compareProspects(
   left: { nextActionAt: Date | null; updatedAt: Date; lastCallAt: Date | null; name: string },
   right: { nextActionAt: Date | null; updatedAt: Date; lastCallAt: Date | null; name: string }
@@ -871,7 +980,7 @@ export default async function OurLeadsPage({
   };
   const now = new Date();
 
-  const allProspects = await safeLoadDb(
+  const dbProspects = await safeLoadDb(
     () =>
       db.prospect.findMany({
         select: {
@@ -905,6 +1014,7 @@ export default async function OurLeadsPage({
       }),
     []
   );
+  const allProspects = dbProspects.length > 0 ? dbProspects : demoProspects(now);
 
   const prospectRows = allProspects.map((prospect) => {
     const parsed = parseProspectNotes(prospect.notes);
@@ -1503,38 +1613,32 @@ export default async function OurLeadsPage({
                   const notePreview = leadNotePreview(prospect.plainNotes);
                   const selected = prospect.id === effectiveSelectedProspectId;
                   const moreInfo = selected ? buildMoreInfoModel(prospect) : null;
-                  const detailsPanel =
+                  const note2 =
                     selected && moreInfo
-                      ? {
-                          listedPerson: truncateCopy(
-                            [moreInfo.decisionMakerName, moreInfo.decisionMakerRole].filter(Boolean).join(' · ') ||
-                              'No listed person yet',
-                            160
-                          ),
-                          business: truncateCopy(
-                            [
-                              moreInfo.appointmentTypes.length > 0 ? `Appointments: ${moreInfo.appointmentTypes.join(', ')}` : '',
-                              moreInfo.topServices.length > 0 ? `Services: ${moreInfo.topServices.join(', ')}` : '',
-                              `Flow: ${moreInfo.bookingFlow}`
-                            ]
-                              .filter(Boolean)
-                              .join(' • ') || 'No business details yet',
-                            200
-                          ),
-                          hiring: truncateCopy(
-                            [moreInfo.hiringStatus, moreInfo.hiringEvidence.text].filter(Boolean).join(' • ') || 'No hiring signal yet',
-                            180
-                          ),
-                          review: truncateCopy(
-                            [moreInfo.reviewStatus, moreInfo.reviewEvidence.text].filter(Boolean).join(' • ') || 'No review signal yet',
-                            180
-                          ),
-                          notes: truncateCopy(moreInfo.callerContext || 'No extra context yet.', 220)
-                        }
-                      : null;
+                      ? truncateCopy(
+                          [
+                            [moreInfo.decisionMakerName, moreInfo.decisionMakerRole].filter(Boolean).join(' · '),
+                            moreInfo.bookingFlow && moreInfo.bookingFlow !== 'Not found' ? `Flow: ${moreInfo.bookingFlow}` : '',
+                            moreInfo.hiringStatus && moreInfo.hiringStatus !== 'Not found' ? `Hiring: ${moreInfo.hiringStatus}` : '',
+                            moreInfo.reviewStatus && moreInfo.reviewStatus !== 'None found' ? `Reviews: ${moreInfo.reviewStatus}` : ''
+                          ]
+                            .map((item) => compactLeadText(item))
+                            .filter(Boolean)
+                            .join(' | ') || compactLeadText(moreInfo.callerContext) || 'No extra context yet.',
+                          180
+                        )
+                      : '';
 
                   return (
                     <Fragment key={prospect.id}>
+                      {note2 ? (
+                        <aside className="lead-more-info-panel lead-note2-panel" aria-label="Selected lead more information">
+                          <div className="lead-more-info-header">
+                            <strong>More information</strong>
+                          </div>
+                          <div className="lead-note2-copy">{note2}</div>
+                        </aside>
+                      ) : null}
                       <section
                         className={`lead-master-card${selected ? ' lead-master-card-selected' : ''}`}
                         id={selected ? 'selected-lead' : undefined}
@@ -1628,35 +1732,6 @@ export default async function OurLeadsPage({
                           )}
                         </div>
                       </section>
-                      {detailsPanel ? (
-                        <aside className="lead-more-info-panel" aria-label="Selected lead details extension">
-                          <div className="lead-more-info-header">
-                            <strong>More details</strong>
-                          </div>
-                          <div className="lead-more-info-body">
-                            <div className="lead-more-info-section">
-                              <h3>Listed person</h3>
-                              <div className="lead-more-info-note">{detailsPanel.listedPerson}</div>
-                            </div>
-                            <div className="lead-more-info-section">
-                              <h3>Business snapshot</h3>
-                              <div className="lead-more-info-note">{detailsPanel.business}</div>
-                            </div>
-                            <div className="lead-more-info-section">
-                              <h3>Hiring signal</h3>
-                              <div className="lead-more-info-note">{detailsPanel.hiring}</div>
-                            </div>
-                            <div className="lead-more-info-section">
-                              <h3>Review signal</h3>
-                              <div className="lead-more-info-note">{detailsPanel.review}</div>
-                            </div>
-                            <div className="lead-more-info-section">
-                              <h3>Caller notes</h3>
-                              <div className="lead-more-info-note">{detailsPanel.notes}</div>
-                            </div>
-                          </div>
-                        </aside>
-                      ) : null}
                     </Fragment>
                   );
                 })}

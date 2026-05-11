@@ -11,6 +11,11 @@ function getClaimExpiry(now = new Date()) {
   return new Date(now.getTime() + LEAD_QUEUE_CLAIM_TTL_SECONDS * 1000);
 }
 
+function hasDatabaseConfig() {
+  const raw = String(process.env.DATABASE_URL || '').trim();
+  return raw.length > 0;
+}
+
 export async function getLeadQueueSessionId() {
   const cookieStore = await cookies();
   return cookieStore.get(LEAD_QUEUE_SESSION_COOKIE)?.value?.trim() || '';
@@ -37,7 +42,7 @@ export function isProspectClaimedByAnotherSession(
 }
 
 export async function releaseAllLeadClaimsForSession(sessionId: string, exceptProspectId?: string) {
-  if (!sessionId) {
+  if (!sessionId || !hasDatabaseConfig()) {
     return;
   }
 
@@ -62,6 +67,10 @@ export async function releaseAllLeadClaimsForSession(sessionId: string, exceptPr
 export async function claimFirstAvailableProspect(prospectIds: string[], sessionId: string) {
   if (!sessionId) {
     return '';
+  }
+
+  if (!hasDatabaseConfig()) {
+    return prospectIds[0] || '';
   }
 
   if (prospectIds.length === 0) {
@@ -98,7 +107,7 @@ export async function claimFirstAvailableProspect(prospectIds: string[], session
 }
 
 export async function refreshLeadClaim(prospectId: string, sessionId: string) {
-  if (!prospectId || !sessionId) {
+  if (!prospectId || !sessionId || !hasDatabaseConfig()) {
     return;
   }
 
@@ -114,7 +123,7 @@ export async function refreshLeadClaim(prospectId: string, sessionId: string) {
 }
 
 export async function releaseLeadClaim(prospectId: string, sessionId: string) {
-  if (!prospectId || !sessionId) {
+  if (!prospectId || !sessionId || !hasDatabaseConfig()) {
     return;
   }
 
