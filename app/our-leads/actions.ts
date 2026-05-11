@@ -312,17 +312,46 @@ function isBulkHeaderRow(columns: string[]) {
     return false;
   }
 
-  const [name = '', second = '', third = ''] = columns;
-
-  return (
-    isBulkHeaderCell(name, ['business name', 'name', 'clinic name']) &&
-    (isBulkHeaderCell(second, ['niche', 'clinic type', 'industry']) ||
-      isBulkHeaderCell(third, ['phone', 'phone number']))
+  const [name = '', second = '', third = '', fourth = ''] = columns;
+  const firstFour = [name, second, third, fourth];
+  const hasPhoneHeader = firstFour.some((value) => isBulkHeaderCell(value, ['phone', 'phone number']));
+  const hasCategoryHeader = firstFour.some((value) =>
+    isBulkHeaderCell(value, ['niche', 'clinic type', 'industry', 'source', 'lead source'])
   );
+
+  return isBulkHeaderCell(name, ['business name', 'name', 'clinic name']) && (hasPhoneHeader || hasCategoryHeader);
 }
 
 function parseBulkLeadColumns(row: string) {
   const columns = splitBulkRow(row);
+
+  if (columns.length >= 10) {
+    const [
+      nameRaw,
+      clinicTypeRaw = '',
+      sourceRaw = '',
+      phoneRaw = '',
+      cityRaw = '',
+      ownerNameRaw = '',
+      websiteRaw = '',
+      hoursRaw = '',
+      nextActionRaw = '',
+      ...notesParts
+    ] = columns;
+
+    return {
+      nameRaw,
+      clinicTypeRaw,
+      sourceRaw,
+      phoneRaw,
+      cityRaw,
+      ownerNameRaw,
+      websiteRaw,
+      hoursRaw,
+      nextActionRaw,
+      notesRaw: notesParts.join(', ').trim()
+    };
+  }
 
   if (columns.length >= 9) {
     const [
@@ -340,6 +369,7 @@ function parseBulkLeadColumns(row: string) {
     return {
       nameRaw,
       clinicTypeRaw,
+      sourceRaw: '',
       phoneRaw,
       cityRaw,
       ownerNameRaw,
@@ -364,6 +394,7 @@ function parseBulkLeadColumns(row: string) {
   return {
     nameRaw,
     clinicTypeRaw: '',
+    sourceRaw: '',
     phoneRaw,
     cityRaw,
     ownerNameRaw,
@@ -766,10 +797,21 @@ export async function bulkCreateProspectsAction(formData: FormData) {
   let invalidSkippedCount = 0;
 
   for (const row of rows) {
-    const { nameRaw, clinicTypeRaw, phoneRaw, cityRaw, ownerNameRaw, websiteRaw, hoursRaw, nextActionRaw, notesRaw } =
-      parseBulkLeadColumns(row);
+    const {
+      nameRaw,
+      clinicTypeRaw,
+      sourceRaw,
+      phoneRaw,
+      cityRaw,
+      ownerNameRaw,
+      websiteRaw,
+      hoursRaw,
+      nextActionRaw,
+      notesRaw
+    } = parseBulkLeadColumns(row);
     const name = nameRaw?.trim();
     const clinicType = clinicTypeRaw?.trim() || null;
+    const sourceLabel = sourceRaw?.trim() || null;
 
     if (isBulkHeaderRow(splitBulkRow(row))) {
       continue;
@@ -826,6 +868,7 @@ export async function bulkCreateProspectsAction(formData: FormData) {
             notes: buildProspectNotes({
               plainNotes: notesRaw || null,
               clinicType,
+              sourceLabel,
               operatingHours: hoursRaw || null
             })
           },

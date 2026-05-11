@@ -1428,13 +1428,13 @@ export default async function OurLeadsPage({
                           className="text-area"
                           placeholder={
                             'Paste one business per line in this order:\n' +
-                            'Business name, niche, phone, city, contact, website, hours, next action, notes\n\n' +
-                            'Glow Med Spa, Med Spa, (555) 555-5555, Austin, Jamie Reed, glowmedspa.com, Mon-Fri 8 AM-5 PM, 2026-04-30 10:00, Warm Instagram lead\n' +
-                            'Premier Eye Center, Optometry, (555) 111-2222, Denver, Alex Stone, premiereye.com, Sat 9 AM-1 PM, , '
+                            'Business name, niche, source, phone, city, contact, website, hours, next action, notes\n\n' +
+                            'Glow Med Spa, Med Spa, Google Maps, (555) 555-5555, Austin, Jamie Reed, glowmedspa.com, Mon-Fri 8 AM-5 PM, 2026-04-30 10:00, Warm Instagram lead\n' +
+                            'Premier Eye Center, Optometry, Indeed, (555) 111-2222, Denver, Alex Stone, premiereye.com, Sat 9 AM-1 PM, , '
                           }
                         />
                         <div className="tiny-muted">
-                          Paste comma, pipe, or tab-separated rows. New format: business name, niche, phone, city, contact, website, hours, next action, notes. The old 8-column format still works too, and header rows are ignored.
+                          Paste comma, pipe, or tab-separated rows. New format: business name, niche, source, phone, city, contact, website, hours, next action, notes. Older 9-column and legacy 8-column rows still work, and header rows are ignored.
                         </div>
                       </div>
                       <div className="workspace-filter-actions">
@@ -1497,6 +1497,52 @@ export default async function OurLeadsPage({
                   const notePreview = leadNotePreview(prospect.plainNotes);
                   const selected = prospect.id === effectiveSelectedProspectId;
                   const moreInfo = selected ? buildMoreInfoModel(prospect) : null;
+                  const detailsRows =
+                    selected && moreInfo
+                      ? [
+                          {
+                            label: 'Contact',
+                            value: truncateCopy(
+                              [moreInfo.decisionMakerName, moreInfo.decisionMakerRole, moreInfo.email].filter(Boolean).join(' · ') ||
+                                'Not found',
+                              132
+                            )
+                          },
+                          {
+                            label: 'Business',
+                            value: truncateCopy(
+                              [
+                                moreInfo.appointmentTypes.length > 0
+                                  ? `Appts: ${moreInfo.appointmentTypes.join(', ')}`
+                                  : '',
+                                moreInfo.topServices.length > 0 ? `Services: ${moreInfo.topServices.join(', ')}` : '',
+                                `Flow: ${moreInfo.bookingFlow}`
+                              ]
+                                .filter(Boolean)
+                                .join(' • '),
+                              152
+                            )
+                          },
+                          {
+                            label: 'Hiring',
+                            value: truncateCopy(
+                              [moreInfo.hiringStatus, moreInfo.hiringEvidence.text].filter(Boolean).join(' • ') || 'Not found',
+                              152
+                            )
+                          },
+                          {
+                            label: 'Review',
+                            value: truncateCopy(
+                              [moreInfo.reviewStatus, moreInfo.reviewEvidence.text].filter(Boolean).join(' • ') || 'Not found',
+                              152
+                            )
+                          },
+                          {
+                            label: 'Notes',
+                            value: truncateCopy(moreInfo.callerContext || 'No extra context yet.', 152)
+                          }
+                        ]
+                      : [];
 
                   return (
                     <Fragment key={prospect.id}>
@@ -1524,11 +1570,28 @@ export default async function OurLeadsPage({
                                 {leadContactLine ? <div className="lead-queue-contact-name">{leadContactLine}</div> : null}
                                 <div className="lead-queue-subline">{leadSummary || 'No location or website saved yet'}</div>
                               </div>
-                              {leadNotesSummary ? (
-                                <div className="lead-card-summary">{leadNotesSummary}</div>
-                              ) : notePreview ? (
-                                <div className="lead-queue-note-chip" title={notePreview}>
-                                  {notePreview}
+                              {leadNotesSummary || notePreview || detailsRows.length > 0 ? (
+                                <div className="lead-card-notes-column">
+                                  {leadNotesSummary ? (
+                                    <div className="lead-card-summary">{leadNotesSummary}</div>
+                                  ) : notePreview ? (
+                                    <div className="lead-queue-note-chip" title={notePreview}>
+                                      {notePreview}
+                                    </div>
+                                  ) : null}
+                                  {detailsRows.length > 0 ? (
+                                    <div className="lead-card-details-note">
+                                      <span className="key-value-label">Details notes</span>
+                                      <div className="lead-card-details-list">
+                                        {detailsRows.map((row) => (
+                                          <div key={row.label}>
+                                            <span className="tiny-muted">{row.label}</span>
+                                            <strong>{row.value}</strong>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : null}
                                 </div>
                               ) : null}
                             </div>
@@ -1586,132 +1649,6 @@ export default async function OurLeadsPage({
                             </Link>
                           )}
                         </div>
-                        {selected && moreInfo ? (
-                          <aside className="lead-more-info-panel" aria-label={`More info for ${prospect.name}`}>
-                          <div className="lead-more-info-header">
-                            <strong>More info</strong>
-                          </div>
-                          <div className="lead-more-info-body">
-                            <section className="lead-more-info-section">
-                              <h3>Contact</h3>
-                              <div className="lead-more-info-list">
-                                <div>
-                                  <span className="tiny-muted">Contact</span>
-                                  <strong>{moreInfo.decisionMakerName}</strong>
-                                </div>
-                                {moreInfo.decisionMakerRole ? (
-                                  <div>
-                                    <span className="tiny-muted">Role</span>
-                                    <strong>{moreInfo.decisionMakerRole}</strong>
-                                  </div>
-                                ) : null}
-                                <div>
-                                  <span className="tiny-muted">Line</span>
-                                  <strong>{moreInfo.bestLineType}</strong>
-                                </div>
-                                {moreInfo.email ? (
-                                  <div>
-                                    <span className="tiny-muted">Email</span>
-                                    <strong>{moreInfo.email}</strong>
-                                  </div>
-                                ) : null}
-                                <div>
-                                  <span className="tiny-muted">Verified</span>
-                                  <strong>{moreInfo.lastVerifiedLabel}</strong>
-                                </div>
-                              </div>
-                              {moreInfo.contactEvidence.url ? (
-                                <div className="lead-more-info-evidence">
-                                  <a href={moreInfo.contactEvidence.url} target="_blank" rel="noreferrer">
-                                    {moreInfo.contactEvidence.source}
-                                  </a>
-                                </div>
-                              ) : null}
-                            </section>
-
-                            <section className="lead-more-info-section">
-                              <h3>Business</h3>
-                              <div className="lead-more-info-list">
-                                {moreInfo.appointmentTypes.length > 0 ? (
-                                  <div>
-                                    <span className="tiny-muted">Appt types</span>
-                                    <strong>{truncateCopy(moreInfo.appointmentTypes.join(', '), 92)}</strong>
-                                  </div>
-                                ) : null}
-                                {moreInfo.topServices.length > 0 ? (
-                                  <div>
-                                    <span className="tiny-muted">Top services</span>
-                                    <strong>{truncateCopy(moreInfo.topServices.join(', '), 92)}</strong>
-                                  </div>
-                                ) : null}
-                                <div>
-                                  <span className="tiny-muted">Flow</span>
-                                  <strong>{moreInfo.bookingFlow}</strong>
-                                </div>
-                              </div>
-                              {moreInfo.businessEvidence.url ? (
-                                <div className="lead-more-info-evidence">
-                                  <a href={moreInfo.businessEvidence.url} target="_blank" rel="noreferrer">
-                                    {moreInfo.businessEvidence.source}
-                                  </a>
-                                </div>
-                              ) : null}
-                            </section>
-
-                            <section className="lead-more-info-section">
-                              <h3>Hiring</h3>
-                              <div className="lead-more-info-note">
-                                <strong>{moreInfo.hiringStatus}</strong>
-                              </div>
-                              {moreInfo.hiringEvidence.text || moreInfo.hiringEvidence.url ? (
-                                <div className="lead-more-info-evidence">
-                                  {moreInfo.hiringEvidence.text ? (
-                                    <span>{truncateCopy(moreInfo.hiringEvidence.text, 88)}</span>
-                                  ) : null}
-                                  {moreInfo.hiringEvidence.url ? (
-                                    <a href={moreInfo.hiringEvidence.url} target="_blank" rel="noreferrer">
-                                      {moreInfo.hiringEvidence.source}
-                                    </a>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                            </section>
-
-                            <section className="lead-more-info-section">
-                              <h3>Review</h3>
-                              <div className="lead-more-info-note">
-                                <strong>{moreInfo.reviewStatus}</strong>
-                              </div>
-                              {moreInfo.reviewEvidence.text || moreInfo.reviewEvidence.url ? (
-                                <div className="lead-more-info-evidence">
-                                  {moreInfo.reviewEvidence.text ? (
-                                    <span>{truncateCopy(moreInfo.reviewEvidence.text, 88)}</span>
-                                  ) : null}
-                                  {moreInfo.reviewEvidence.url ? (
-                                    <a href={moreInfo.reviewEvidence.url} target="_blank" rel="noreferrer">
-                                      {moreInfo.reviewEvidence.source}
-                                    </a>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                            </section>
-
-                            <section className="lead-more-info-section">
-                              <h3>Notes</h3>
-                              {moreInfo.callerContext ? (
-                                <div className="lead-more-info-note">{truncateCopy(moreInfo.callerContext, 120)}</div>
-                              ) : null}
-                              {moreInfo.contextEvidence.url ? (
-                                <div className="lead-more-info-evidence">
-                                  <a href={moreInfo.contextEvidence.url} target="_blank" rel="noreferrer">
-                                    {moreInfo.contextEvidence.source}
-                                  </a>
-                                </div>
-                              ) : null}
-                            </section>
-                          </div>
-                          </aside>
-                        ) : null}
                       </section>
                     </Fragment>
                   );
