@@ -953,6 +953,8 @@ select {
 
 .lead-master-card {
   --lead-master-card-height: 372px;
+  --lead-more-info-width: clamp(220px, 18vw, 252px);
+  --lead-more-info-gap: 10px;
   display: grid;
   grid-template-rows: 1fr auto;
   gap: 8px;
@@ -978,8 +980,8 @@ select {
     0 0 0 3px rgba(124, 58, 237, 0.14),
     0 18px 34px rgba(0, 0, 0, 0.2);
   background: linear-gradient(180deg, rgba(58, 45, 106, 0.98), rgba(39, 31, 77, 0.98));
-  /* Reserve room for the absolute-positioned "More info" rail. */
-  margin-right: calc(clamp(220px, 18vw, 252px) + 12px);
+  /* Reserve room for the attached More info rail. */
+  margin-right: calc(var(--lead-more-info-width) + var(--lead-more-info-gap));
 }
 
 .lead-master-card-selected::before {
@@ -1304,8 +1306,8 @@ select {
 .lead-more-info-panel {
   position: absolute;
   top: 0;
-  left: calc(100% + 4px);
-  width: clamp(220px, 18vw, 252px);
+  left: calc(100% + var(--lead-more-info-gap));
+  width: var(--lead-more-info-width);
   min-width: 220px;
   min-height: 0;
   height: 100%;
@@ -1321,6 +1323,20 @@ select {
   gap: 10px;
   overflow: hidden;
   z-index: 4;
+}
+
+.lead-more-info-panel::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translateY(-50%) rotate(45deg);
+  border-left: 1px solid rgba(156, 97, 255, 0.34);
+  border-bottom: 1px solid rgba(156, 97, 255, 0.34);
+  background: linear-gradient(180deg, rgba(36, 30, 78, 0.96), rgba(26, 22, 58, 0.98));
+  box-shadow: -4px 4px 10px rgba(0, 0, 0, 0.16);
 }
 
 .lead-more-info-header {
