@@ -1555,9 +1555,8 @@ export default async function OurLeadsPage({
                             </Link>
                           )}
                         </div>
-                      </section>
-                      {selected && moreInfo ? (
-                        <aside className="lead-more-info-panel" aria-label={`More info for ${prospect.name}`}>
+                        {selected && moreInfo ? (
+                          <aside className="lead-more-info-panel" aria-label={`More info for ${prospect.name}`}>
                           <div className="lead-more-info-header">
                             <strong>More info</strong>
                           </div>
@@ -1670,9 +1669,7 @@ export default async function OurLeadsPage({
                               <h3>Notes</h3>
                               {moreInfo.callerContext ? (
                                 <div className="lead-more-info-note">{truncateCopy(moreInfo.callerContext, 120)}</div>
-                              ) : (
-                                <div className="lead-more-info-note tiny-muted">No extra context yet.</div>
-                              )}
+                              ) : null}
                               {moreInfo.contextEvidence.url ? (
                                 <div className="lead-more-info-evidence">
                                   <a href={moreInfo.contextEvidence.url} target="_blank" rel="noreferrer">
@@ -1682,8 +1679,9 @@ export default async function OurLeadsPage({
                               ) : null}
                             </section>
                           </div>
-                        </aside>
-                      ) : null}
+                          </aside>
+                        ) : null}
+                      </section>
                     </Fragment>
                   );
                 })}
