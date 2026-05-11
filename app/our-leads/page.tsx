@@ -523,8 +523,6 @@ const leadCallbackCommands = [
   { value: '1_month', label: '1 month', meta: '+30 days' }
 ] as const;
 
-const leadQuickNotes = ['Gatekeeper', 'Call later', 'Wrong contact', 'Decision maker unavailable'];
-
 export default async function OurLeadsPage({
   searchParams
 }: {
@@ -1395,7 +1393,6 @@ export default async function OurLeadsPage({
                         </div>
                         <LeadNotesComposer
                           initialNotes={selectedProspectView.plainNotes}
-                          quickNotes={leadQuickNotes}
                           textAreaId="lead-notes-editor"
                           textAreaName="notes"
                         />

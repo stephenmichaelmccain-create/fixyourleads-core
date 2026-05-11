@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 type LeadNotesComposerProps = {
   initialNotes: string;
-  quickNotes: string[];
+  quickNotes?: string[];
   textAreaId: string;
   textAreaName: string;
   placeholder?: string;
@@ -12,7 +12,7 @@ type LeadNotesComposerProps = {
 
 export function LeadNotesComposer({
   initialNotes,
-  quickNotes,
+  quickNotes = [],
   textAreaId,
   textAreaName,
   placeholder = 'Add notes about this call...'
@@ -38,23 +38,25 @@ export function LeadNotesComposer({
 
   return (
     <>
-      <div className="field-stack lead-quick-notes-field">
-        <label className="key-value-label" htmlFor={textAreaId}>
-          Quick notes
-        </label>
-        <div className="lead-quick-notes-row">
-          {quickNotes.map((note) => (
-            <button
-              key={note}
-              type="button"
-              className="lead-quick-note-chip"
-              onClick={() => applyQuickNote(note)}
-            >
-              {note}
-            </button>
-          ))}
+      {quickNotes.length > 0 ? (
+        <div className="field-stack lead-quick-notes-field">
+          <label className="key-value-label" htmlFor={textAreaId}>
+            Quick notes
+          </label>
+          <div className="lead-quick-notes-row">
+            {quickNotes.map((note) => (
+              <button
+                key={note}
+                type="button"
+                className="lead-quick-note-chip"
+                onClick={() => applyQuickNote(note)}
+              >
+                {note}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
       <div className="field-stack lead-notes-field">
         <label className="key-value-label" htmlFor={textAreaId}>
           Caller notes
