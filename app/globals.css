@@ -1298,6 +1298,105 @@ select {
   scroll-snap-align: center;
 }
 
+.lead-more-info-panel {
+  width: min(360px, 32vw);
+  min-width: 300px;
+  min-height: 0;
+  height: 100%;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(156, 97, 255, 0.34);
+  background: linear-gradient(180deg, rgba(36, 30, 78, 0.96), rgba(26, 22, 58, 0.98));
+  box-shadow:
+    0 0 0 1px rgba(161, 99, 255, 0.12),
+    0 14px 34px rgba(0, 0, 0, 0.22);
+  display: grid;
+  grid-template-rows: auto repeat(5, minmax(0, auto));
+  gap: 10px;
+  scroll-snap-align: center;
+}
+
+.lead-more-info-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lead-more-info-header strong {
+  font-size: 1.2rem;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.lead-more-info-section {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(20, 18, 42, 0.62);
+}
+
+.lead-more-info-section h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #ece3ff;
+}
+
+.lead-more-info-list {
+  display: grid;
+  gap: 6px;
+}
+
+.lead-more-info-list > div {
+  display: grid;
+  gap: 1px;
+}
+
+.lead-more-info-list strong {
+  font-size: 12.5px;
+  color: #f5efff;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.lead-more-info-note {
+  color: rgba(243, 236, 255, 0.9);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.lead-more-info-evidence {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.lead-more-info-evidence span {
+  min-width: 0;
+  color: rgba(216, 201, 250, 0.88);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.lead-more-info-evidence a {
+  color: #be9bff;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.lead-more-info-evidence a:hover {
+  text-decoration: underline;
+}
+
 .lead-queue-panel {
   position: static;
   top: auto;
@@ -2578,6 +2677,12 @@ select {
   .lead-queue-list .lead-master-card {
     height: auto;
     min-height: auto;
+  }
+
+  .lead-more-info-panel {
+    min-width: 280px;
+    width: min(320px, 80vw);
+    height: auto;
   }
 
   .lead-master-card,
@@ -5616,6 +5721,10 @@ select {
     justify-content: center;
     padding: 0 6px;
     text-align: center;
+  }
+
+  .lead-more-info-panel {
+    display: none;
   }
 
   .client-row-actions-cell {

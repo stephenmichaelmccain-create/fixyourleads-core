@@ -1,6 +1,7 @@
 import { ProspectStatus } from '@prisma/client';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Fragment } from 'react';
 import { LayoutShell } from '@/app/components/LayoutShell';
 import { db } from '@/lib/db';
 import { getMeetingTeamDefaults, INTERNAL_COMPANY_ID } from '@/lib/meeting-team-defaults';
@@ -338,6 +339,226 @@ function extractLeadRole(ownerName?: string | null, notes?: string | null) {
   }
 
   return '';
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values));
+}
+
+function normalizeExternalLink(value?: string | null) {
+  const trimmed = String(value || '').trim();
+
+  if (!trimmed) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (/^www\./i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+
+  if (/^[^\s]+\.[^\s]+$/i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+
+  return '';
+}
+
+function extractUrls(text?: string | null) {
+  const value = String(text || '');
+  const matches = value.match(/https?:\/\/[^\s)]+|www\.[^\s)]+/gi) || [];
+  return uniqueStrings(
+    matches
+      .map((entry) => normalizeExternalLink(entry.replace(/[),.;]+$/, '')))
+      .filter(Boolean)
+  );
+}
+
+function extractEmail(text?: string | null) {
+  const value = String(text || '');
+  const match = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match ? match[0] : '';
+}
+
+function firstMatchingLine(lines: string[], patterns: RegExp[]) {
+  for (const line of lines) {
+    if (patterns.some((pattern) => pattern.test(line))) {
+      return line;
+    }
+  }
+
+  return '';
+}
+
+function inferBookingFlow(lines: string[]) {
+  const haystack = lines.join(' ').toLowerCase();
+  const hasPhone = /\b(call|phone|front desk)\b/i.test(haystack);
+  const hasWebBooking = /\b(book online|online booking|schedule online|book now)\b/i.test(haystack);
+  const hasForm = /\b(form|request form|contact form|submit)\b/i.test(haystack);
+
+  if ((hasPhone && hasWebBooking) || (hasPhone && hasForm) || (hasWebBooking && hasForm)) {
+    return 'Mixed';
+  }
+
+  if (hasWebBooking) {
+    return 'Web booking';
+  }
+
+  if (hasForm) {
+    return 'Form request';
+  }
+
+  if (hasPhone) {
+    return 'Phone-only';
+  }
+
+  return 'Not found';
+}
+
+function deriveAppointmentTypes(lines: string[]) {
+  const detected: string[] = [];
+  const map: Array<{ label: string; pattern: RegExp }> = [
+    { label: 'New patient exam', pattern: /\bnew patient|new exam|first visit\b/i },
+    { label: 'Consultation', pattern: /\bconsult|consultation\b/i },
+    { label: 'Adjustment', pattern: /\badjustment\b/i },
+    { label: 'Follow-up', pattern: /\bfollow[- ]?up|follow up\b/i },
+    { label: 'Cleaning', pattern: /\bcleaning|prophy\b/i },
+    { label: 'Implant consult', pattern: /\bimplant\b/i }
+  ];
+
+  for (const candidate of map) {
+    if (lines.some((line) => candidate.pattern.test(line))) {
+      detected.push(candidate.label);
+    }
+  }
+
+  return detected.slice(0, 4);
+}
+
+function deriveTopServices(lines: string[], clinicType?: string) {
+  const detected: string[] = [];
+  const map: Array<{ label: string; pattern: RegExp }> = [
+    { label: 'General dentistry', pattern: /\bgeneral dentistry|family dentistry\b/i },
+    { label: 'Orthodontics', pattern: /\borthodont|braces|invisalign\b/i },
+    { label: 'Dental implants', pattern: /\bimplant\b/i },
+    { label: 'Cosmetic dentistry', pattern: /\bcosmetic|veneer|smile makeover\b/i },
+    { label: 'Chiropractic care', pattern: /\bchiropractic|adjustment\b/i },
+    { label: 'Facial aesthetics', pattern: /\bfacial|filler|botox|injectable\b/i }
+  ];
+
+  for (const candidate of map) {
+    if (lines.some((line) => candidate.pattern.test(line))) {
+      detected.push(candidate.label);
+    }
+  }
+
+  if (detected.length === 0 && clinicType) {
+    detected.push(clinicType);
+  }
+
+  return detected.slice(0, 5);
+}
+
+type MoreInfoEvidence = {
+  text: string;
+  source: string;
+  url: string;
+};
+
+function buildMoreInfoModel(prospect: {
+  ownerName: string | null;
+  phone: string | null;
+  website: string | null;
+  updatedAt: Date;
+  plainNotes: string;
+  profile: { clinicType?: string; source?: string; sourceRecord?: string };
+}) {
+  const lines = String(prospect.plainNotes || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const websiteUrl = websiteHref(prospect.website || '');
+  const sourceRecordUrl = normalizeExternalLink(prospect.profile.sourceRecord || '');
+  const discoveredUrls = extractUrls(prospect.plainNotes);
+  const sourceFallbackUrl = sourceRecordUrl || discoveredUrls[0] || websiteUrl || '';
+  const sourceLabel = prospect.profile.source || 'Website';
+
+  const decisionMakerName = compactLeadText(prospect.ownerName) || 'Not found';
+  const decisionMakerRole = extractLeadRole(prospect.ownerName, prospect.plainNotes) || 'Role not found';
+  const bestLineType = /direct|cell|owner phone|mobile/i.test(prospect.plainNotes) ? 'Direct' : 'Main';
+  const email = extractEmail(prospect.plainNotes) || 'Not found';
+  const appointmentTypes = deriveAppointmentTypes(lines);
+  const topServices = deriveTopServices(lines, prospect.profile.clinicType);
+  const bookingFlow = inferBookingFlow(lines);
+
+  const hiringSnippet = firstMatchingLine(lines, [/\bhiring\b/i, /\bnow hiring\b/i, /\breceptionist\b/i, /\bfront desk\b/i]);
+  const hiringStatus = hiringSnippet ? 'Confirmed' : 'Not found';
+  const hiringEvidence: MoreInfoEvidence = {
+    text: hiringSnippet || 'No hiring wording found in captured notes.',
+    source: hiringSnippet ? 'Careers / notes' : sourceLabel,
+    url: sourceFallbackUrl
+  };
+
+  const reviewSnippet = firstMatchingLine(lines, [/\breview\b/i, /\bwait\b/i, /\bphone\b/i, /\bhold\b/i, /\bstaff\b/i]);
+  const reviewHasFriction = /wait|hold|rude|no answer|hard to reach|slow|friction/i.test(reviewSnippet);
+  const reviewStatus = reviewSnippet && reviewHasFriction ? 'Friction found' : 'None found';
+  const reviewEvidence: MoreInfoEvidence = {
+    text: reviewSnippet || 'No review friction wording found in captured notes.',
+    source: reviewSnippet ? 'Reviews / notes' : sourceLabel,
+    url: sourceFallbackUrl
+  };
+
+  const contextLines = lines.filter((line) =>
+    /\b(front desk|intake|handoff|staffing|call volume|reception|schedule|overflow|coverage)\b/i.test(line)
+  );
+  const callerContext = contextLines.slice(0, 2).join(' ') || 'Operational context not captured yet.';
+
+  const contactEvidence: MoreInfoEvidence = {
+    text:
+      decisionMakerName !== 'Not found'
+        ? `Decision-maker context captured for ${decisionMakerName}.`
+        : 'Decision-maker identity still needs verification.',
+    source: sourceLabel,
+    url: sourceFallbackUrl
+  };
+
+  const businessEvidence: MoreInfoEvidence = {
+    text:
+      appointmentTypes.length > 0 || topServices.length > 0
+        ? 'Service and appointment mix pulled from current lead notes.'
+        : 'Service mix not yet captured in lead notes.',
+    source: sourceLabel,
+    url: sourceFallbackUrl
+  };
+
+  const contextEvidence: MoreInfoEvidence = {
+    text: contextLines[0] || 'No operational pressure line captured yet.',
+    source: contextLines[0] ? 'Notes' : sourceLabel,
+    url: sourceFallbackUrl
+  };
+
+  return {
+    decisionMakerName,
+    decisionMakerRole,
+    bestLineType,
+    email,
+    lastVerifiedLabel: formatDateOnly(prospect.updatedAt),
+    contactSourceLabel: sourceLabel,
+    appointmentTypes,
+    topServices,
+    bookingFlow,
+    hiringStatus,
+    hiringEvidence,
+    reviewStatus,
+    reviewEvidence,
+    callerContext,
+    contactEvidence,
+    businessEvidence,
+    contextEvidence
+  };
 }
 
 function dueBucketMatches(date: Date | null, bucket: string, now: Date) {
@@ -1241,97 +1462,221 @@ export default async function OurLeadsPage({
                   const leadContactLine = [compactLeadText(prospect.ownerName), leadRole].filter(Boolean).join(' · ');
                   const notePreview = leadNotePreview(prospect.plainNotes);
                   const selected = prospect.id === effectiveSelectedProspectId;
+                  const moreInfo = selected ? buildMoreInfoModel(prospect) : null;
 
                   return (
-                    <section
-                      key={prospect.id}
-                      className={`lead-master-card${selected ? ' lead-master-card-selected' : ''}`}
-                      id={selected ? 'selected-lead' : undefined}
-                    >
-                      <Link className="lead-master-overlay" href={rowHref} aria-label={`Select ${prospect.name}`} scroll={false} />
-                      <div className="lead-master-header">
-                        <div className="lead-master-select">
-                          <div className="lead-master-kicker">
-                            {selected ? (
-                              <span className="lead-selected-pill">Selected now</span>
-                            ) : (
-                              <span className="tiny-muted">Queue lead</span>
-                            )}
-                            <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
-                          </div>
-                          <div className="lead-card-identity-row">
-                            <div className="record-stack lead-card-identity-main">
-                              <div className="lead-company-name-row">
-                                <h2 className="form-title lead-company-name">{prospect.name}</h2>
-                                <SpeakProspectNameButton name={prospect.name} />
-                              </div>
-                              {leadContactLine ? <div className="lead-queue-contact-name">{leadContactLine}</div> : null}
-                              <div className="lead-queue-subline">{leadSummary || 'No location or website saved yet'}</div>
+                    <Fragment key={prospect.id}>
+                      <section
+                        className={`lead-master-card${selected ? ' lead-master-card-selected' : ''}`}
+                        id={selected ? 'selected-lead' : undefined}
+                      >
+                        <Link className="lead-master-overlay" href={rowHref} aria-label={`Select ${prospect.name}`} scroll={false} />
+                        <div className="lead-master-header">
+                          <div className="lead-master-select">
+                            <div className="lead-master-kicker">
+                              {selected ? (
+                                <span className="lead-selected-pill">Selected now</span>
+                              ) : (
+                                <span className="tiny-muted">Queue lead</span>
+                              )}
+                              <span className={statusChipClass(prospect.status)}>{humanizeStatus(prospect.status)}</span>
                             </div>
-                            {leadNotesSummary ? (
-                              <div className="lead-card-summary">{leadNotesSummary}</div>
-                            ) : notePreview ? (
-                              <div className="lead-queue-note-chip" title={notePreview}>
-                                {notePreview}
+                            <div className="lead-card-identity-row">
+                              <div className="record-stack lead-card-identity-main">
+                                <div className="lead-company-name-row">
+                                  <h2 className="form-title lead-company-name">{prospect.name}</h2>
+                                  <SpeakProspectNameButton name={prospect.name} />
+                                </div>
+                                {leadContactLine ? <div className="lead-queue-contact-name">{leadContactLine}</div> : null}
+                                <div className="lead-queue-subline">{leadSummary || 'No location or website saved yet'}</div>
                               </div>
-                            ) : null}
-                          </div>
+                              {leadNotesSummary ? (
+                                <div className="lead-card-summary">{leadNotesSummary}</div>
+                              ) : notePreview ? (
+                                <div className="lead-queue-note-chip" title={notePreview}>
+                                  {notePreview}
+                                </div>
+                              ) : null}
+                            </div>
 
-                          <div className="lead-queue-body">
-                            <div className="lead-queue-timing">
-                              <div className="lead-queue-timing-item">
-                                <span className="key-value-label">Last event</span>
-                                <strong className="lead-compact-value">{lastTouchLabel}</strong>
-                                <span className="tiny-muted">{lastTouchMeta}</span>
+                            <div className="lead-queue-body">
+                              <div className="lead-queue-timing">
+                                <div className="lead-queue-timing-item">
+                                  <span className="key-value-label">Last event</span>
+                                  <strong className="lead-compact-value">{lastTouchLabel}</strong>
+                                  <span className="tiny-muted">{lastTouchMeta}</span>
+                                </div>
+                                <div className="lead-queue-timing-item">
+                                  <span className="key-value-label">Next step</span>
+                                  <strong className="lead-compact-value">{nextActionLabel}</strong>
+                                  <span className="tiny-muted">{nextActionState(prospect.nextActionAt, now)}</span>
+                                </div>
                               </div>
-                              <div className="lead-queue-timing-item">
-                                <span className="key-value-label">Next step</span>
-                                <strong className="lead-compact-value">{nextActionLabel}</strong>
-                                <span className="tiny-muted">{nextActionState(prospect.nextActionAt, now)}</span>
-                              </div>
-                            </div>
-                            <div className="lead-queue-contact-row">
-                              <div className={`lead-queue-hours${prospect.profile.operatingHours ? '' : ' is-empty'}`}>
-                                <span className="lead-queue-hours-icon" aria-hidden="true">
-                                  <svg viewBox="0 0 20 20" focusable="false">
-                                    <circle cx="10" cy="10" r="6.25" />
-                                    <path d="M10 6.8v3.6l2.6 1.6" />
-                                  </svg>
-                                </span>
-                                <span>{prospect.profile.operatingHours || 'Hours not set'}</span>
+                              <div className="lead-queue-contact-row">
+                                <div className={`lead-queue-hours${prospect.profile.operatingHours ? '' : ' is-empty'}`}>
+                                  <span className="lead-queue-hours-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 20 20" focusable="false">
+                                      <circle cx="10" cy="10" r="6.25" />
+                                      <path d="M10 6.8v3.6l2.6 1.6" />
+                                    </svg>
+                                  </span>
+                                  <span>{prospect.profile.operatingHours || 'Hours not set'}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
+                        <div className="inline-row inline-actions-wrap lead-master-footer">
+                          {selected ? (
+                            <>
+                              {prospect.phone ? (
+                                <a className="button" href={`tel:${prospect.phone}`}>
+                                  Call now
+                                </a>
+                              ) : null}
+                              {prospect.website ? (
+                                <a
+                                  className="button-secondary button-secondary-strong"
+                                  href={websiteHref(prospect.website)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Open website
+                                </a>
+                              ) : null}
+                              {prospect.phone ? <span className="lead-master-phone-inline">{detailValue(prospect.phone)}</span> : null}
+                            </>
+                          ) : (
+                            <Link className="button-ghost lead-master-select-button" href={rowHref} scroll={false}>
+                              Select lead
+                            </Link>
+                          )}
+                        </div>
+                      </section>
+                      {selected && moreInfo ? (
+                        <aside className="lead-more-info-panel" aria-label={`More info for ${prospect.name}`}>
+                          <div className="lead-more-info-header">
+                            <strong>More info</strong>
+                            <span className="tiny-muted">Business intel</span>
+                          </div>
 
-                      <div className="inline-row inline-actions-wrap lead-master-footer">
-                        {selected ? (
-                          <>
-                            {prospect.phone ? (
-                              <a className="button" href={`tel:${prospect.phone}`}>
-                                Call now
-                              </a>
-                            ) : null}
-                            {prospect.website ? (
-                              <a
-                                className="button-secondary button-secondary-strong"
-                                href={websiteHref(prospect.website)}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                Open website
-                              </a>
-                            ) : null}
-                            {prospect.phone ? <span className="lead-master-phone-inline">{detailValue(prospect.phone)}</span> : null}
-                          </>
-                        ) : (
-                          <Link className="button-ghost lead-master-select-button" href={rowHref} scroll={false}>
-                            Select lead
-                          </Link>
-                        )}
-                      </div>
-                    </section>
+                          <section className="lead-more-info-section">
+                            <h3>Contact</h3>
+                            <div className="lead-more-info-list">
+                              <div>
+                                <span className="tiny-muted">Decision maker</span>
+                                <strong>{moreInfo.decisionMakerName}</strong>
+                              </div>
+                              <div>
+                                <span className="tiny-muted">Role</span>
+                                <strong>{moreInfo.decisionMakerRole}</strong>
+                              </div>
+                              <div>
+                                <span className="tiny-muted">Best line</span>
+                                <strong>{moreInfo.bestLineType}</strong>
+                              </div>
+                              <div>
+                                <span className="tiny-muted">Email</span>
+                                <strong>{moreInfo.email}</strong>
+                              </div>
+                              <div>
+                                <span className="tiny-muted">Source</span>
+                                <strong>{moreInfo.contactSourceLabel}</strong>
+                              </div>
+                              <div>
+                                <span className="tiny-muted">Last verified</span>
+                                <strong>{moreInfo.lastVerifiedLabel}</strong>
+                              </div>
+                            </div>
+                            <div className="lead-more-info-evidence">
+                              <span>{moreInfo.contactEvidence.text}</span>
+                              {moreInfo.contactEvidence.url ? (
+                                <a href={moreInfo.contactEvidence.url} target="_blank" rel="noreferrer">
+                                  {moreInfo.contactEvidence.source}
+                                </a>
+                              ) : null}
+                            </div>
+                          </section>
+
+                          <section className="lead-more-info-section">
+                            <h3>Business snapshot</h3>
+                            <div className="lead-more-info-list">
+                              <div>
+                                <span className="tiny-muted">Appointment types</span>
+                                <strong>
+                                  {moreInfo.appointmentTypes.length > 0 ? moreInfo.appointmentTypes.join(', ') : 'Not found'}
+                                </strong>
+                              </div>
+                              <div>
+                                <span className="tiny-muted">Top services</span>
+                                <strong>{moreInfo.topServices.length > 0 ? moreInfo.topServices.join(', ') : 'Not found'}</strong>
+                              </div>
+                              <div>
+                                <span className="tiny-muted">Booking flow</span>
+                                <strong>{moreInfo.bookingFlow}</strong>
+                              </div>
+                            </div>
+                            <div className="lead-more-info-evidence">
+                              <span>{moreInfo.businessEvidence.text}</span>
+                              {moreInfo.businessEvidence.url ? (
+                                <a href={moreInfo.businessEvidence.url} target="_blank" rel="noreferrer">
+                                  {moreInfo.businessEvidence.source}
+                                </a>
+                              ) : null}
+                            </div>
+                          </section>
+
+                          <section className="lead-more-info-section">
+                            <h3>Hiring signal</h3>
+                            <div className="lead-more-info-list">
+                              <div>
+                                <span className="tiny-muted">Status</span>
+                                <strong>{moreInfo.hiringStatus}</strong>
+                              </div>
+                            </div>
+                            <div className="lead-more-info-evidence">
+                              <span>{moreInfo.hiringEvidence.text}</span>
+                              {moreInfo.hiringEvidence.url ? (
+                                <a href={moreInfo.hiringEvidence.url} target="_blank" rel="noreferrer">
+                                  {moreInfo.hiringEvidence.source}
+                                </a>
+                              ) : null}
+                            </div>
+                          </section>
+
+                          <section className="lead-more-info-section">
+                            <h3>Review friction signal</h3>
+                            <div className="lead-more-info-list">
+                              <div>
+                                <span className="tiny-muted">Status</span>
+                                <strong>{moreInfo.reviewStatus}</strong>
+                              </div>
+                            </div>
+                            <div className="lead-more-info-evidence">
+                              <span>{moreInfo.reviewEvidence.text}</span>
+                              {moreInfo.reviewEvidence.url ? (
+                                <a href={moreInfo.reviewEvidence.url} target="_blank" rel="noreferrer">
+                                  {moreInfo.reviewEvidence.source}
+                                </a>
+                              ) : null}
+                            </div>
+                          </section>
+
+                          <section className="lead-more-info-section">
+                            <h3>Caller leg-up notes</h3>
+                            <div className="lead-more-info-note">{moreInfo.callerContext}</div>
+                            <div className="lead-more-info-evidence">
+                              <span>{moreInfo.contextEvidence.text}</span>
+                              {moreInfo.contextEvidence.url ? (
+                                <a href={moreInfo.contextEvidence.url} target="_blank" rel="noreferrer">
+                                  {moreInfo.contextEvidence.source}
+                                </a>
+                              ) : null}
+                            </div>
+                          </section>
+                        </aside>
+                      ) : null}
+                    </Fragment>
                   );
                 })}
                 </div>
