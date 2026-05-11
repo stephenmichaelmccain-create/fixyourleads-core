@@ -487,9 +487,9 @@ function buildMoreInfoModel(prospect: {
   const sourceLabel = prospect.profile.source || 'Website';
 
   const decisionMakerName = compactLeadText(prospect.ownerName) || 'Not found';
-  const decisionMakerRole = extractLeadRole(prospect.ownerName, prospect.plainNotes) || 'Role not found';
+  const decisionMakerRole = extractLeadRole(prospect.ownerName, prospect.plainNotes) || '';
   const bestLineType = /direct|cell|owner phone|mobile/i.test(prospect.plainNotes) ? 'Direct' : 'Main';
-  const email = extractEmail(prospect.plainNotes) || 'Not found';
+  const email = extractEmail(prospect.plainNotes) || '';
   const appointmentTypes = deriveAppointmentTypes(lines);
   const topServices = deriveTopServices(lines, prospect.profile.clinicType);
   const bookingFlow = inferBookingFlow(lines);
@@ -559,6 +559,15 @@ function buildMoreInfoModel(prospect: {
     businessEvidence,
     contextEvidence
   };
+}
+
+function truncateCopy(value: string, max = 120) {
+  const cleaned = compactLeadText(value);
+  if (cleaned.length <= max) {
+    return cleaned;
+  }
+
+  return `${cleaned.slice(0, max - 3).trimEnd()}...`;
 }
 
 function dueBucketMatches(date: Date | null, bucket: string, now: Date) {
@@ -1559,121 +1568,128 @@ export default async function OurLeadsPage({
                             <strong>More info</strong>
                             <span className="tiny-muted">Business intel</span>
                           </div>
+                          <div className="lead-more-info-body">
+                            <section className="lead-more-info-section">
+                              <h3>Contact</h3>
+                              <div className="lead-more-info-list">
+                                <div>
+                                  <span className="tiny-muted">Decision maker</span>
+                                  <strong>{moreInfo.decisionMakerName}</strong>
+                                </div>
+                                {moreInfo.decisionMakerRole ? (
+                                  <div>
+                                    <span className="tiny-muted">Role</span>
+                                    <strong>{moreInfo.decisionMakerRole}</strong>
+                                  </div>
+                                ) : null}
+                                <div>
+                                  <span className="tiny-muted">Best line</span>
+                                  <strong>{moreInfo.bestLineType}</strong>
+                                </div>
+                                {moreInfo.email ? (
+                                  <div>
+                                    <span className="tiny-muted">Email</span>
+                                    <strong>{moreInfo.email}</strong>
+                                  </div>
+                                ) : null}
+                                <div>
+                                  <span className="tiny-muted">Source</span>
+                                  <strong>{moreInfo.contactSourceLabel}</strong>
+                                </div>
+                                <div>
+                                  <span className="tiny-muted">Verified</span>
+                                  <strong>{moreInfo.lastVerifiedLabel}</strong>
+                                </div>
+                              </div>
+                              <div className="lead-more-info-evidence">
+                                <span>{truncateCopy(moreInfo.contactEvidence.text, 88)}</span>
+                                {moreInfo.contactEvidence.url ? (
+                                  <a href={moreInfo.contactEvidence.url} target="_blank" rel="noreferrer">
+                                    {moreInfo.contactEvidence.source}
+                                  </a>
+                                ) : null}
+                              </div>
+                            </section>
 
-                          <section className="lead-more-info-section">
-                            <h3>Contact</h3>
-                            <div className="lead-more-info-list">
-                              <div>
-                                <span className="tiny-muted">Decision maker</span>
-                                <strong>{moreInfo.decisionMakerName}</strong>
+                            <section className="lead-more-info-section">
+                              <h3>Business snapshot</h3>
+                              <div className="lead-more-info-list">
+                                {moreInfo.appointmentTypes.length > 0 ? (
+                                  <div>
+                                    <span className="tiny-muted">Appointment types</span>
+                                    <strong>{truncateCopy(moreInfo.appointmentTypes.join(', '), 92)}</strong>
+                                  </div>
+                                ) : null}
+                                {moreInfo.topServices.length > 0 ? (
+                                  <div>
+                                    <span className="tiny-muted">Top services</span>
+                                    <strong>{truncateCopy(moreInfo.topServices.join(', '), 92)}</strong>
+                                  </div>
+                                ) : null}
+                                <div>
+                                  <span className="tiny-muted">Booking flow</span>
+                                  <strong>{moreInfo.bookingFlow}</strong>
+                                </div>
                               </div>
-                              <div>
-                                <span className="tiny-muted">Role</span>
-                                <strong>{moreInfo.decisionMakerRole}</strong>
+                              <div className="lead-more-info-evidence">
+                                <span>{truncateCopy(moreInfo.businessEvidence.text, 88)}</span>
+                                {moreInfo.businessEvidence.url ? (
+                                  <a href={moreInfo.businessEvidence.url} target="_blank" rel="noreferrer">
+                                    {moreInfo.businessEvidence.source}
+                                  </a>
+                                ) : null}
                               </div>
-                              <div>
-                                <span className="tiny-muted">Best line</span>
-                                <strong>{moreInfo.bestLineType}</strong>
-                              </div>
-                              <div>
-                                <span className="tiny-muted">Email</span>
-                                <strong>{moreInfo.email}</strong>
-                              </div>
-                              <div>
-                                <span className="tiny-muted">Source</span>
-                                <strong>{moreInfo.contactSourceLabel}</strong>
-                              </div>
-                              <div>
-                                <span className="tiny-muted">Last verified</span>
-                                <strong>{moreInfo.lastVerifiedLabel}</strong>
-                              </div>
-                            </div>
-                            <div className="lead-more-info-evidence">
-                              <span>{moreInfo.contactEvidence.text}</span>
-                              {moreInfo.contactEvidence.url ? (
-                                <a href={moreInfo.contactEvidence.url} target="_blank" rel="noreferrer">
-                                  {moreInfo.contactEvidence.source}
-                                </a>
-                              ) : null}
-                            </div>
-                          </section>
+                            </section>
 
-                          <section className="lead-more-info-section">
-                            <h3>Business snapshot</h3>
-                            <div className="lead-more-info-list">
-                              <div>
-                                <span className="tiny-muted">Appointment types</span>
-                                <strong>
-                                  {moreInfo.appointmentTypes.length > 0 ? moreInfo.appointmentTypes.join(', ') : 'Not found'}
-                                </strong>
+                            <section className="lead-more-info-section">
+                              <h3>Hiring signal</h3>
+                              <div className="lead-more-info-list">
+                                <div>
+                                  <span className="tiny-muted">Status</span>
+                                  <strong>{moreInfo.hiringStatus}</strong>
+                                </div>
                               </div>
-                              <div>
-                                <span className="tiny-muted">Top services</span>
-                                <strong>{moreInfo.topServices.length > 0 ? moreInfo.topServices.join(', ') : 'Not found'}</strong>
+                              <div className="lead-more-info-evidence">
+                                <span>{truncateCopy(moreInfo.hiringEvidence.text, 88)}</span>
+                                {moreInfo.hiringEvidence.url ? (
+                                  <a href={moreInfo.hiringEvidence.url} target="_blank" rel="noreferrer">
+                                    {moreInfo.hiringEvidence.source}
+                                  </a>
+                                ) : null}
                               </div>
-                              <div>
-                                <span className="tiny-muted">Booking flow</span>
-                                <strong>{moreInfo.bookingFlow}</strong>
-                              </div>
-                            </div>
-                            <div className="lead-more-info-evidence">
-                              <span>{moreInfo.businessEvidence.text}</span>
-                              {moreInfo.businessEvidence.url ? (
-                                <a href={moreInfo.businessEvidence.url} target="_blank" rel="noreferrer">
-                                  {moreInfo.businessEvidence.source}
-                                </a>
-                              ) : null}
-                            </div>
-                          </section>
+                            </section>
 
-                          <section className="lead-more-info-section">
-                            <h3>Hiring signal</h3>
-                            <div className="lead-more-info-list">
-                              <div>
-                                <span className="tiny-muted">Status</span>
-                                <strong>{moreInfo.hiringStatus}</strong>
+                            <section className="lead-more-info-section">
+                              <h3>Review friction signal</h3>
+                              <div className="lead-more-info-list">
+                                <div>
+                                  <span className="tiny-muted">Status</span>
+                                  <strong>{moreInfo.reviewStatus}</strong>
+                                </div>
                               </div>
-                            </div>
-                            <div className="lead-more-info-evidence">
-                              <span>{moreInfo.hiringEvidence.text}</span>
-                              {moreInfo.hiringEvidence.url ? (
-                                <a href={moreInfo.hiringEvidence.url} target="_blank" rel="noreferrer">
-                                  {moreInfo.hiringEvidence.source}
-                                </a>
-                              ) : null}
-                            </div>
-                          </section>
-
-                          <section className="lead-more-info-section">
-                            <h3>Review friction signal</h3>
-                            <div className="lead-more-info-list">
-                              <div>
-                                <span className="tiny-muted">Status</span>
-                                <strong>{moreInfo.reviewStatus}</strong>
+                              <div className="lead-more-info-evidence">
+                                <span>{truncateCopy(moreInfo.reviewEvidence.text, 88)}</span>
+                                {moreInfo.reviewEvidence.url ? (
+                                  <a href={moreInfo.reviewEvidence.url} target="_blank" rel="noreferrer">
+                                    {moreInfo.reviewEvidence.source}
+                                  </a>
+                                ) : null}
                               </div>
-                            </div>
-                            <div className="lead-more-info-evidence">
-                              <span>{moreInfo.reviewEvidence.text}</span>
-                              {moreInfo.reviewEvidence.url ? (
-                                <a href={moreInfo.reviewEvidence.url} target="_blank" rel="noreferrer">
-                                  {moreInfo.reviewEvidence.source}
-                                </a>
-                              ) : null}
-                            </div>
-                          </section>
+                            </section>
 
-                          <section className="lead-more-info-section">
-                            <h3>Caller leg-up notes</h3>
-                            <div className="lead-more-info-note">{moreInfo.callerContext}</div>
-                            <div className="lead-more-info-evidence">
-                              <span>{moreInfo.contextEvidence.text}</span>
-                              {moreInfo.contextEvidence.url ? (
-                                <a href={moreInfo.contextEvidence.url} target="_blank" rel="noreferrer">
-                                  {moreInfo.contextEvidence.source}
-                                </a>
-                              ) : null}
-                            </div>
-                          </section>
+                            <section className="lead-more-info-section">
+                              <h3>Caller leg-up notes</h3>
+                              <div className="lead-more-info-note">{truncateCopy(moreInfo.callerContext, 120)}</div>
+                              <div className="lead-more-info-evidence">
+                                <span>{truncateCopy(moreInfo.contextEvidence.text, 88)}</span>
+                                {moreInfo.contextEvidence.url ? (
+                                  <a href={moreInfo.contextEvidence.url} target="_blank" rel="noreferrer">
+                                    {moreInfo.contextEvidence.source}
+                                  </a>
+                                ) : null}
+                              </div>
+                            </section>
+                          </div>
                         </aside>
                       ) : null}
                     </Fragment>
