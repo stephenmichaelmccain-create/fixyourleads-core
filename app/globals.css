@@ -5786,8 +5786,16 @@ select {
   }
 
   .lead-queue-panel > .workspace-search-bar > form.workspace-search-bar {
+    order: 2;
     width: 100%;
-    min-width: 100%;
+    min-width: 0;
+  }
+
+  .lead-queue-panel > .workspace-search-bar > form.workspace-search-bar.lead-toolbar-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    align-items: stretch;
   }
 
   .lead-queue-panel > .workspace-search-bar > form.workspace-search-bar .lead-toolbar-select,
@@ -5796,7 +5804,22 @@ select {
     width: 100%;
   }
 
+  .lead-queue-panel > .workspace-search-bar > form.workspace-search-bar.lead-toolbar-form .lead-toolbar-select {
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 auto;
+  }
+
+  .lead-queue-panel > .workspace-search-bar > form.workspace-search-bar.lead-toolbar-form .lead-toolbar-search-field {
+    grid-column: 1 / -1;
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 auto;
+    margin-right: 0;
+  }
+
   .lead-queue-panel .workspace-action-rail {
+    order: 1;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
@@ -5805,6 +5828,14 @@ select {
   .lead-queue-panel .workspace-action-rail > * {
     width: 100%;
     min-width: 0;
+  }
+
+  .lead-queue-panel .prospect-add-drawer {
+    order: 1;
+  }
+
+  .lead-queue-panel .prospect-bulk-drawer {
+    order: 2;
   }
 
   .lead-queue-panel .prospect-add-drawer,
@@ -5820,6 +5851,15 @@ select {
     min-height: 40px;
     padding: 8px 12px;
     font-size: 0.95rem;
+  }
+
+  .lead-queue-panel .prospect-reset-trigger {
+    order: 3;
+    grid-column: 1 / -1;
+  }
+
+  .lead-queue-panel .prospect-reset-trigger.is-placeholder {
+    display: none;
   }
 
   .prospect-drawer-panel,
@@ -5953,28 +5993,29 @@ select {
   }
 
   .lead-master-card-selected .lead-master-footer {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    align-items: stretch;
   }
 
   .lead-master-card-selected .lead-master-footer .button,
   .lead-master-card-selected .lead-master-footer .button-secondary,
   .lead-master-card-selected .lead-master-footer a,
   .lead-master-card-selected .lead-master-footer button {
-    width: auto;
-    min-height: 40px;
-    padding-inline: 8px;
-    font-size: 0.84rem;
+    width: 100%;
+    min-height: 42px;
+    padding-inline: 10px;
+    font-size: 0.9rem;
   }
 
   .lead-master-card-selected .lead-master-phone-inline {
-    margin-left: auto;
-    justify-content: flex-end;
-    text-align: right;
+    grid-column: 1 / -1;
+    margin-left: 0;
+    justify-content: center;
+    text-align: center;
     white-space: nowrap;
-    font-size: 15px;
+    font-size: 16px;
     min-height: 40px;
   }
 

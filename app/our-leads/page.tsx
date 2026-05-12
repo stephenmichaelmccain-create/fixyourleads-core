@@ -819,6 +819,84 @@ const leadCallbackCommands = [
   { value: '1_month', label: '1 month', meta: '+30 days' }
 ] as const;
 
+function buildDemoProspects(now: Date) {
+  return [
+    {
+      id: 'demo-prospect-1',
+      name: 'River North Dental Studio',
+      city: 'Chicago, IL',
+      phone: '(312) 555-0142',
+      website: 'rivernorthdental.com',
+      ownerName: 'Dr. Alicia Gomez',
+      status: ProspectStatus.NEW,
+      lastCallAt: null,
+      lastCallOutcome: null,
+      nextActionAt: new Date(now.getTime() + 60 * 60 * 1000),
+      notes:
+        'Clinic Type: Dental\nSource: Google Maps\nBudget: $3k-$5k/mo\nWants help filling hygiene openings before summer.',
+      claimSessionId: null,
+      claimExpiresAt: null,
+      updatedAt: new Date(now.getTime() - 10 * 60 * 1000),
+      createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+      callLogs: []
+    },
+    {
+      id: 'demo-prospect-2',
+      name: 'Lakeside Physical Therapy',
+      city: 'Evanston, IL',
+      phone: '(847) 555-0199',
+      website: 'lakesideptcare.com',
+      ownerName: 'Megan Turner',
+      status: ProspectStatus.VM_LEFT,
+      lastCallAt: new Date(now.getTime() - 4 * 60 * 60 * 1000),
+      lastCallOutcome: 'Voicemail left',
+      nextActionAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+      notes:
+        'Clinic Type: Physical Therapy\nSource: Referral\nFront desk asked for a call back tomorrow afternoon.',
+      claimSessionId: null,
+      claimExpiresAt: null,
+      updatedAt: new Date(now.getTime() - 3 * 60 * 60 * 1000),
+      createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+      callLogs: [
+        {
+          id: 'demo-call-log-2',
+          outcome: 'Voicemail left',
+          durationSeconds: 72,
+          notes: 'Left short intro voicemail with callback number.',
+          createdAt: new Date(now.getTime() - 4 * 60 * 60 * 1000)
+        }
+      ]
+    },
+    {
+      id: 'demo-prospect-3',
+      name: 'Bright Smile Orthodontics',
+      city: 'Naperville, IL',
+      phone: '(630) 555-0113',
+      website: 'brightsmileortho.com',
+      ownerName: 'Dr. Kevin Patel',
+      status: ProspectStatus.BOOKED_DEMO,
+      lastCallAt: new Date(now.getTime() - 26 * 60 * 60 * 1000),
+      lastCallOutcome: 'Booked demo',
+      nextActionAt: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000),
+      notes:
+        'Clinic Type: Orthodontics\nSource: Website form\nBooked for Thursday at 2:00 PM. Interested in text-first follow-up.',
+      claimSessionId: null,
+      claimExpiresAt: null,
+      updatedAt: new Date(now.getTime() - 18 * 60 * 60 * 1000),
+      createdAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+      callLogs: [
+        {
+          id: 'demo-call-log-3',
+          outcome: 'Booked demo',
+          durationSeconds: 523,
+          notes: 'Confirmed owner attendance and sent calendar invite.',
+          createdAt: new Date(now.getTime() - 26 * 60 * 60 * 1000)
+        }
+      ]
+    }
+  ];
+}
+
 export default async function OurLeadsPage({
   searchParams
 }: {
@@ -903,7 +981,7 @@ export default async function OurLeadsPage({
           }
         }
       }),
-    []
+    buildDemoProspects(now)
   );
 
   const prospectRows = allProspects.map((prospect) => {
@@ -1020,6 +1098,7 @@ export default async function OurLeadsPage({
   const requestedProspectId =
     selectedProspectId && visibleProspects.some((prospect) => prospect.id === selectedProspectId) ? selectedProspectId : '';
   let effectiveSelectedProspectId = requestedProspectId || visibleProspects[0]?.id || '';
+  const databaseConfigured = Boolean(process.env.DATABASE_URL?.trim());
 
   if (leadQueueSessionId && visibleProspects.length > 0) {
     const preferredProspectIds = effectiveSelectedProspectId
@@ -1030,6 +1109,10 @@ export default async function OurLeadsPage({
       : visibleProspects.map((prospect) => prospect.id);
 
     effectiveSelectedProspectId = (await claimFirstAvailableProspect(preferredProspectIds, leadQueueSessionId)) || '';
+  }
+
+  if (!databaseConfigured && !effectiveSelectedProspectId) {
+    effectiveSelectedProspectId = visibleProspects[0]?.id || '';
   }
 
   if (leadQueueSessionId && selectedProspectId && effectiveSelectedProspectId && effectiveSelectedProspectId !== selectedProspectId) {

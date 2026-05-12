@@ -7,6 +7,10 @@ type ProspectClaimSnapshot = {
   claimExpiresAt: Date | null;
 };
 
+function hasDatabaseConnection() {
+  return Boolean(process.env.DATABASE_URL?.trim());
+}
+
 function getClaimExpiry(now = new Date()) {
   return new Date(now.getTime() + LEAD_QUEUE_CLAIM_TTL_SECONDS * 1000);
 }
@@ -37,7 +41,7 @@ export function isProspectClaimedByAnotherSession(
 }
 
 export async function releaseAllLeadClaimsForSession(sessionId: string, exceptProspectId?: string) {
-  if (!sessionId) {
+  if (!sessionId || !hasDatabaseConnection()) {
     return;
   }
 
@@ -60,7 +64,7 @@ export async function releaseAllLeadClaimsForSession(sessionId: string, exceptPr
 }
 
 export async function claimFirstAvailableProspect(prospectIds: string[], sessionId: string) {
-  if (!sessionId) {
+  if (!sessionId || !hasDatabaseConnection()) {
     return '';
   }
 
@@ -98,7 +102,7 @@ export async function claimFirstAvailableProspect(prospectIds: string[], session
 }
 
 export async function refreshLeadClaim(prospectId: string, sessionId: string) {
-  if (!prospectId || !sessionId) {
+  if (!prospectId || !sessionId || !hasDatabaseConnection()) {
     return;
   }
 
@@ -114,7 +118,7 @@ export async function refreshLeadClaim(prospectId: string, sessionId: string) {
 }
 
 export async function releaseLeadClaim(prospectId: string, sessionId: string) {
-  if (!prospectId || !sessionId) {
+  if (!prospectId || !sessionId || !hasDatabaseConnection()) {
     return;
   }
 
