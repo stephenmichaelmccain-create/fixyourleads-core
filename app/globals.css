@@ -4791,15 +4791,15 @@ select {
   }
 
   .lead-command-group-outcomes {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(96px, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
   }
 
   .lead-command-group-callbacks {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(90px, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     border-left: 0;
     padding-top: 10px;
@@ -4808,11 +4808,11 @@ select {
   .lead-command-group-outcomes,
   .lead-command-group-callbacks {
     gap: 8px;
-    overflow-x: auto;
+    overflow-x: visible;
     padding-bottom: 2px;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
+    scroll-snap-type: none;
   }
 
   .lead-command-group-outcomes::-webkit-scrollbar,
@@ -4827,7 +4827,8 @@ select {
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
     background: rgba(33, 28, 68, 0.82);
-    scroll-snap-align: start;
+    scroll-snap-align: none;
+    overflow-wrap: anywhere;
   }
 
   .lead-command-group-outcomes .lead-command-button:last-child,
@@ -5091,8 +5092,9 @@ select {
   }
 
   .lead-command-group-outcomes {
-    grid-template-columns: none;
-    grid-auto-columns: minmax(84px, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
   }
 
   .lead-context-trigger {
@@ -5114,12 +5116,13 @@ select {
   }
 
   .lead-command-group-callbacks {
-    grid-template-columns: none;
-    grid-auto-columns: minmax(82px, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
   }
 
   .lead-command-button {
-    min-height: 62px;
+    min-height: 66px;
     padding: 8px 8px 7px;
     gap: 3px;
   }
@@ -5130,7 +5133,7 @@ select {
   }
 
   .lead-command-label {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     line-height: 1.15;
   }
 
@@ -5786,7 +5789,7 @@ select {
   }
 
   .lead-queue-panel > .workspace-search-bar > form.workspace-search-bar {
-    order: 2;
+    order: 1;
     width: 100%;
     min-width: 0;
   }
@@ -5819,7 +5822,7 @@ select {
   }
 
   .lead-queue-panel .workspace-action-rail {
-    order: 1;
+    order: 2;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
@@ -5830,12 +5833,10 @@ select {
     min-width: 0;
   }
 
-  .lead-queue-panel .prospect-add-drawer {
-    order: 1;
-  }
-
-  .lead-queue-panel .prospect-bulk-drawer {
-    order: 2;
+  .lead-queue-panel .workspace-action-rail.lead-toolbar-actions .prospect-add-drawer,
+  .lead-queue-panel .workspace-action-rail.lead-toolbar-actions .prospect-bulk-drawer {
+    display: block;
+    min-width: 0;
   }
 
   .lead-queue-panel .prospect-add-drawer,
@@ -5851,6 +5852,10 @@ select {
     min-height: 40px;
     padding: 8px 12px;
     font-size: 0.95rem;
+  }
+
+  .lead-queue-panel .workspace-action-rail.lead-toolbar-actions .prospect-add-trigger {
+    width: 100%;
   }
 
   .lead-queue-panel .prospect-reset-trigger {
